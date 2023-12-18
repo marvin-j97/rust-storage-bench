@@ -83,7 +83,7 @@ async function processTask(task) {
   return task;
 }
 
-const PARALLELISM = 2;
+const PARALLELISM = 4;
 
 for await (const name of asyncPool(PARALLELISM, tasks, processTask)) {
   console.log(`${name} done`);

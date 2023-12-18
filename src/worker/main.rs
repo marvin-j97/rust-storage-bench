@@ -54,7 +54,13 @@ fn main() {
         panic!("Sled doesn't fsync...");
     }
 
-    let data_dir = Path::new(".data").join(args.backend.to_string());
+    let data_dir = Path::new(".data").join(match args.backend {
+        Backend::LsmTree => match args.lsm_compaction {
+            rust_storage_bench::LsmCompaction::Leveled => "lsm_lcs".to_owned(),
+            rust_storage_bench::LsmCompaction::Tiered => "lsm_stcs".to_owned(),
+        },
+        be => be.to_string(),
+    });
 
     if data_dir.exists() {
         remove_dir_all(&data_dir).unwrap();
