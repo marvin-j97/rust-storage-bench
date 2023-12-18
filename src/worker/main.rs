@@ -143,7 +143,6 @@ fn main() {
                     .unwrap(),
             ))
         }
-        _ => unimplemented!(),
     };
 
     let db = DatabaseWrapper {

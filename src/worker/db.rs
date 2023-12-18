@@ -20,17 +20,12 @@ impl std::ops::Deref for DatabaseWrapper {
 
 #[derive(Clone)]
 pub enum GenericDatabase {
-    // Rust
     MyLsmTree(lsm_tree::Tree),
     Sled(sled::Db),
     Bloodstone(bloodstone::Db),
     Jamm(jammdb::DB),
     Persy(persy::Persy),
     Redb(Arc<redb::Database>),
-    /* OtherLsm(lsm::Database<Vec<u8>, Vec<u8>>), */
-    // Non-Rust
-    /* Sqlite(Arc<Mutex<rusqlite::Connection>>), */
-    // RocksDb(Arc<rocksdb::DB>),
 }
 
 const TABLE: TableDefinition<&[u8], Vec<u8>> = TableDefinition::new("data");
@@ -103,7 +98,6 @@ impl DatabaseWrapper {
                 }
                 write_txn.commit().unwrap();
             }
-            _ => unimplemented!(),
         }
     }
 
@@ -137,18 +131,6 @@ impl DatabaseWrapper {
                 let table = read_txn.open_table(TABLE).unwrap();
                 table.get(key).unwrap().map(|x| x.value())
             }
-            /* GenericDatabase::OtherLsm(db) => db.get(key).unwrap(), */
-            /* GenericDatabase::Sqlite(_db) => {
-                let mut statement = db
-                    .prepare("SELECT value FROM my_table WHERE id = ?1")
-                    .unwrap();
-
-                let mut rows = statement.query(rusqlite::params![key]).unwrap();
-                let row = rows.next().unwrap().unwrap();
-                let _col: Vec<u8> = row.get(0).unwrap();
-            } */
-            // GenericDatabase::RocksDb(db) => db.get(key).unwrap(),
-            _ => unimplemented!(),
         }
     }
 }
