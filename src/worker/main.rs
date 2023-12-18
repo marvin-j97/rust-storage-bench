@@ -427,7 +427,5 @@ fn main() {
                 }
             }
         }
-
-        _ => unimplemented!(),
     }
 }
