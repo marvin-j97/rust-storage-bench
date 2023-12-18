@@ -1,0 +1,5 @@
+{
+	"dependencies": {
+		"tiny-async-pool": "2.1.0"
+	}
+}
