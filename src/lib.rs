@@ -78,7 +78,7 @@ impl std::fmt::Display for LsmCompaction {
 }
 
 /// CLI argument parse
-#[derive(Parser, Debug)]
+#[derive(Clone, Parser, Debug)]
 #[command(author = "marvin-j97", version = env!("CARGO_PKG_VERSION"), about = "Rust DB Profiler")]
 #[command(propagate_version = true)]
 pub struct Args {

@@ -3,9 +3,9 @@ mod db;
 use crate::db::DatabaseWrapper;
 use clap::Parser;
 use db::GenericDatabase;
-use profiler::{Args, Backend, Workload};
 use rand::distributions::Distribution;
 use rand::Rng;
+use rust_storage_bench::{Args, Backend, Workload};
 use std::fs::{create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;
@@ -43,7 +43,7 @@ static GLOBAL: Jemalloc = Jemalloc;
 fn main() {
     env_logger::Builder::from_default_env().init();
 
-    let args = Args::parse();
+    let args = Arc::new(Args::parse());
 
     eprintln!("Workload: {:?}", args.workload);
     eprintln!("Backend : {:?}", args.backend);
@@ -65,10 +65,10 @@ fn main() {
             let compaction_strategy: Arc<
                 dyn lsm_tree::compaction::CompactionStrategy + Send + Sync,
             > = match args.lsm_compaction {
-                profiler::LsmCompaction::Leveled => {
+                rust_storage_bench::LsmCompaction::Leveled => {
                     Arc::new(lsm_tree::compaction::Levelled::default())
                 }
-                profiler::LsmCompaction::Tiered => {
+                rust_storage_bench::LsmCompaction::Tiered => {
                     Arc::new(lsm_tree::compaction::SizeTiered::default())
                 }
             };
@@ -155,6 +155,7 @@ fn main() {
 
     {
         let db = db.clone();
+        let args = args.clone();
 
         std::thread::spawn(move || {
             use std::sync::atomic::Ordering::Relaxed;
@@ -265,7 +266,7 @@ fn main() {
                     val.push(rng.gen::<u8>());
                 }
 
-                db.insert(&key, &val, args.fsync);
+                db.insert(&key, &val, args.clone());
             }
 
             start_killer(args.minutes.into());
@@ -284,7 +285,7 @@ fn main() {
                         val.push(rng.gen::<u8>());
                     }
 
-                    db.insert(&key, &val, args.fsync);
+                    db.insert(&key, &val, args.clone());
                 } else {
                     db.get(&key).unwrap();
                 }
@@ -302,7 +303,7 @@ fn main() {
                     val.push(rng.gen::<u8>());
                 }
 
-                db.insert(&key, &val, args.fsync);
+                db.insert(&key, &val, args.clone());
             }
 
             start_killer(args.minutes.into());
@@ -321,7 +322,7 @@ fn main() {
                         val.push(rng.gen::<u8>());
                     }
 
-                    db.insert(&key, &val, args.fsync);
+                    db.insert(&key, &val, args.clone());
                 } else {
                     db.get(&key).unwrap();
                 }
@@ -339,7 +340,7 @@ fn main() {
                     val.push(rng.gen::<u8>());
                 }
 
-                db.insert(&key, &val, args.fsync);
+                db.insert(&key, &val, args.clone());
             }
 
             start_killer(args.minutes.into());
@@ -365,7 +366,7 @@ fn main() {
                     val.push(rng.gen::<u8>());
                 }
 
-                db.insert(&key, &val, args.fsync);
+                db.insert(&key, &val, args.clone());
             }
 
             start_killer(args.minutes.into());
@@ -382,7 +383,7 @@ fn main() {
                     }
 
                     let key = records.to_be_bytes();
-                    db.insert(&key, &val, args.fsync);
+                    db.insert(&key, &val, args.clone());
                     records += 1;
                 } else {
                     let key = (records - 1).to_be_bytes();
@@ -402,7 +403,7 @@ fn main() {
                     val.push(rng.gen::<u8>());
                 }
 
-                db.insert(&key, &val, args.fsync);
+                db.insert(&key, &val, args.clone());
             }
 
             start_killer(args.minutes.into());
@@ -419,7 +420,7 @@ fn main() {
                     }
 
                     let key = records.to_be_bytes();
-                    db.insert(&key, &val, args.fsync);
+                    db.insert(&key, &val, args.clone());
                     records += 1;
                 } else {
                     let key = (records - 1).to_be_bytes();

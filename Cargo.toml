@@ -1,6 +1,6 @@
 [package]
-name = "profiler"
-version = "0.1.0"
+name = "rust-storage-bench"
+version = "0.0.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

@@ -1,3 +1,4 @@
+use crate::Args;
 use redb::{ReadableTable, TableDefinition};
 use std::sync::{atomic::AtomicU64, Arc};
 
@@ -31,28 +32,31 @@ pub enum GenericDatabase {
 const TABLE: TableDefinition<&[u8], Vec<u8>> = TableDefinition::new("data");
 
 impl DatabaseWrapper {
-    pub fn insert(&self, key: &[u8], value: &[u8], durable: bool) {
+    pub fn insert(&self, key: &[u8], value: &[u8], args: Arc<Args>) {
         self.write_ops
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
         match &self.inner {
             GenericDatabase::MyLsmTree(db) => {
                 db.insert(key, value).unwrap();
-                if durable {
+
+                if args.fsync {
                     db.flush().unwrap();
                 }
             }
             GenericDatabase::Sled(db) => {
                 db.insert(key, value).unwrap();
-                if durable {
+
+                if args.fsync {
                     db.flush().unwrap();
                 }
             }
             GenericDatabase::Bloodstone(db) => {
                 db.insert(key, value).unwrap();
-                if durable {
+
+                if args.fsync {
                     db.flush().unwrap();
-                } else {
+                } else if args.sled_flush {
                     // NOTE: TODO: OOM Workaround
                     // Intermittenly flush sled to keep memory usage sane
                     // This is hopefully a temporary workaround
@@ -73,7 +77,7 @@ impl DatabaseWrapper {
                 use persy::{PersyId, TransactionConfig};
 
                 let mut tx = db
-                    .begin_with(TransactionConfig::new().set_background_sync(durable))
+                    .begin_with(TransactionConfig::new().set_background_sync(args.fsync))
                     .unwrap();
                 let id = tx.insert("data", value).unwrap();
 
@@ -90,7 +94,8 @@ impl DatabaseWrapper {
                 use redb::Durability::{Eventual, Immediate};
 
                 let mut write_txn = db.begin_write().unwrap();
-                write_txn.set_durability(if durable { Immediate } else { Eventual });
+
+                write_txn.set_durability(if args.fsync { Immediate } else { Eventual });
 
                 {
                     let mut table = write_txn.open_table(TABLE).unwrap();
