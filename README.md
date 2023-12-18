@@ -8,6 +8,8 @@ Benchmarking Rust storage engines:
 - jammdb (https://github.com/pjtatlow/jammdb)
 - redb (https://www.redb.org)
 
+![Example result](/img.png)
+
 ## Example usage
 
 ```

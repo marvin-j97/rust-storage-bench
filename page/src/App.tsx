@@ -1,3 +1,5 @@
+import "./App.css";
+
 import { ApexChartProps, SolidApexCharts } from 'solid-apexcharts';
 import { For, Show, createSignal, onMount } from 'solid-js'
 
@@ -42,16 +44,25 @@ type MetricEntry = {
 };
 
 const chartOptions: ApexChartProps["options"]["chart"] = {
-  background: "transparent",
+  background: "#030712",
   animations: {
     enabled: false,
   },
   toolbar: {
-    show: false
+    show: true,
+    tools: {
+      download: true,
+      reset: false,
+      pan: false,
+      selection: false,
+      zoomout: false,
+      zoom: false,
+    }
   },
   zoom: {
     enabled: false
   },
+
 }
 
 const xaxisOptions: ApexChartProps["options"]["xaxis"] = {
@@ -383,7 +394,7 @@ function App() {
               }}
             </For>
           </div>
-          <div class="grid md:grid-cols-2 gap-4">
+          <div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
             <CpuUsageHistory series={items()} />
             <MemoryUsageHistory series={items()} />
             <DiskSpaceUsageHistory series={items()} />
@@ -392,7 +403,7 @@ function App() {
         </div>
       </Show>
       <Show when={ops().length > 0}>
-        <div class="grid md:grid-cols-2 gap-4">
+        <div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
           <PerformanceChart
             title="Write performance"
             values={
