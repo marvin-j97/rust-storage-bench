@@ -149,6 +149,21 @@ fn main() {
                     .unwrap(),
             ))
         }
+        Backend::Nebari => {
+            use nebari::{
+                tree::{Root, Unversioned},
+                Config,
+            };
+
+            create_dir_all(&data_dir).unwrap();
+
+            let roots = Config::default_for(data_dir.join("db.nebari"))
+                .open()
+                .unwrap();
+            let tree = roots.tree(Unversioned::tree("data")).unwrap();
+
+            GenericDatabase::Nebari { roots, tree }
+        }
     };
 
     let db = DatabaseWrapper {

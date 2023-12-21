@@ -10,6 +10,7 @@ pub enum Backend {
     Persy,
     JammDb,
     Redb,
+    Nebari,
 }
 
 impl std::fmt::Display for Backend {
@@ -24,6 +25,7 @@ impl std::fmt::Display for Backend {
                 Self::Persy => "persy 1.4.6",
                 Self::JammDb => "jammdb 0.11.0",
                 Self::Redb => "redb 1.4.0",
+                Self::Nebari => "nebari 0.5.5",
             }
         )
     }

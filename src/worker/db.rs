@@ -1,4 +1,5 @@
 use crate::Args;
+use nebari::{io::fs::StdFile, tree::Unversioned};
 use redb::{ReadableTable, TableDefinition};
 use std::sync::{atomic::AtomicU64, Arc};
 
@@ -27,6 +28,10 @@ pub enum GenericDatabase {
     Jamm(jammdb::DB),
     Persy(persy::Persy),
     Redb(Arc<redb::Database>),
+    Nebari {
+        roots: nebari::Roots<StdFile>,
+        tree: nebari::Tree<Unversioned, StdFile>,
+    },
 }
 
 const TABLE: TableDefinition<&[u8], Vec<u8>> = TableDefinition::new("data");
@@ -37,6 +42,11 @@ impl DatabaseWrapper {
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
         match &self.inner {
+            GenericDatabase::Nebari { roots: _, tree } => {
+                let key = key.to_vec();
+                let value = key.to_vec();
+                tree.set(key, value).unwrap()
+            }
             GenericDatabase::MyLsmTree(db) => {
                 db.insert(key, value).unwrap();
 
@@ -77,7 +87,7 @@ impl DatabaseWrapper {
                 use persy::{PersyId, TransactionConfig};
 
                 let mut tx = db
-                    .begin_with(TransactionConfig::new().set_background_sync(args.fsync))
+                    .begin_with(TransactionConfig::new().set_background_sync(!args.fsync))
                     .unwrap();
                 let id = tx.insert("data", value).unwrap();
 
@@ -111,6 +121,10 @@ impl DatabaseWrapper {
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
         match &self.inner {
+            GenericDatabase::Nebari { roots: _, tree } => {
+                let item = tree.get(key).unwrap();
+                item.map(|x| x.to_vec())
+            }
             GenericDatabase::MyLsmTree(db) => db.get(key).unwrap().map(|x| x.to_vec()),
             GenericDatabase::Sled(db) => db.get(key).unwrap().map(|x| x.to_vec()),
             GenericDatabase::Bloodstone(db) => db.get(key).unwrap().map(|x| x.to_vec()),

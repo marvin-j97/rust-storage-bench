@@ -31,3 +31,4 @@ persy = { version = "1.4.7", features = ["background_ops"] }
 jammdb = "0.11.0"
 zipf = "7.0.1"
 redb = "1.4.0"
+nebari = "0.5.5"
