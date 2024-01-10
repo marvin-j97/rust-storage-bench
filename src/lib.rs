@@ -6,7 +6,7 @@ use serde::Serialize;
 pub enum Backend {
     Sled,
     Bloodstone,
-    LsmTree,
+    Fjall,
     Persy,
     JammDb,
     Redb,
@@ -21,7 +21,7 @@ impl std::fmt::Display for Backend {
             match self {
                 Self::Sled => "sled 0.34.7",
                 Self::Bloodstone => "sled 1.0.0-alpha.118",
-                Self::LsmTree => "lsm-tree 0.2.2",
+                Self::Fjall => "fjall 0.3.0",
                 Self::Persy => "persy 1.4.6",
                 Self::JammDb => "jammdb 0.11.0",
                 Self::Redb => "redb 1.4.0",
@@ -49,7 +49,7 @@ pub enum Workload {
     /// Application example: user profile cache, where profiles are constructed elsewhere (e.g., Hadoop)
     TaskC,
 
-    /// Workload D: Read latest workload
+    /// Workload D: Read latest workload with light inserts
     ///
     /// Application example: user status updates; people want to read the latest
     TaskD,
@@ -58,6 +58,12 @@ pub enum Workload {
     ///
     /// Application example: Event logging, getting the latest events
     TaskE,
+
+    /// Workload F: Read zipfian workload with light inserts
+    TaskF,
+
+    /// Workload G: Read zipfian workload with heavy inserts
+    TaskG,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, clap::ValueEnum)]

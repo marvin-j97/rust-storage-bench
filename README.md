@@ -2,11 +2,12 @@
 
 Benchmarking Rust storage engines:
 
-- lsm-tree (https://github.com/marvin-j97/lsm-tree)
-- sled (https://sled.rs)
-- persy (https://persy.rs)
+- fjall (https://github.com/marvin-j97/fjall)
 - jammdb (https://github.com/pjtatlow/jammdb)
+- nebari (https://github.com/khonsulabs/nebari)
+- persy (https://persy.rs)
 - redb (https://www.redb.org)
+- sled (https://sled.rs)
 
 ![Example result](/img.png)
 
@@ -16,10 +17,7 @@ Benchmarking Rust storage engines:
 cargo build -r
 alias bencher='cargo run --bin daemon -r --'
 
-bencher --out task_a_lsmt_lcs.jsonl --mi
-rmSync(".data", {
-  recursive: true,
--items 1000 --cache-size 1000000
+bencher --out task_e_fjall_lcs.jsonl --workload task-e --backend fjall --minutes 5 --key-size 8 --value-size 256 --items 1000 --cache-size 1000000
 ```
 
 ## Run many benchmarks

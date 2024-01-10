@@ -3,10 +3,10 @@ import "./App.css";
 import { ApexChartProps, SolidApexCharts } from 'solid-apexcharts';
 import { For, Show, createSignal, onMount } from 'solid-js'
 
-const numberFormatter = Intl.NumberFormat(undefined, {
+const thousandsFormatter = Intl.NumberFormat(undefined, {
   maximumFractionDigits: 0,
 });
-const formatNumber = (n: number) => numberFormatter.format(n);
+const formatThousands = (n: number) => thousandsFormatter.format(n);
 
 export function readFile(file: File): Promise<string> {
   const fileReader = new FileReader();
@@ -41,6 +41,16 @@ type MetricEntry = {
   du_mib: number;
   disk_mib_w: number;
   disk_mib_r: number;
+  space_amp: number;
+  write_amp?: number;
+  dataset_size?: number;
+  write_ops: number
+  read_ops: number
+  delete_ops: number
+  scan_ops: number;
+
+  avg_write_latency: number;
+  avg_read_latency: number;
 };
 
 const chartOptions: ApexChartProps["options"]["chart"] = {
@@ -78,7 +88,10 @@ const xaxisOptions: ApexChartProps["options"]["xaxis"] = {
   }
 }
 
-const colors = ["#a78bfa", "#38bdf8", "#4ade80", "#fbbf24", "#f87171", "#f472b6"];
+const colors = [
+  "#a78bfa", "#38bdf8", "#4ade80", "#fbbf24",
+  "#f87171", "#f472b6", "#777777", "#fafafa",
+];
 
 const baseOptions: ApexChartProps["options"] = {
   grid: {
@@ -99,7 +112,7 @@ const baseOptions: ApexChartProps["options"] = {
   }
 }
 
-function LineChart(props: { title: string, yFormatter: (val: number) => string, series: { name: string, data: { x: number, y: number }[] }[] }) {
+function LineChart(props: { yaxis?: ApexChartProps["options"]["yaxis"], title: string, yFormatter: (val: number) => string, series: { name: string, data: { x: number, y: number }[] }[] }) {
   const options = () => ({
     ...baseOptions,
     title: {
@@ -129,7 +142,7 @@ function LineChart(props: { title: string, yFormatter: (val: number) => string, 
         },
         formatter: props.yFormatter,
       },
-
+      ...props.yaxis,
     },
   } satisfies ApexChartProps["options"]);
 
@@ -157,6 +170,54 @@ function LineChart(props: { title: string, yFormatter: (val: number) => string, 
   />
 }
 
+function WriteLatencyHistory(props: { series: HistoryEntry[][] }) {
+  const series = () => props.series.map((series, idx) => {
+    const metrics = series.slice(2);
+    const start = metrics[0].time_micro;
+
+    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+
+    return {
+      name: setupInfo.backend,
+      data: metrics.map(({ time_micro, avg_write_latency }) => ({
+        x: (time_micro - start) / 1000 / 1000,
+        y: avg_write_latency,
+      })),
+      color: colors[idx % colors.length]
+    } satisfies ApexAxisChartSeries[0]
+  });
+
+  return <LineChart
+    yFormatter={(n) => `${n}µs`}
+    title="Average write latency (lower is better)"
+    series={series()}
+  />;
+}
+
+function ReadLatencyHistory(props: { series: HistoryEntry[][] }) {
+  const series = () => props.series.map((series, idx) => {
+    const metrics = series.slice(2);
+    const start = metrics[0].time_micro;
+
+    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+
+    return {
+      name: setupInfo.backend,
+      data: metrics.map(({ time_micro, avg_read_latency }) => ({
+        x: (time_micro - start) / 1000 / 1000,
+        y: avg_read_latency,
+      })),
+      color: colors[idx % colors.length]
+    } satisfies ApexAxisChartSeries[0]
+  });
+
+  return <LineChart
+    yFormatter={(n) => `${n}µs`}
+    title="Average read latency (lower is better)"
+    series={series()}
+  />;
+}
+
 function WriteAmpHistory(props: { series: HistoryEntry[][] }) {
   const series = () => props.series.map((series, idx) => {
     const metrics = series.slice(2);
@@ -166,18 +227,148 @@ function WriteAmpHistory(props: { series: HistoryEntry[][] }) {
 
     return {
       name: setupInfo.backend,
-      data: metrics.map(({ time_micro, du_mib, disk_mib_w }) => ({
+      data: metrics.map(({ time_micro, du_mib, disk_mib_w, write_amp }) => ({
         x: (time_micro - start) / 1000 / 1000,
-        y: disk_mib_w / du_mib,
+        y: write_amp ??
+          // TODO: remove
+          (disk_mib_w / du_mib),
       })),
       color: colors[idx % colors.length]
     } satisfies ApexAxisChartSeries[0]
   });
 
   return <LineChart
-    yFormatter={(n) => `${n}x`}
-    title="Write amplification"
+    yFormatter={(n) => `${(n).toFixed(1)}x`}
+    title="Write amplification (lower is better)"
     series={series()}
+    yaxis={{
+      min: 0,
+      max: (n) => Math.min(1_000, n),
+    }}
+  />;
+}
+
+function DatasetSizeHistory(props: { series: HistoryEntry[][] }) {
+  const series = () => props.series.map((series, idx) => {
+    const metrics = series.slice(2);
+    const start = metrics[0].time_micro;
+
+    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+
+    return {
+      name: setupInfo.backend,
+      data: metrics.map(({ time_micro, dataset_size }) => ({
+        x: (time_micro - start) / 1000 / 1000,
+        y: (dataset_size ?? 0) / 1_024 / 1_024
+      })),
+      color: colors[idx % colors.length]
+    } satisfies ApexAxisChartSeries[0]
+  });
+
+  return <LineChart
+    yFormatter={(n) => `${formatThousands(n)} MiB`}
+    title="True data set size (higher is better)"
+    series={series()}
+  />;
+}
+
+function DiskWritesCumulative(props: { series: HistoryEntry[][] }) {
+  const series = () => props.series.map((series, idx) => {
+    const metrics = series.slice(2);
+    const start = metrics[0].time_micro;
+
+    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+
+    return {
+      name: setupInfo.backend,
+      data: metrics.map(({ time_micro, disk_mib_w }) => ({
+        x: (time_micro - start) / 1000 / 1000,
+        y: disk_mib_w,
+      })),
+      color: colors[idx % colors.length]
+    } satisfies ApexAxisChartSeries[0]
+  });
+
+  return <LineChart
+    yFormatter={(n) => `${formatThousands(n)} MiB`}
+    title="Written bytes cumulative"
+    series={series()}
+  />;
+}
+
+function WriteHistory(props: { series: HistoryEntry[][] }) {
+  const series = () => props.series.map((series, idx) => {
+    const metrics = series.slice(2);
+    const start = metrics[0].time_micro;
+
+    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+
+    return {
+      name: setupInfo.backend,
+      data: metrics.map(({ time_micro, write_ops }) => ({
+        x: (time_micro - start) / 1000 / 1000,
+        y: write_ops,
+      })),
+      color: colors[idx % colors.length]
+    } satisfies ApexAxisChartSeries[0]
+  });
+
+  return <LineChart
+    yFormatter={(n) => `${n} ops`}
+    title="Write ops cumulative (higher is better)"
+    series={series()}
+  />;
+}
+
+function ReadHistory(props: { series: HistoryEntry[][] }) {
+  const series = () => props.series.map((series, idx) => {
+    const metrics = series.slice(2);
+    const start = metrics[0].time_micro;
+
+    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+
+    return {
+      name: setupInfo.backend,
+      data: metrics.map(({ time_micro, read_ops }) => ({
+        x: (time_micro - start) / 1000 / 1000,
+        y: read_ops,
+      })),
+      color: colors[idx % colors.length]
+    } satisfies ApexAxisChartSeries[0]
+  });
+
+  return <LineChart
+    yFormatter={(n) => `${n} ops`}
+    title="Read ops cumulative (higher is better)"
+    series={series()}
+  />;
+}
+
+function SpaceAmpHistory(props: { series: HistoryEntry[][] }) {
+  const series = () => props.series.map((series, idx) => {
+    const metrics = series.slice(2);
+    const start = metrics[0].time_micro;
+
+    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+
+    return {
+      name: setupInfo.backend,
+      data: metrics.map(({ time_micro, space_amp }) => ({
+        x: (time_micro - start) / 1000 / 1000,
+        y: space_amp,
+      })),
+      color: colors[idx % colors.length]
+    } satisfies ApexAxisChartSeries[0]
+  });
+
+  return <LineChart
+    yFormatter={(n) => `${(n).toFixed(1)}x`}
+    title="Space amplification (lower is better)"
+    series={series()}
+    yaxis={{
+      min: 1,
+      max: (n) => Math.min(20, n),
+    }}
   />;
 }
 
@@ -199,7 +390,7 @@ function DiskSpaceUsageHistory(props: { series: HistoryEntry[][] }) {
   });
 
   return <LineChart
-    yFormatter={(n) => `${n} MiB`}
+    yFormatter={(n) => `${formatThousands(n)} MiB`}
     title="Disk space usage"
     series={series()}
   />;
@@ -223,8 +414,8 @@ function MemoryUsageHistory(props: { series: HistoryEntry[][] }) {
   });
 
   return <LineChart
-    yFormatter={(n) => `${n} MiB`}
-    title="Memory pressure"
+    yFormatter={(n) => `${formatThousands(n)} MiB`}
+    title="Memory pressure (lower is better)"
     series={series()}
   />;
 }
@@ -248,7 +439,7 @@ function CpuUsageHistory(props: { series: HistoryEntry[][] }) {
 
   return <LineChart
     yFormatter={(n) => `${n} %`}
-    title="CPU usage"
+    title="CPU usage (lower is better)"
     series={series()}
   />;
 }
@@ -272,7 +463,7 @@ function PerformanceChart(props: { title: string, values: { backend: string, val
   const options = () => ({
     ...baseOptions,
     title: {
-      text: props.title,
+      text: `${props.title} (higher is better)`,
       style: {
         color: "white"
       }
@@ -301,7 +492,7 @@ function PerformanceChart(props: { title: string, values: { backend: string, val
         style: {
           colors: "white"
         },
-        formatter: (value) => `${formatNumber(value)} ops`
+        formatter: (value) => `${formatThousands(value)} ops`
       },
     },
   } satisfies ApexChartProps["options"]);
@@ -398,7 +589,18 @@ function App() {
             <CpuUsageHistory series={items()} />
             <MemoryUsageHistory series={items()} />
             <DiskSpaceUsageHistory series={items()} />
+            <SpaceAmpHistory series={items()} />
             <WriteAmpHistory series={items()} />
+            <DiskWritesCumulative series={items()} />
+            <DatasetSizeHistory series={items()} />
+          </div>
+          <div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+            <WriteHistory series={items()} />
+            <ReadHistory series={items()} />
+          </div>
+          <div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+            <WriteLatencyHistory series={items()} />
+            <ReadLatencyHistory series={items()} />
           </div>
         </div>
       </Show>
@@ -462,10 +664,10 @@ function App() {
                 }).map(({ backend, write_ops, read_ops, scan_ops, delete_ops }) =>
                   <tr class="hover:bg-gray-100">
                     <td class="py-2 px-4">{backend}</td>
-                    <td class="py-2 px-4">{formatNumber(write_ops)}</td>
-                    <td class="py-2 px-4">{formatNumber(read_ops)}</td>
-                    <td class="py-2 px-4">{formatNumber(scan_ops)}</td>
-                    <td class="py-2 px-4">{formatNumber(delete_ops)}</td>
+                    <td class="py-2 px-4">{formatThousands(write_ops)}</td>
+                    <td class="py-2 px-4">{formatThousands(read_ops)}</td>
+                    <td class="py-2 px-4">{formatThousands(scan_ops)}</td>
+                    <td class="py-2 px-4">{formatThousands(delete_ops)}</td>
                   </tr>
                 )
               }

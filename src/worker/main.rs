@@ -11,7 +11,7 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
-use sysinfo::{CpuExt, Pid, ProcessExt, SystemExt};
+use sysinfo::Pid;
 use zipf::ZipfDistribution;
 
 /// Gets the unix timestamp as a duration
@@ -55,9 +55,9 @@ fn main() {
     }
 
     let data_dir = Path::new(".data").join(match args.backend {
-        Backend::LsmTree => match args.lsm_compaction {
-            rust_storage_bench::LsmCompaction::Leveled => "lsm_lcs".to_owned(),
-            rust_storage_bench::LsmCompaction::Tiered => "lsm_stcs".to_owned(),
+        Backend::Fjall => match args.lsm_compaction {
+            rust_storage_bench::LsmCompaction::Leveled => "fjall_lcs".to_owned(),
+            rust_storage_bench::LsmCompaction::Tiered => "fjall_stcs".to_owned(),
         },
         be => be.to_string(),
     });
@@ -67,31 +67,29 @@ fn main() {
     }
 
     let db = match args.backend {
-        Backend::LsmTree => {
-            let compaction_strategy: Arc<
-                dyn lsm_tree::compaction::CompactionStrategy + Send + Sync,
-            > = match args.lsm_compaction {
-                rust_storage_bench::LsmCompaction::Leveled => {
-                    Arc::new(lsm_tree::compaction::Levelled::default())
-                }
-                rust_storage_bench::LsmCompaction::Tiered => {
-                    Arc::new(lsm_tree::compaction::SizeTiered::default())
-                }
+        Backend::Fjall => {
+            use fjall::{
+                compaction::{CompactionStrategy, Levelled, SizeTiered},
+                BlockCache, PartitionCreateOptions,
             };
 
-            GenericDatabase::MyLsmTree(
-                lsm_tree::Config::new(&data_dir)
-                    .compaction_strategy(compaction_strategy)
-                    .block_cache(
-                        lsm_tree::BlockCache::with_capacity_blocks(
-                            (args.cache_size / u32::from(args.lsm_block_size)) as usize,
-                        )
-                        .into(),
-                    )
-                    .fsync_ms(if args.fsync { None } else { Some(1_000) })
-                    .open()
-                    .unwrap(),
-            )
+            let compaction_strategy: Arc<dyn CompactionStrategy + Send + Sync> =
+                match args.lsm_compaction {
+                    rust_storage_bench::LsmCompaction::Leveled => Arc::new(Levelled::default()),
+                    rust_storage_bench::LsmCompaction::Tiered => Arc::new(SizeTiered::default()),
+                };
+
+            let config = fjall::Config::new(&data_dir)
+                .fsync_ms(if args.fsync { None } else { Some(1_000) })
+                .block_cache(BlockCache::with_capacity_bytes(args.cache_size.into()).into());
+
+            let create_opts = PartitionCreateOptions::default();
+
+            let keyspace = config.open().unwrap();
+            let db = keyspace.open_partition("data", create_opts).unwrap();
+            db.set_compaction_strategy(compaction_strategy);
+
+            GenericDatabase::Fjall { keyspace, db }
         }
         Backend::Sled => GenericDatabase::Sled(
             sled::Config::new()
@@ -132,7 +130,7 @@ fn main() {
 
             let mut tx = db.begin().unwrap();
             tx.create_segment("data").unwrap();
-            tx.create_index::<u64, PersyId>("primary", ValueMode::Replace)
+            tx.create_index::<String, PersyId>("primary", ValueMode::Replace)
                 .unwrap();
             let prepared = tx.prepare().unwrap();
             prepared.commit().unwrap();
@@ -172,6 +170,8 @@ fn main() {
         read_ops: Default::default(),
         delete_ops: Default::default(),
         scan_ops: Default::default(),
+        read_latency: Default::default(),
+        write_latency: Default::default(),
     };
 
     {
@@ -182,7 +182,7 @@ fn main() {
             use std::sync::atomic::Ordering::Relaxed;
 
             let backend = match args.backend {
-                Backend::LsmTree => format!("{} {}", args.backend, args.lsm_compaction),
+                Backend::Fjall => format!("{} {}", args.backend, args.lsm_compaction),
                 _ => args.backend.to_string(),
             };
 
@@ -198,8 +198,8 @@ fn main() {
                 let json = serde_json::json!({
                     "time_micro": unix_timestamp().as_micros(),
                     "type": "system",
-                    "os": sys.long_os_version(),
-                    "kernel": sys.kernel_version(),
+                    "os": sysinfo::System::long_os_version(),
+                    "kernel": sysinfo::System::kernel_version(),
                     "cpu": sys.global_cpu_info().brand(),
                     "mem": sys.total_memory(),
                 });
@@ -231,8 +231,11 @@ fn main() {
                 .unwrap();
             }
 
+            let mut prev_write_ops = 0;
+            let mut prev_read_ops = 0;
+
             loop {
-                if let Ok(du) = fs_extra::dir::get_size(&data_dir) {
+                if let Ok(du_bytes) = fs_extra::dir::get_size(&data_dir) {
                     sys.refresh_all();
 
                     let cpu = sys.global_cpu_info().cpu_usage();
@@ -243,12 +246,36 @@ fn main() {
                     let mem = child.memory() as f32;
                     let disk = child.disk_usage();
 
+                    let write_ops = db.write_ops.load(Relaxed);
+                    let read_ops = db.read_ops.load(Relaxed);
+
+                    let dataset_size_bytes =
+                        write_ops as f64 * (args.key_size as f64 + args.value_size as f64);
+
+                    let space_amp = du_bytes as f64 / dataset_size_bytes;
+
+                    let write_amp = disk.total_written_bytes as f64 / dataset_size_bytes;
+
+                    let accumulated_write_latency = db
+                        .write_latency
+                        .fetch_min(0, std::sync::atomic::Ordering::Release);
+
+                    let accumulated_read_latency = db
+                        .read_latency
+                        .fetch_min(0, std::sync::atomic::Ordering::Release);
+
+                    let write_ops_since = write_ops - prev_write_ops;
+                    let read_ops_since = read_ops - prev_read_ops;
+
+                    let avg_write_latency = accumulated_write_latency / write_ops_since.max(1);
+                    let avg_read_latency = accumulated_read_latency / read_ops_since.max(1);
+
                     let json = serde_json::json!({
                         "backend": backend,
                         "type": "metrics",
                         "time_micro": unix_timestamp().as_micros(),
-                        "write_ops": db.write_ops.load(Relaxed),
-                        "read_ops": db.read_ops.load(Relaxed),
+                        "write_ops": write_ops,
+                        "read_ops": read_ops,
                         "delete_ops": db.delete_ops,
                         "scan_ops": db.scan_ops,
                         "cpu": cpu,
@@ -258,9 +285,17 @@ fn main() {
                         "disk_bytes_r": disk.total_read_bytes,
                         "disk_mib_w": (disk.total_written_bytes as f32) / 1024.0 / 1024.0,
                         "disk_mib_r": (disk.total_read_bytes as f32) / 1024.0 / 1024.0,
-                        "du_bytes": du,
-                        "du_mib": (du as f32) / 1024.0 / 1024.0
+                        "du_bytes": du_bytes,
+                        "du_mib": (du_bytes as f32) / 1024.0 / 1024.0,
+                        "space_amp": space_amp,
+                        "write_amp": write_amp,
+                        "dataset_size": dataset_size_bytes,
+                        "avg_write_latency": avg_write_latency,
+                        "avg_read_latency": avg_read_latency,
                     });
+
+                    prev_write_ops = write_ops;
+                    prev_read_ops = read_ops;
 
                     writeln!(
                         &mut file_writer,
@@ -270,87 +305,146 @@ fn main() {
                     .unwrap();
                 }
 
-                std::thread::sleep(Duration::from_secs(1));
+                // As minutes increase, decrease granularity
+                // to keep log files low(ish)
+                let sec = args.minutes as f32 / 2.0;
+                let duration = Duration::from_secs_f32(sec);
+                std::thread::sleep(duration);
             }
         });
     }
 
     match args.workload {
         Workload::TaskA => {
-            let mut rng = rand::thread_rng();
+            let users = args.threads;
 
-            for x in 0..args.items {
-                let key = (x as u64).to_be_bytes();
+            {
+                let mut rng = rand::thread_rng();
 
-                let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
-                for _ in 0..args.value_size {
-                    val.push(rng.gen::<u8>());
+                for idx in 0..users {
+                    let user_id = format!("user{idx}");
+
+                    for x in 0..args.items {
+                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                        for _ in 0..args.value_size {
+                            val.push(rng.gen::<u8>());
+                        }
+
+                        let key = format!("{user_id}:{x}");
+                        let key = key.as_bytes();
+
+                        db.insert(key, &val, false, args.clone());
+                    }
                 }
-
-                db.insert(&key, &val, args.clone());
             }
+
+            let threads = (0..users)
+                .map(|idx| {
+                    let args = args.clone();
+                    let db = db.clone();
+                    let user_id = format!("user{idx}");
+
+                    std::thread::spawn(move || {
+                        let mut rng = rand::thread_rng();
+
+                        let zipf = ZipfDistribution::new((args.items - 1) as usize, 0.99).unwrap();
+
+                        loop {
+                            let x = zipf.sample(&mut rng);
+                            let key = format!("{user_id}:{x}");
+                            let key = key.as_bytes();
+
+                            let choice: f32 = rng.gen_range(0.0..1.0);
+
+                            if choice > 0.5 {
+                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                                for _ in 0..args.value_size {
+                                    val.push(rng.gen::<u8>());
+                                }
+
+                                db.insert(key, &val, args.fsync, args.clone());
+                            } else {
+                                db.get(key).unwrap();
+                            }
+                        }
+                    })
+                })
+                .collect::<Vec<_>>();
 
             start_killer(args.minutes.into());
 
-            let zipf = ZipfDistribution::new((args.items - 1) as usize, 0.99).unwrap();
-
-            loop {
-                let x = zipf.sample(&mut rng);
-                let key = (x as u64).to_be_bytes();
-
-                let choice: f32 = rng.gen_range(0.0..1.0);
-
-                if choice > 0.5 {
-                    let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
-                    for _ in 0..args.value_size {
-                        val.push(rng.gen::<u8>());
-                    }
-
-                    db.insert(&key, &val, args.clone());
-                } else {
-                    db.get(&key).unwrap();
-                }
+            for t in threads {
+                t.join().unwrap();
             }
         }
 
         Workload::TaskB => {
-            let mut rng = rand::thread_rng();
+            let users = args.threads;
 
-            for x in 0..args.items {
-                let key = (x as u64).to_be_bytes();
+            {
+                let mut rng = rand::thread_rng();
 
-                let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
-                for _ in 0..args.value_size {
-                    val.push(rng.gen::<u8>());
+                for idx in 0..users {
+                    let user_id = format!("user{idx}");
+
+                    for x in 0..args.items {
+                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                        for _ in 0..args.value_size {
+                            val.push(rng.gen::<u8>());
+                        }
+
+                        let key = format!("{user_id}:{x}");
+                        let key = key.as_bytes();
+
+                        db.insert(key, &val, false, args.clone());
+                    }
                 }
-
-                db.insert(&key, &val, args.clone());
             }
+
+            let threads = (0..users)
+                .map(|idx| {
+                    let args = args.clone();
+                    let db = db.clone();
+                    let user_id = format!("user{idx}");
+
+                    std::thread::spawn(move || {
+                        let mut rng = rand::thread_rng();
+
+                        let zipf = ZipfDistribution::new((args.items - 1) as usize, 0.99).unwrap();
+
+                        loop {
+                            let x = zipf.sample(&mut rng);
+                            let key = format!("{user_id}:{x}");
+                            let key = key.as_bytes();
+
+                            let choice: f32 = rng.gen_range(0.0..1.0);
+
+                            if choice > 0.95 {
+                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                                for _ in 0..args.value_size {
+                                    val.push(rng.gen::<u8>());
+                                }
+
+                                db.insert(key, &val, args.fsync, args.clone());
+                            } else {
+                                db.get(key).unwrap();
+                            }
+                        }
+                    })
+                })
+                .collect::<Vec<_>>();
 
             start_killer(args.minutes.into());
 
-            let zipf = ZipfDistribution::new((args.items - 1) as usize, 0.99).unwrap();
-
-            loop {
-                let x = zipf.sample(&mut rng);
-                let key = (x as u64).to_be_bytes();
-
-                let choice: f32 = rng.gen_range(0.0..1.0);
-
-                if choice > 0.95 {
-                    let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
-                    for _ in 0..args.value_size {
-                        val.push(rng.gen::<u8>());
-                    }
-
-                    db.insert(&key, &val, args.clone());
-                } else {
-                    db.get(&key).unwrap();
-                }
+            for t in threads {
+                t.join().unwrap();
             }
         }
 
         Workload::TaskC => {
+            /* TODO: threads */
+            unimplemented!();
+
             let mut rng = rand::thread_rng();
 
             for x in 0..args.items {
@@ -361,7 +455,7 @@ fn main() {
                     val.push(rng.gen::<u8>());
                 }
 
-                db.insert(&key, &val, args.clone());
+                db.insert(&key, &val, false, args.clone());
             }
 
             start_killer(args.minutes.into());
@@ -377,76 +471,270 @@ fn main() {
         }
 
         Workload::TaskD => {
-            let mut rng = rand::thread_rng();
+            let users = args.threads;
 
-            for x in 0_u64..args.items.into() {
-                let key = x.to_be_bytes();
+            {
+                let mut rng = rand::thread_rng();
 
-                let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
-                for _ in 0..args.value_size {
-                    val.push(rng.gen::<u8>());
+                for idx in 0..users {
+                    let user_id = format!("user{idx}");
+
+                    for x in 0..args.items {
+                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                        for _ in 0..args.value_size {
+                            val.push(rng.gen::<u8>());
+                        }
+
+                        let key = format!("{user_id}:{x}");
+                        let key = key.as_bytes();
+
+                        db.insert(key, &val, false, args.clone());
+                    }
                 }
-
-                db.insert(&key, &val, args.clone());
             }
+
+            let threads = (0..users)
+                .map(|idx| {
+                    let args = args.clone();
+                    let db = db.clone();
+                    let user_id = format!("user{idx}");
+
+                    std::thread::spawn(move || {
+                        let mut rng = rand::thread_rng();
+                        let mut records = args.items;
+
+                        loop {
+                            let choice: f32 = rng.gen_range(0.0..1.0);
+
+                            if choice > 0.95 {
+                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                                for _ in 0..args.value_size {
+                                    val.push(rng.gen::<u8>());
+                                }
+
+                                let key = format!("{user_id}:{records}");
+                                let key = key.as_bytes();
+
+                                db.insert(key, &val, args.fsync, args.clone());
+                                records += 1;
+                            } else {
+                                let key = format!("{user_id}:{}", records - 1);
+                                let key = key.as_bytes();
+
+                                db.get(key).unwrap();
+                            }
+                        }
+                    })
+                })
+                .collect::<Vec<_>>();
 
             start_killer(args.minutes.into());
 
-            let mut records = u64::from(args.items);
-
-            loop {
-                let choice: f32 = rng.gen_range(0.0..1.0);
-
-                if choice > 0.95 {
-                    let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
-                    for _ in 0..args.value_size {
-                        val.push(rng.gen::<u8>());
-                    }
-
-                    let key = records.to_be_bytes();
-                    db.insert(&key, &val, args.clone());
-                    records += 1;
-                } else {
-                    let key = (records - 1).to_be_bytes();
-                    db.get(&key).unwrap();
-                }
+            for t in threads {
+                t.join().unwrap();
             }
         }
 
         Workload::TaskE => {
-            let mut rng = rand::thread_rng();
+            let users = args.threads;
 
-            for x in 0_u64..args.items.into() {
-                let key = x.to_be_bytes();
+            {
+                let mut rng = rand::thread_rng();
 
-                let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
-                for _ in 0..args.value_size {
-                    val.push(rng.gen::<u8>());
+                for idx in 0..users {
+                    let user_id = format!("user{idx}");
+
+                    for x in 0..args.items {
+                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                        for _ in 0..args.value_size {
+                            val.push(rng.gen::<u8>());
+                        }
+
+                        let key = format!("{user_id}:{x}");
+                        let key = key.as_bytes();
+
+                        db.insert(key, &val, false, args.clone());
+                    }
                 }
-
-                db.insert(&key, &val, args.clone());
             }
+
+            let threads = (0..users)
+                .map(|idx| {
+                    let args = args.clone();
+                    let db = db.clone();
+                    let user_id = format!("user{idx}");
+
+                    std::thread::spawn(move || {
+                        let mut rng = rand::thread_rng();
+                        let mut records = args.items;
+
+                        loop {
+                            let choice: f32 = rng.gen_range(0.0..1.0);
+
+                            if choice < 0.95 {
+                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                                for _ in 0..args.value_size {
+                                    val.push(rng.gen::<u8>());
+                                }
+
+                                let key = format!("{user_id}:{records}");
+                                let key = key.as_bytes();
+
+                                db.insert(key, &val, args.fsync, args.clone());
+                                records += 1;
+                            } else {
+                                let key = format!("{user_id}:{}", records - 1);
+                                let key = key.as_bytes();
+
+                                db.get(key).unwrap();
+                            }
+                        }
+                    })
+                })
+                .collect::<Vec<_>>();
 
             start_killer(args.minutes.into());
 
-            let mut records = u64::from(args.items);
+            for t in threads {
+                t.join().unwrap();
+            }
+        }
 
-            loop {
-                let choice: f32 = rng.gen_range(0.0..1.0);
+        Workload::TaskF => {
+            let users = args.threads;
 
-                if choice < 0.95 {
-                    let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
-                    for _ in 0..args.value_size {
-                        val.push(rng.gen::<u8>());
+            {
+                let mut rng = rand::thread_rng();
+
+                for idx in 0..users {
+                    let user_id = format!("user{idx}");
+
+                    for x in 0..args.items {
+                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                        for _ in 0..args.value_size {
+                            val.push(rng.gen::<u8>());
+                        }
+
+                        let key = format!("{user_id}:{x}");
+                        let key = key.as_bytes();
+
+                        db.insert(key, &val, false, args.clone());
                     }
-
-                    let key = records.to_be_bytes();
-                    db.insert(&key, &val, args.clone());
-                    records += 1;
-                } else {
-                    let key = (records - 1).to_be_bytes();
-                    db.get(&key).unwrap();
                 }
+            }
+
+            let threads = (0..users)
+                .map(|idx| {
+                    let args = args.clone();
+                    let db = db.clone();
+                    let user_id = format!("user{idx}");
+
+                    std::thread::spawn(move || {
+                        let mut rng = rand::thread_rng();
+                        let mut records = args.items;
+
+                        loop {
+                            let choice: f32 = rng.gen_range(0.0..1.0);
+
+                            if choice > 0.95 {
+                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                                for _ in 0..args.value_size {
+                                    val.push(rng.gen::<u8>());
+                                }
+
+                                let key = format!("{user_id}:{records}");
+                                let key = key.as_bytes();
+
+                                db.insert(key, &val, args.fsync, args.clone());
+                                records += 1;
+                            } else {
+                                let zipf =
+                                    ZipfDistribution::new((records - 1) as usize, 0.99).unwrap();
+                                let x = zipf.sample(&mut rng);
+
+                                let key = format!("{user_id}:{x}");
+                                let key = key.as_bytes();
+
+                                db.get(key).unwrap();
+                            }
+                        }
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            start_killer(args.minutes.into());
+
+            for t in threads {
+                t.join().unwrap();
+            }
+        }
+
+        Workload::TaskG => {
+            let users = args.threads;
+
+            {
+                let mut rng = rand::thread_rng();
+
+                for idx in 0..users {
+                    let user_id = format!("user{idx}");
+
+                    for x in 0..args.items {
+                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                        for _ in 0..args.value_size {
+                            val.push(rng.gen::<u8>());
+                        }
+
+                        let key = format!("{user_id}:{x}");
+                        let key = key.as_bytes();
+
+                        db.insert(key, &val, false, args.clone());
+                    }
+                }
+            }
+
+            let threads = (0..users)
+                .map(|idx| {
+                    let args = args.clone();
+                    let db = db.clone();
+                    let user_id = format!("user{idx}");
+
+                    std::thread::spawn(move || {
+                        let mut rng = rand::thread_rng();
+                        let mut records = args.items;
+
+                        loop {
+                            let choice: f32 = rng.gen_range(0.0..1.0);
+
+                            if choice < 0.95 {
+                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                                for _ in 0..args.value_size {
+                                    val.push(rng.gen::<u8>());
+                                }
+
+                                let key = format!("{user_id}:{records}");
+                                let key = key.as_bytes();
+
+                                db.insert(key, &val, args.fsync, args.clone());
+                                records += 1;
+                            } else {
+                                let zipf =
+                                    ZipfDistribution::new((records - 1) as usize, 0.99).unwrap();
+                                let x = zipf.sample(&mut rng);
+
+                                let key = format!("{user_id}:{x}");
+                                let key = key.as_bytes();
+
+                                db.get(key).unwrap();
+                            }
+                        }
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            start_killer(args.minutes.into());
+
+            for t in threads {
+                t.join().unwrap();
             }
         }
     }
