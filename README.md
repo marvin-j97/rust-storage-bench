@@ -9,8 +9,6 @@ Benchmarking Rust storage engines:
 - redb (https://www.redb.org)
 - sled (https://sled.rs)
 
-![Example result](/img.png)
-
 ## Example usage
 
 ```
