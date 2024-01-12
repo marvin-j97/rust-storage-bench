@@ -69,15 +69,14 @@ fn main() {
     let db = match args.backend {
         Backend::Fjall => {
             use fjall::{
-                compaction::{CompactionStrategy, Levelled, SizeTiered},
+                compaction::{Levelled, SizeTiered, Strategy},
                 BlockCache, PartitionCreateOptions,
             };
 
-            let compaction_strategy: Arc<dyn CompactionStrategy + Send + Sync> =
-                match args.lsm_compaction {
-                    rust_storage_bench::LsmCompaction::Leveled => Arc::new(Levelled::default()),
-                    rust_storage_bench::LsmCompaction::Tiered => Arc::new(SizeTiered::default()),
-                };
+            let compaction_strategy: Arc<dyn Strategy + Send + Sync> = match args.lsm_compaction {
+                rust_storage_bench::LsmCompaction::Leveled => Arc::new(Levelled::default()),
+                rust_storage_bench::LsmCompaction::Tiered => Arc::new(SizeTiered::default()),
+            };
 
             let config = fjall::Config::new(&data_dir)
                 .fsync_ms(if args.fsync { None } else { Some(1_000) })
