@@ -2,7 +2,7 @@
 
 Benchmarking Rust storage engines:
 
-- fjall (https://github.com/marvin-j97/fjall)
+- fjall (https://github.com/fjall-rs/fjall)
 - jammdb (https://github.com/pjtatlow/jammdb)
 - nebari (https://github.com/khonsulabs/nebari)
 - persy (https://persy.rs)
