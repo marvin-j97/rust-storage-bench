@@ -5,7 +5,7 @@ use serde::Serialize;
 #[clap(rename_all = "kebab_case")]
 pub enum Backend {
     Sled,
-    Bloodstone,
+    // Bloodstone,
     Fjall,
     Persy,
     JammDb,
@@ -20,7 +20,7 @@ impl std::fmt::Display for Backend {
             "{}",
             match self {
                 Self::Sled => "sled 0.34.7",
-                Self::Bloodstone => "sled 1.0.0-alpha.118",
+                // Self::Bloodstone => "sled 1.0.0-alpha.118",
                 Self::Fjall => "fjall 0.3.0",
                 Self::Persy => "persy 1.4.6",
                 Self::JammDb => "jammdb 0.11.0",
@@ -31,7 +31,7 @@ impl std::fmt::Display for Backend {
     }
 }
 
-#[derive(Copy, Debug, Clone, ValueEnum, Serialize)]
+#[derive(Copy, Debug, Clone, ValueEnum, Serialize, PartialEq, Eq)]
 #[clap(rename_all = "kebab_case")]
 pub enum Workload {
     /// Workload A: Update heavy workload

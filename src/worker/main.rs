@@ -50,8 +50,10 @@ fn main() {
     eprintln!("Threads : {}", args.threads);
     eprintln!("# items : {}", args.items);
 
-    if args.fsync && (args.backend == Backend::Sled || args.backend == Backend::Bloodstone) {
-        panic!("Sled doesn't fsync...");
+    if args.workload != Workload::TaskC {
+        if args.fsync && (args.backend == Backend::Sled/*|| args.backend == Backend::Bloodstone*/) {
+            panic!("Sled doesn't fsync...");
+        }
     }
 
     let data_dir = Path::new(".data").join(match args.backend {
@@ -98,13 +100,13 @@ fn main() {
                 .open()
                 .unwrap(),
         ),
-        Backend::Bloodstone => GenericDatabase::Bloodstone(
-            bloodstone::Config::new()
-                .cache_capacity_bytes(args.cache_size as usize)
-                .path(&data_dir)
-                .open()
-                .unwrap(),
-        ),
+        // Backend::Bloodstone => GenericDatabase::Bloodstone(
+        //     bloodstone::Config::new()
+        //         .cache_capacity_bytes(args.cache_size as usize)
+        //         .path(&data_dir)
+        //         .open()
+        //         .unwrap(),
+        // ),
         Backend::JammDb => {
             create_dir_all(&data_dir).unwrap();
 
@@ -441,9 +443,6 @@ fn main() {
         }
 
         Workload::TaskC => {
-            /* TODO: threads */
-            unimplemented!();
-
             let mut rng = rand::thread_rng();
 
             for x in 0..args.items {

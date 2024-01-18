@@ -33,7 +33,7 @@ pub enum GenericDatabase {
         db: fjall::PartitionHandle,
     },
     Sled(sled::Db),
-    Bloodstone(bloodstone::Db),
+    // Bloodstone(bloodstone::Db),
     Jamm(jammdb::DB),
     Persy(persy::Persy),
     Redb(Arc<redb::Database>),
@@ -93,27 +93,27 @@ impl DatabaseWrapper {
                     std::sync::atomic::Ordering::Relaxed,
                 );
             }
-            GenericDatabase::Bloodstone(db) => {
-                let start = Instant::now();
+            // GenericDatabase::Bloodstone(db) => {
+            //     let start = Instant::now();
 
-                db.insert(key, value).unwrap();
+            //     db.insert(key, value).unwrap();
 
-                if durable {
-                    db.flush().unwrap();
-                } else if args.sled_flush {
-                    // NOTE: TODO: OOM Workaround
-                    // Intermittenly flush sled to keep memory usage sane
-                    // This is hopefully a temporary workaround
-                    if self.write_ops.load(std::sync::atomic::Ordering::Relaxed) % 5_000_000 == 0 {
-                        db.flush().unwrap();
-                    }
-                }
+            //     if durable {
+            //         db.flush().unwrap();
+            //     } else if args.sled_flush {
+            //         // NOTE: TODO: OOM Workaround
+            //         // Intermittenly flush sled to keep memory usage sane
+            //         // This is hopefully a temporary workaround
+            //         if self.write_ops.load(std::sync::atomic::Ordering::Relaxed) % 5_000_000 == 0 {
+            //             db.flush().unwrap();
+            //         }
+            //     }
 
-                self.write_latency.fetch_add(
-                    start.elapsed().as_micros() as u64,
-                    std::sync::atomic::Ordering::Relaxed,
-                );
-            }
+            //     self.write_latency.fetch_add(
+            //         start.elapsed().as_micros() as u64,
+            //         std::sync::atomic::Ordering::Relaxed,
+            //     );
+            // }
             GenericDatabase::Jamm(db) => {
                 if !durable {
                     log::warn!("WARNING: JammDB does not support eventual durability",);
@@ -190,7 +190,7 @@ impl DatabaseWrapper {
             }
             GenericDatabase::Fjall { keyspace: _, db } => db.get(key).unwrap().map(|x| x.to_vec()),
             GenericDatabase::Sled(db) => db.get(key).unwrap().map(|x| x.to_vec()),
-            GenericDatabase::Bloodstone(db) => db.get(key).unwrap().map(|x| x.to_vec()),
+            // GenericDatabase::Bloodstone(db) => db.get(key).unwrap().map(|x| x.to_vec()),
             GenericDatabase::Jamm(db) => {
                 let tx = db.tx(false).unwrap();
                 let bucket = tx.get_bucket("data").unwrap();
