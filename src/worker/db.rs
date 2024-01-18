@@ -194,7 +194,7 @@ impl DatabaseWrapper {
             GenericDatabase::Jamm(db) => {
                 let tx = db.tx(false).unwrap();
                 let bucket = tx.get_bucket("data").unwrap();
-                Some(bucket.get(key).unwrap().kv().value().into())
+                bucket.get(key).map(|item| item.kv().value().into())
             }
             GenericDatabase::Persy(db) => {
                 let key = String::from_utf8_lossy(key);
