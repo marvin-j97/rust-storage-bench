@@ -188,7 +188,7 @@ function WriteLatencyHistory(props: { series: HistoryEntry[][] }) {
   });
 
   return <LineChart
-    yFormatter={(n) => `${n}µs`}
+    yFormatter={(n) => `${n.toFixed(1)}µs`}
     title="Average write latency (lower is better)"
     series={series()}
   />;
@@ -212,7 +212,7 @@ function ReadLatencyHistory(props: { series: HistoryEntry[][] }) {
   });
 
   return <LineChart
-    yFormatter={(n) => `${n}µs`}
+    yFormatter={(n) => `${n.toFixed(1)}µs`}
     title="Average read latency (lower is better)"
     series={series()}
   />;
