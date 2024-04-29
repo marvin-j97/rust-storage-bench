@@ -5,8 +5,8 @@ Benchmarking Rust storage engines:
 - fjall Δ (https://github.com/fjall-rs/fjall)
 - jammdb Ω (https://github.com/pjtatlow/jammdb)
 - nebari Ω (https://github.com/khonsulabs/nebari)
-- persy Ω (https://persy.rs)
-- redb Ω (https://www.redb.org)
+- persy Ω ★ (https://persy.rs)
+- redb Ω ★ (https://www.redb.org)
 - sled Ψ (https://sled.rs)
 
 ---
@@ -14,6 +14,7 @@ Benchmarking Rust storage engines:
 - Δ LSM based
 - Ω B-tree based
 - Ψ Hybrid (Bw-Tree, ...)
+- ★ has reached 1.0
 
 ## Example usage
 
