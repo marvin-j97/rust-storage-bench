@@ -1,6 +1,6 @@
 use crate::Args;
 use nebari::{io::fs::StdFile, tree::Unversioned};
-use redb::{ReadableTable, TableDefinition};
+use redb::TableDefinition;
 use std::{
     sync::{atomic::AtomicU64, Arc},
     time::Instant,
@@ -50,7 +50,7 @@ impl DatabaseWrapper {
         match &self.inner {
             GenericDatabase::Nebari { roots: _, tree } => {
                 if !durable {
-                    log::warn!("WARNING: Nebari does not support eventual durability",);
+                    log::warn!("WARNING: Nebari does not support eventual durability");
                 }
 
                 let key = key.to_vec();
