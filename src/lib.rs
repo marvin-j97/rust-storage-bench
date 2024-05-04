@@ -21,10 +21,10 @@ impl std::fmt::Display for Backend {
             match self {
                 Self::Sled => "sled 0.34.7",
                 // Self::Bloodstone => "sled 1.0.0-alpha.118",
-                Self::Fjall => "fjall 0.6.0",
-                Self::Persy => "persy 1.4.6",
+                Self::Fjall => "fjall 0.7.0",
+                Self::Persy => "persy 1.5.0",
                 Self::JammDb => "jammdb 0.11.0",
-                Self::Redb => "redb 1.4.0",
+                Self::Redb => "redb 2.1.0",
                 Self::Nebari => "nebari 0.5.5",
             }
         )
@@ -78,8 +78,8 @@ impl std::fmt::Display for LsmCompaction {
             f,
             "{}",
             match self {
-                Self::Leveled => "Leveled",
-                Self::Tiered => "Tiered",
+                Self::Leveled => "LCS",
+                Self::Tiered => "STCS",
             }
         )
     }
