@@ -1,39 +1,40 @@
 // @ts-check
 
 import { spawn } from "node:child_process";
-import { mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, rmdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 import chalk from "chalk";
 import asyncPool from "tiny-async-pool";
 
-rmSync(".data", {
-  recursive: true,
-  force: true,
-});
+if (existsSync(".data")) {
+  rmdirSync(".data", {
+    recursive: true,
+  });
+}
 
-const CLEAN_DATA_FOLDER_AFTER_EACH_TASK = true;
-const PARALLELISM = 2;
+/* const CLEAN_DATA_FOLDER_AFTER_EACH_TASK = true; */
+const PARALLELISM = 1;
 
 const steps = [
-  /* {
-    tasks: ["f", "g"],
-    backends: ["fjall_lcs", "fjall_stcs", "persy", "redb"],
-    minutes: 1,
-    outFolder: ".results/sync",
-    fsync: true,
-    valueSize: 128,
-    cacheSize: 1_000_000,
-  }, */
   {
-    tasks: ["f", "g"],
+    tasks: ["d", "e", "f", "g", "h"],
     backends: ["fjall_lcs", "fjall_stcs", "persy", "redb", "sled"],
-    minutes: 10,
-    outFolder: ".results/longbois/nosync",
+    minutes: 5,
+    outFolder: ".results/nosync/5m/low_cache",
     fsync: false,
     valueSize: 128,
-    cacheSize: 1_000_000,
-  }
+    cacheSize: 128_000,
+  },
+  {
+    tasks: ["d", "e", "f", "g", "h"],
+    backends: ["fjall_lcs", "fjall_stcs", "persy", "redb", "sled"],
+    minutes: 5,
+    outFolder: ".results/nosync/5m/high_cache",
+    fsync: false,
+    valueSize: 128,
+    cacheSize: 32_000_000,
+  },
 ]
 
 for (const config of steps) {
@@ -77,11 +78,13 @@ for (const config of steps) {
 
   async function processTask(task) {
     await new Promise((resolve, reject) => {
+      const args = ["run", "-r", "--", ...task];
+
       console.error(
-        chalk.blueBright(`Spawning: cargo ${task}`)
+        chalk.blueBright(`Spawning: cargo ${args.join(" ")}`)
       );
 
-      const childProcess = spawn("cargo", ["run", "-r", "--", ...task], {
+      const childProcess = spawn("cargo", args, {
         shell: true,
         stdio: "pipe"
       });
@@ -97,12 +100,15 @@ for (const config of steps) {
       childProcess.on('error', reject);
     });
 
-    if (CLEAN_DATA_FOLDER_AFTER_EACH_TASK) {
-      rmSync(".data", {
-        recursive: true,
-        force: true,
-      });
-    }
+    // TODO: need to only delete subfolder of specific task
+    // TODO: also each invocation needs its own .data subfolder...
+    /* if (CLEAN_DATA_FOLDER_AFTER_EACH_TASK) {
+      if (existsSync(".data")) {
+        rmdirSync(".data", {
+          recursive: true,
+        });
+      }
+    } */
 
     return task;
   }
