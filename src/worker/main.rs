@@ -217,7 +217,7 @@ fn main() {
                 let json = serde_json::json!({
                     "time_micro": unix_timestamp().as_micros(),
                     "type": "setup",
-                    "backend": args.backend.to_string(),
+                    "backend": backend.to_string(),
                     "workload": args.workload,
                     "threads": args.threads,
                     "items": args.items,
