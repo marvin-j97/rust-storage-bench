@@ -58,21 +58,20 @@ const chartOptions: ApexChartProps["options"]["chart"] = {
   animations: {
     enabled: false,
   },
-  toolbar: {
+  /* toolbar: {
     show: true,
     tools: {
       download: true,
-      reset: false,
-      pan: false,
-      selection: false,
-      zoomout: false,
-      zoom: false,
+      reset: true,
+      pan: true,
+      selection: true,
+      zoomout: true,
+      zoom: true,
     }
   },
   zoom: {
-    enabled: false
-  },
-
+    enabled: true
+  }, */
 }
 
 const xaxisOptions: ApexChartProps["options"]["xaxis"] = {
