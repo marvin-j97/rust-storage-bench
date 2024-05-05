@@ -4,4 +4,5 @@ import UnoCSS from "unocss/vite";
 
 export default defineConfig({
   plugins: [solid(), UnoCSS()],
+  base: "/rust-storage-bench/"
 });

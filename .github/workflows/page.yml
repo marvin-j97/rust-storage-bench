@@ -1,0 +1,31 @@
+name: Deploy page
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 9
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: page/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm i
+        working-directory: page
+      - name: Generate page
+        run: pnpm build
+        working-directory: page
+      - name: Deploy page
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: page/dist
