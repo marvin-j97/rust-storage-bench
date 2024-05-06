@@ -123,6 +123,8 @@ for (const config of steps) {
   }
 
   for await (const name of asyncPool(PARALLELISM, tasks, processTask)) {
-    console.log(`${name} done`);
+    console.log(
+      chalk.greenBright(`${name.join(" ")} done`)
+    );
   }
 }
