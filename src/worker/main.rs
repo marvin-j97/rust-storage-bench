@@ -84,7 +84,8 @@ fn main() {
                 .fsync_ms(if args.fsync { None } else { Some(1_000) })
                 .block_cache(BlockCache::with_capacity_bytes(args.cache_size.into()).into());
 
-            let create_opts = PartitionCreateOptions::default();
+            let create_opts =
+                PartitionCreateOptions::default().block_size(args.lsm_block_size.into());
 
             let keyspace = config.open().unwrap();
             let db = keyspace.open_partition("data", create_opts).unwrap();
