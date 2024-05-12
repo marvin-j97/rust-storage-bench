@@ -222,7 +222,8 @@ fn main() {
                     "workload": args.workload,
                     "threads": args.threads,
                     "items": args.items,
-                    "value_size": args.value_size
+                    "value_size": args.value_size,
+                    "cache_size_in_bytes": args.cache_size
                 });
 
                 writeln!(
@@ -327,7 +328,7 @@ fn main() {
                     let user_id = format!("user{idx}");
 
                     for x in 0..args.items {
-                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
                         for _ in 0..args.value_size {
                             val.push(rng.gen::<u8>());
                         }
@@ -359,7 +360,7 @@ fn main() {
                             let choice: f32 = rng.gen_range(0.0..1.0);
 
                             if choice > 0.5 {
-                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
                                 for _ in 0..args.value_size {
                                     val.push(rng.gen::<u8>());
                                 }
@@ -390,7 +391,7 @@ fn main() {
                     let user_id = format!("user{idx}");
 
                     for x in 0..args.items {
-                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
                         for _ in 0..args.value_size {
                             val.push(rng.gen::<u8>());
                         }
@@ -422,7 +423,7 @@ fn main() {
                             let choice: f32 = rng.gen_range(0.0..1.0);
 
                             if choice > 0.95 {
-                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
                                 for _ in 0..args.value_size {
                                     val.push(rng.gen::<u8>());
                                 }
@@ -449,7 +450,7 @@ fn main() {
             for x in 0..args.items {
                 let key = (x as u64).to_be_bytes();
 
-                let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
                 for _ in 0..args.value_size {
                     val.push(rng.gen::<u8>());
                 }
@@ -479,7 +480,7 @@ fn main() {
                     let user_id = format!("user{idx}");
 
                     for x in 0..args.items {
-                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
                         for _ in 0..args.value_size {
                             val.push(rng.gen::<u8>());
                         }
@@ -506,7 +507,7 @@ fn main() {
                             let choice: f32 = rng.gen_range(0.0..1.0);
 
                             if choice > 0.95 {
-                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
                                 for _ in 0..args.value_size {
                                     val.push(rng.gen::<u8>());
                                 }
@@ -544,7 +545,7 @@ fn main() {
                     let user_id = format!("user{idx}");
 
                     for x in 0..args.items {
-                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
                         for _ in 0..args.value_size {
                             val.push(rng.gen::<u8>());
                         }
@@ -571,7 +572,7 @@ fn main() {
                             let choice: f32 = rng.gen_range(0.0..1.0);
 
                             if choice < 0.95 {
-                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
                                 for _ in 0..args.value_size {
                                     val.push(rng.gen::<u8>());
                                 }
@@ -609,7 +610,7 @@ fn main() {
                     let user_id = format!("user{idx}");
 
                     for x in 0..args.items {
-                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
                         for _ in 0..args.value_size {
                             val.push(rng.gen::<u8>());
                         }
@@ -636,7 +637,7 @@ fn main() {
                             let choice: f32 = rng.gen_range(0.0..1.0);
 
                             if choice > 0.95 {
-                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
                                 for _ in 0..args.value_size {
                                     val.push(rng.gen::<u8>());
                                 }
@@ -678,7 +679,7 @@ fn main() {
                     let user_id = format!("user{idx}");
 
                     for x in 0..args.items {
-                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
                         for _ in 0..args.value_size {
                             val.push(rng.gen::<u8>());
                         }

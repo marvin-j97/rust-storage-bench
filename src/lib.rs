@@ -87,7 +87,7 @@ impl std::fmt::Display for LsmCompaction {
 
 /// CLI argument parse
 #[derive(Clone, Parser, Debug)]
-#[command(author = "marvin-j97", version = env!("CARGO_PKG_VERSION"), about = "Rust DB Profiler")]
+#[command(author = "marvin-j97", version = env!("CARGO_PKG_VERSION"), about = "Rust KV-store profiler")]
 #[command(propagate_version = true)]
 pub struct Args {
     #[arg(long, value_enum)]
@@ -106,7 +106,7 @@ pub struct Args {
     pub key_size: u8,
 
     #[arg(long)]
-    pub value_size: u16,
+    pub value_size: u32,
 
     /// Block size for LSM-trees
     #[arg(long, default_value_t = 4_096)]

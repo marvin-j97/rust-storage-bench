@@ -1,14 +1,14 @@
 // @ts-check
 
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, rmSync, rmdirSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 
 import chalk from "chalk";
 import asyncPool from "tiny-async-pool";
 
 if (existsSync(".data")) {
-  rmdirSync(".data", {
+  rmSync(".data", {
     recursive: true,
   });
 }
@@ -50,6 +50,7 @@ for (const config of steps) {
         ...["--value-size", config.valueSize],
         ...["--items", 100],
         ...["--cache-size", config.cacheSize],
+        ...["--lsm-block-size", config.blockSize ?? 4_096],
       ];
 
       const folder = resolve(config.outFolder, `task_${task}`);
@@ -104,7 +105,7 @@ for (const config of steps) {
     // TODO: also each invocation needs its own .data subfolder...
     /* if (CLEAN_DATA_FOLDER_AFTER_EACH_TASK) {
       if (existsSync(".data")) {
-        rmdirSync(".data", {
+        rmSync(".data", {
           recursive: true,
         });
       }
