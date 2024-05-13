@@ -69,6 +69,14 @@ fn main() {
     }
 
     let db = match args.backend {
+        #[cfg(feature = "rocksdb")]
+        Backend::RocksDb => {
+            create_dir_all(&data_dir).unwrap();
+
+            let db = rocksdb::DB::open_default(&data_dir).unwrap();
+            GenericDatabase::RocksDb(Arc::new(db))
+        }
+
         #[cfg(feature = "heed")]
         Backend::Heed => {
             create_dir_all(&data_dir).unwrap();

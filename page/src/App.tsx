@@ -569,6 +569,7 @@ function App() {
 
   return (
     <>
+      <h1 class="text-2xl text-center">Rust Storage Engine Benchmark</h1>
       <Show when={items().length > 0} fallback={"Drag a .jsonl file here!!"}>
         <div style="display: flex; gap: 20px; flex-direction: column">
           <div>

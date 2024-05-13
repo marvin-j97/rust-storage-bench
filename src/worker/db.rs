@@ -41,11 +41,15 @@ pub enum GenericDatabase {
         roots: nebari::Roots<StdFile>,
         tree: nebari::Tree<Unversioned, StdFile>,
     },
+
     #[cfg(feature = "heed")]
     Heed {
         db: heed::Database<heed::types::Bytes, heed::types::Bytes>,
         env: heed::Env,
     },
+
+    #[cfg(feature = "rocksdb")]
+    RocksDb(Arc<rocksdb::DB>),
 }
 
 const TABLE: TableDefinition<&[u8], Vec<u8>> = TableDefinition::new("data");
@@ -53,6 +57,22 @@ const TABLE: TableDefinition<&[u8], Vec<u8>> = TableDefinition::new("data");
 impl DatabaseWrapper {
     pub fn insert(&self, key: &[u8], value: &[u8], durable: bool, args: Arc<Args>) {
         match &self.inner {
+            #[cfg(feature = "rocksdb")]
+            GenericDatabase::RocksDb(db) => {
+                let start = Instant::now();
+
+                db.put(key, value).unwrap();
+
+                self.write_latency.fetch_add(
+                    start.elapsed().as_micros() as u64,
+                    std::sync::atomic::Ordering::Relaxed,
+                );
+
+                if durable {
+                    db.flush_wal(true).unwrap();
+                }
+            }
+
             #[cfg(feature = "heed")]
             GenericDatabase::Heed { env, db } => {
                 let start = Instant::now();
@@ -203,12 +223,16 @@ impl DatabaseWrapper {
         let start = Instant::now();
 
         let item = match &self.inner {
+            #[cfg(feature = "rocksdb")]
+            GenericDatabase::RocksDb(db) => db.get(key).unwrap().map(|x| x.to_vec()),
+
             #[cfg(feature = "heed")]
             GenericDatabase::Heed { db, env } => {
                 let rtxn = env.read_txn().unwrap();
                 let ret = db.get(&rtxn, key).unwrap();
                 ret.map(|x| x.to_vec())
             }
+
             GenericDatabase::Nebari { roots: _, tree } => {
                 let item = tree.get(key).unwrap();
                 item.map(|x| x.to_vec())

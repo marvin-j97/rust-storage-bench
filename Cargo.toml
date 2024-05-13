@@ -10,7 +10,8 @@ name = "worker"
 path = "src/worker/main.rs"
 
 [features]
-default = []
+default = ["rocksdb"]
+rocksdb = ["dep:rocksdb"]
 heed = ["dep:heed"]
 
 # [target.'cfg(not(target_env = "msvc"))'.dependencies]
@@ -35,3 +36,6 @@ zipf = "7.0.1"
 redb = "2.1.0"
 nebari = "0.5.5"
 heed = { version = "0.20.0", optional = true }
+rocksdb = { version = "0.22.0", optional = true, default-features = false, features = [
+  "lz4",
+] }

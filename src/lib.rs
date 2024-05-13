@@ -11,8 +11,12 @@ pub enum Backend {
     JammDb,
     Redb,
     Nebari,
+
     #[cfg(feature = "heed")]
     Heed,
+
+    #[cfg(feature = "rocksdb")]
+    RocksDb,
 }
 
 impl std::fmt::Display for Backend {
@@ -28,8 +32,12 @@ impl std::fmt::Display for Backend {
                 Self::JammDb => "jammdb 0.11.0",
                 Self::Redb => "redb 2.1.0",
                 Self::Nebari => "nebari 0.5.5",
+
                 #[cfg(feature = "heed")]
                 Self::Heed => "heed 0.20.0",
+
+                #[cfg(feature = "rocksdb")]
+                Self::RocksDb => "rocksdb 0.22.0",
             }
         )
     }
