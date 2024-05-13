@@ -69,6 +69,22 @@ fn main() {
     }
 
     let db = match args.backend {
+        Backend::Heed => {
+            create_dir_all(&data_dir).unwrap();
+
+            let env = unsafe {
+                heed::EnvOpenOptions::new()
+                    .map_size(8_000_000_000)
+                    .open(&data_dir)
+                    .unwrap()
+            };
+
+            let mut wtxn = env.write_txn().unwrap();
+            let db = env.create_database(&mut wtxn, None).unwrap();
+            wtxn.commit().unwrap();
+
+            GenericDatabase::Heed { db, env }
+        }
         Backend::Fjall => {
             use fjall::{
                 compaction::{Levelled, SizeTiered, Strategy},

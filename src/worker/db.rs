@@ -41,6 +41,10 @@ pub enum GenericDatabase {
         roots: nebari::Roots<StdFile>,
         tree: nebari::Tree<Unversioned, StdFile>,
     },
+    Heed {
+        db: heed::Database<heed::types::Bytes, heed::types::Bytes>,
+        env: heed::Env,
+    },
 }
 
 const TABLE: TableDefinition<&[u8], Vec<u8>> = TableDefinition::new("data");
@@ -48,6 +52,19 @@ const TABLE: TableDefinition<&[u8], Vec<u8>> = TableDefinition::new("data");
 impl DatabaseWrapper {
     pub fn insert(&self, key: &[u8], value: &[u8], durable: bool, args: Arc<Args>) {
         match &self.inner {
+            GenericDatabase::Heed { env, db } => {
+                let start = Instant::now();
+
+                let mut wtxn = env.write_txn().unwrap();
+                db.put(&mut wtxn, key, value).unwrap();
+
+                wtxn.commit().unwrap();
+
+                self.write_latency.fetch_add(
+                    start.elapsed().as_micros() as u64,
+                    std::sync::atomic::Ordering::Relaxed,
+                );
+            }
             GenericDatabase::Nebari { roots: _, tree } => {
                 if !durable {
                     log::warn!("WARNING: Nebari does not support eventual durability");
@@ -184,6 +201,11 @@ impl DatabaseWrapper {
         let start = Instant::now();
 
         let item = match &self.inner {
+            GenericDatabase::Heed { db, env } => {
+                let rtxn = env.read_txn().unwrap();
+                let ret = db.get(&rtxn, key).unwrap();
+                ret.map(|x| x.to_vec())
+            }
             GenericDatabase::Nebari { roots: _, tree } => {
                 let item = tree.get(key).unwrap();
                 item.map(|x| x.to_vec())

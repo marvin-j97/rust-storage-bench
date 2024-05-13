@@ -16,7 +16,7 @@ path = "src/worker/main.rs"
 clap = { version = "4.4.10", features = ["derive"] }
 # bloodstone = { package = "sled", version = "1.0.0-alpha.121" }
 sled = { version = "0.34.7", features = ["compression"] }
-fjall = { version = "0.6.5" }
+fjall = { version = "0.7.0" }
 nanoid = "0.4.0"
 rand = "0.8.5"
 sysinfo = { version = "0.30.1", features = ["serde"] }
@@ -30,3 +30,4 @@ jammdb = "0.11.0"
 zipf = "7.0.1"
 redb = "2.1.0"
 nebari = "0.5.5"
+heed = "0.20.0"
