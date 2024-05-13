@@ -63,14 +63,14 @@ impl DatabaseWrapper {
 
                 db.put(key, value).unwrap();
 
+                if durable {
+                    db.flush_wal(true).unwrap();
+                }
+
                 self.write_latency.fetch_add(
                     start.elapsed().as_micros() as u64,
                     std::sync::atomic::Ordering::Relaxed,
                 );
-
-                if durable {
-                    db.flush_wal(true).unwrap();
-                }
             }
 
             #[cfg(feature = "heed")]
