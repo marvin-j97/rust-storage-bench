@@ -9,6 +9,11 @@ Benchmarking Rust storage engines:
 - redb Ω ★ (https://www.redb.org)
 - sled Ψ (https://sled.rs)
 
+Non-Rust (bindings):
+
+- rocksdb Δ (https://rocksdb.org/)
+- heed Ω (https://github.com/meilisearch/heed)
+
 ---
 
 - Δ LSM based

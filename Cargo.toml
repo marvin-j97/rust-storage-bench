@@ -10,7 +10,7 @@ name = "worker"
 path = "src/worker/main.rs"
 
 [features]
-default = ["rocksdb"]
+default = []
 rocksdb = ["dep:rocksdb"]
 heed = ["dep:heed"]
 
