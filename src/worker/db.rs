@@ -41,6 +41,7 @@ pub enum GenericDatabase {
         roots: nebari::Roots<StdFile>,
         tree: nebari::Tree<Unversioned, StdFile>,
     },
+    #[cfg(feature = "heed")]
     Heed {
         db: heed::Database<heed::types::Bytes, heed::types::Bytes>,
         env: heed::Env,
@@ -52,6 +53,7 @@ const TABLE: TableDefinition<&[u8], Vec<u8>> = TableDefinition::new("data");
 impl DatabaseWrapper {
     pub fn insert(&self, key: &[u8], value: &[u8], durable: bool, args: Arc<Args>) {
         match &self.inner {
+            #[cfg(feature = "heed")]
             GenericDatabase::Heed { env, db } => {
                 let start = Instant::now();
 
@@ -201,6 +203,7 @@ impl DatabaseWrapper {
         let start = Instant::now();
 
         let item = match &self.inner {
+            #[cfg(feature = "heed")]
             GenericDatabase::Heed { db, env } => {
                 let rtxn = env.read_txn().unwrap();
                 let ret = db.get(&rtxn, key).unwrap();

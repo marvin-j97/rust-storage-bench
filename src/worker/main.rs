@@ -69,6 +69,7 @@ fn main() {
     }
 
     let db = match args.backend {
+        #[cfg(feature = "heed")]
         Backend::Heed => {
             create_dir_all(&data_dir).unwrap();
 
@@ -722,7 +723,7 @@ fn main() {
                             let choice: f32 = rng.gen_range(0.0..1.0);
 
                             if choice < 0.95 {
-                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size.into());
+                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
                                 for _ in 0..args.value_size {
                                     val.push(rng.gen::<u8>());
                                 }
