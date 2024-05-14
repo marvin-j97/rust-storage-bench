@@ -27,7 +27,7 @@ impl std::fmt::Display for Backend {
             match self {
                 Self::Sled => "sled 0.34.7",
                 // Self::Bloodstone => "sled 1.0.0-alpha.118",
-                Self::Fjall => "fjall 0.7.0",
+                Self::Fjall => "fjall 1.0.0",
                 Self::Persy => "persy 1.5.0",
                 Self::JammDb => "jammdb 0.11.0",
                 Self::Redb => "redb 2.1.0",
