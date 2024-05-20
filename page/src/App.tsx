@@ -365,13 +365,9 @@ function SpaceAmpHistory(props: { series: HistoryEntry[][] }) {
     yFormatter={(n) => `${(n).toFixed(1)}x`}
     title="Space amplification (lower is better)"
     series={series()}
-    xaxis={{
-      // Skip first 15 seconds because space amp takes some time to settle
-      min: 15
-    }}
     yaxis={{
       min: 1,
-      max: (n) => Math.min(10, n),
+      max: (n) => Math.min(5, n),
     }}
   />;
 }
