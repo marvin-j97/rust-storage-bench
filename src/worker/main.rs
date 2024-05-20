@@ -354,7 +354,7 @@ fn main() {
                 let mut rng = rand::thread_rng();
 
                 for idx in 0..users {
-                    let user_id = format!("user{idx}");
+                    let user_id = format!("user{idx:0>2}");
 
                     for x in 0..args.items {
                         let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
@@ -362,7 +362,7 @@ fn main() {
                             val.push(rng.gen::<u8>());
                         }
 
-                        let key = format!("{user_id}:{x}");
+                        let key = format!("{user_id}:{x:0>10}");
                         let key = key.as_bytes();
 
                         db.insert(key, &val, false, args.clone());
@@ -374,7 +374,7 @@ fn main() {
                 .map(|idx| {
                     let args = args.clone();
                     let db = db.clone();
-                    let user_id = format!("user{idx}");
+                    let user_id = format!("user{idx:0>2}");
 
                     std::thread::spawn(move || {
                         let mut rng = rand::thread_rng();
@@ -383,7 +383,7 @@ fn main() {
 
                         loop {
                             let x = zipf.sample(&mut rng);
-                            let key = format!("{user_id}:{x}");
+                            let key = format!("{user_id}:{x:0>10}");
                             let key = key.as_bytes();
 
                             let choice: f32 = rng.gen_range(0.0..1.0);
@@ -417,7 +417,7 @@ fn main() {
                 let mut rng = rand::thread_rng();
 
                 for idx in 0..users {
-                    let user_id = format!("user{idx}");
+                    let user_id = format!("user{idx:0>2}");
 
                     for x in 0..args.items {
                         let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
@@ -425,7 +425,7 @@ fn main() {
                             val.push(rng.gen::<u8>());
                         }
 
-                        let key = format!("{user_id}:{x}");
+                        let key = format!("{user_id}:{x:0>10}");
                         let key = key.as_bytes();
 
                         db.insert(key, &val, false, args.clone());
@@ -437,7 +437,7 @@ fn main() {
                 .map(|idx| {
                     let args = args.clone();
                     let db = db.clone();
-                    let user_id = format!("user{idx}");
+                    let user_id = format!("user{idx:0>2}");
 
                     std::thread::spawn(move || {
                         let mut rng = rand::thread_rng();
@@ -446,7 +446,7 @@ fn main() {
 
                         loop {
                             let x = zipf.sample(&mut rng);
-                            let key = format!("{user_id}:{x}");
+                            let key = format!("{user_id}:{x:0>10}");
                             let key = key.as_bytes();
 
                             let choice: f32 = rng.gen_range(0.0..1.0);
@@ -506,7 +506,7 @@ fn main() {
                 let mut rng = rand::thread_rng();
 
                 for idx in 0..users {
-                    let user_id = format!("user{idx}");
+                    let user_id = format!("user{idx:0>2}");
 
                     for x in 0..args.items {
                         let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
@@ -514,7 +514,7 @@ fn main() {
                             val.push(rng.gen::<u8>());
                         }
 
-                        let key = format!("{user_id}:{x}");
+                        let key = format!("{user_id}:{x:0>10}");
                         let key = key.as_bytes();
 
                         db.insert(key, &val, false, args.clone());
@@ -526,7 +526,7 @@ fn main() {
                 .map(|idx| {
                     let args = args.clone();
                     let db = db.clone();
-                    let user_id = format!("user{idx}");
+                    let user_id = format!("user{idx:0>2}");
 
                     std::thread::spawn(move || {
                         let mut rng = rand::thread_rng();
@@ -541,13 +541,13 @@ fn main() {
                                     val.push(rng.gen::<u8>());
                                 }
 
-                                let key = format!("{user_id}:{records}");
+                                let key = format!("{user_id}:{records:0>10}");
                                 let key = key.as_bytes();
 
                                 db.insert(key, &val, args.fsync, args.clone());
                                 records += 1;
                             } else {
-                                let key = format!("{user_id}:{}", records - 1);
+                                let key = format!("{user_id}:{:0>10}", records - 1);
                                 let key = key.as_bytes();
 
                                 db.get(key).unwrap();
@@ -571,7 +571,7 @@ fn main() {
                 let mut rng = rand::thread_rng();
 
                 for idx in 0..users {
-                    let user_id = format!("user{idx}");
+                    let user_id = format!("user{idx:0>2}");
 
                     for x in 0..args.items {
                         let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
@@ -579,7 +579,7 @@ fn main() {
                             val.push(rng.gen::<u8>());
                         }
 
-                        let key = format!("{user_id}:{x}");
+                        let key = format!("{user_id}:{x:0>10}");
                         let key = key.as_bytes();
 
                         db.insert(key, &val, false, args.clone());
@@ -591,7 +591,7 @@ fn main() {
                 .map(|idx| {
                     let args = args.clone();
                     let db = db.clone();
-                    let user_id = format!("user{idx}");
+                    let user_id = format!("user{idx:0>2}");
 
                     std::thread::spawn(move || {
                         let mut rng = rand::thread_rng();
@@ -606,13 +606,13 @@ fn main() {
                                     val.push(rng.gen::<u8>());
                                 }
 
-                                let key = format!("{user_id}:{records}");
+                                let key = format!("{user_id}:{records:0>10}");
                                 let key = key.as_bytes();
 
                                 db.insert(key, &val, args.fsync, args.clone());
                                 records += 1;
                             } else {
-                                let key = format!("{user_id}:{}", records - 1);
+                                let key = format!("{user_id}:{:0>10}", records - 1);
                                 let key = key.as_bytes();
 
                                 db.get(key).unwrap();
@@ -636,7 +636,7 @@ fn main() {
                 let mut rng = rand::thread_rng();
 
                 for idx in 0..users {
-                    let user_id = format!("user{idx}");
+                    let user_id = format!("user{idx:0>2}");
 
                     for x in 0..args.items {
                         let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
@@ -644,7 +644,7 @@ fn main() {
                             val.push(rng.gen::<u8>());
                         }
 
-                        let key = format!("{user_id}:{x}");
+                        let key = format!("{user_id:0>2}:{x:0>10}");
                         let key = key.as_bytes();
 
                         db.insert(key, &val, false, args.clone());
@@ -656,7 +656,7 @@ fn main() {
                 .map(|idx| {
                     let args = args.clone();
                     let db = db.clone();
-                    let user_id = format!("user{idx}");
+                    let user_id = format!("user{idx:0>2}");
 
                     std::thread::spawn(move || {
                         let mut rng = rand::thread_rng();
@@ -671,7 +671,7 @@ fn main() {
                                     val.push(rng.gen::<u8>());
                                 }
 
-                                let key = format!("{user_id}:{records}");
+                                let key = format!("{user_id}:{records:0>10}");
                                 let key = key.as_bytes();
 
                                 db.insert(key, &val, args.fsync, args.clone());
@@ -681,7 +681,7 @@ fn main() {
                                     ZipfDistribution::new((records - 1) as usize, 0.99).unwrap();
                                 let x = zipf.sample(&mut rng);
 
-                                let key = format!("{user_id}:{x}");
+                                let key = format!("{user_id}:{x:0>10}");
                                 let key = key.as_bytes();
 
                                 db.get(key).unwrap();
@@ -705,7 +705,7 @@ fn main() {
                 let mut rng = rand::thread_rng();
 
                 for idx in 0..users {
-                    let user_id = format!("user{idx}");
+                    let user_id = format!("user{idx:0>2}");
 
                     for x in 0..args.items {
                         let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
@@ -713,7 +713,7 @@ fn main() {
                             val.push(rng.gen::<u8>());
                         }
 
-                        let key = format!("{user_id}:{x}");
+                        let key = format!("{user_id}:{x:0>10}");
                         let key = key.as_bytes();
 
                         db.insert(key, &val, false, args.clone());
@@ -725,7 +725,7 @@ fn main() {
                 .map(|idx| {
                     let args = args.clone();
                     let db = db.clone();
-                    let user_id = format!("user{idx}");
+                    let user_id = format!("user{idx:0>2}");
 
                     std::thread::spawn(move || {
                         let mut rng = rand::thread_rng();
@@ -740,7 +740,7 @@ fn main() {
                                     val.push(rng.gen::<u8>());
                                 }
 
-                                let key = format!("{user_id}:{records}");
+                                let key = format!("{user_id}:{records:0>10}");
                                 let key = key.as_bytes();
 
                                 db.insert(key, &val, args.fsync, args.clone());
@@ -750,7 +750,7 @@ fn main() {
                                     ZipfDistribution::new((records - 1) as usize, 0.99).unwrap();
                                 let x = zipf.sample(&mut rng);
 
-                                let key = format!("{user_id}:{x}");
+                                let key = format!("{user_id}:{x:0>10}");
                                 let key = key.as_bytes();
 
                                 db.get(key).unwrap();
