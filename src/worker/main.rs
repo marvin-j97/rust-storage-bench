@@ -73,7 +73,11 @@ fn main() {
         Backend::RocksDb => {
             create_dir_all(&data_dir).unwrap();
 
-            let db = rocksdb::DB::open_default(&data_dir).unwrap();
+            let mut opts = rocksdb::Options::default();
+            opts.set_manual_wal_flush(true);
+            opts.create_if_missing(true);
+
+            let db = rocksdb::DB::open(&opts, &data_dir).unwrap();
             GenericDatabase::RocksDb(Arc::new(db))
         }
 
