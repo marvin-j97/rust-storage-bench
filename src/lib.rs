@@ -30,7 +30,7 @@ impl std::fmt::Display for Backend {
                 Self::Fjall => "fjall 1.1.3",
                 Self::Persy => "persy 1.5.0",
                 Self::JammDb => "jammdb 0.11.0",
-                Self::Redb => "redb 2.1.0",
+                Self::Redb => "redb 2.1.1",
                 Self::Nebari => "nebari 0.5.5",
 
                 #[cfg(feature = "heed")]
