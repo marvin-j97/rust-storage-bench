@@ -42,7 +42,8 @@ type MetricEntry = {
   disk_mib_w: number;
   disk_mib_r: number;
   space_amp: number;
-  write_amp?: number;
+  write_amp: number;
+  read_amp: number;
   dataset_size?: number;
   write_ops: number
   read_ops: number
@@ -97,7 +98,7 @@ const baseOptions: ApexChartProps["options"] = {
     show: false,
   },
   tooltip: {
-    enabled: false,
+    enabled: true,
   },
   dataLabels: {
     enabled: false
@@ -181,7 +182,7 @@ function WriteLatencyHistory(props: { series: HistoryEntry[][] }) {
       name: setupInfo.backend,
       data: metrics.map(({ time_micro, avg_write_latency }) => ({
         x: (time_micro - start) / 1000 / 1000,
-        y: avg_write_latency,
+        y: (avg_write_latency /  1000),
       })),
       color: colors[idx % colors.length]
     } satisfies ApexAxisChartSeries[0]
@@ -205,7 +206,7 @@ function ReadLatencyHistory(props: { series: HistoryEntry[][] }) {
       name: setupInfo.backend,
       data: metrics.map(({ time_micro, avg_read_latency }) => ({
         x: (time_micro - start) / 1000 / 1000,
-        y: avg_read_latency,
+        y: (avg_read_latency / 1000),
       })),
       color: colors[idx % colors.length]
     } satisfies ApexAxisChartSeries[0]
@@ -227,11 +228,9 @@ function WriteAmpHistory(props: { series: HistoryEntry[][] }) {
 
     return {
       name: setupInfo.backend,
-      data: metrics.map(({ time_micro, du_mib, disk_mib_w, write_amp }) => ({
+      data: metrics.map(({ time_micro, write_amp }) => ({
         x: (time_micro - start) / 1000 / 1000,
-        y: write_amp ??
-          // TODO: remove
-          (disk_mib_w / du_mib),
+        y: write_amp,
       })),
       color: colors[idx % colors.length]
     } satisfies ApexAxisChartSeries[0]
@@ -240,6 +239,34 @@ function WriteAmpHistory(props: { series: HistoryEntry[][] }) {
   return <LineChart
     yFormatter={(n) => `${(n).toFixed(1)}x`}
     title="Write amplification (lower is better)"
+    series={series()}
+    yaxis={{
+      min: 0,
+      max: (n) => Math.min(1_000, n),
+    }}
+  />;
+}
+
+function ReadAmpHistory(props: { series: HistoryEntry[][] }) {
+  const series = () => props.series.map((series, idx) => {
+    const metrics = series.slice(2);
+    const start = metrics[0].time_micro;
+
+    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+
+    return {
+      name: setupInfo.backend,
+      data: metrics.map(({ time_micro, read_amp }) => ({
+        x: (time_micro - start) / 1000 / 1000,
+        y: read_amp,
+      })),
+      color: colors[idx % colors.length]
+    } satisfies ApexAxisChartSeries[0]
+  });
+
+  return <LineChart
+    yFormatter={(n) => `${(n).toFixed(1)}x`}
+    title="Read amplification (lower is better)"
     series={series()}
     yaxis={{
       min: 0,
@@ -292,6 +319,30 @@ function DiskWritesCumulative(props: { series: HistoryEntry[][] }) {
   return <LineChart
     yFormatter={(n) => `${formatThousands(n)} MiB`}
     title="Written bytes cumulative"
+    series={series()}
+  />;
+}
+
+function DiskReadsCumulative(props: { series: HistoryEntry[][] }) {
+  const series = () => props.series.map((series, idx) => {
+    const metrics = series.slice(2);
+    const start = metrics[0].time_micro;
+
+    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+
+    return {
+      name: setupInfo.backend,
+      data: metrics.map(({ time_micro, disk_mib_r }) => ({
+        x: (time_micro - start) / 1000 / 1000,
+        y: disk_mib_r,
+      })),
+      color: colors[idx % colors.length]
+    } satisfies ApexAxisChartSeries[0]
+  });
+
+  return <LineChart
+    yFormatter={(n) => `${formatThousands(n)} MiB`}
+    title="Read bytes cumulative"
     series={series()}
   />;
 }
@@ -366,7 +417,7 @@ function SpaceAmpHistory(props: { series: HistoryEntry[][] }) {
     title="Space amplification (lower is better)"
     series={series()}
     yaxis={{
-      min: 1,
+      min: 0,
       max: (n) => Math.min(5, n),
     }}
   />;
@@ -592,12 +643,14 @@ function App() {
             <DiskSpaceUsageHistory series={items()} />
             <SpaceAmpHistory series={items()} />
             <WriteAmpHistory series={items()} />
+            <ReadAmpHistory series={items()} />
             <DiskWritesCumulative series={items()} />
-            <DatasetSizeHistory series={items()} />
+            <DiskReadsCumulative series={items()} />
           </div>
           <div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
             <WriteHistory series={items()} />
             <ReadHistory series={items()} />
+            <DatasetSizeHistory series={items()} />
           </div>
           <div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
             <WriteLatencyHistory series={items()} />

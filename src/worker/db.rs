@@ -9,6 +9,7 @@ use std::{
 #[derive(Clone)]
 pub struct DatabaseWrapper {
     pub inner: GenericDatabase,
+    pub real_data_size: Arc<AtomicU64>,
     pub write_ops: Arc<AtomicU64>,
     pub read_ops: Arc<AtomicU64>,
     pub delete_ops: Arc<AtomicU64>,
@@ -38,7 +39,7 @@ pub enum GenericDatabase {
     Persy(persy::Persy),
     Redb(Arc<redb::Database>),
     Nebari {
-        roots: nebari::Roots<StdFile>,
+        _roots: nebari::Roots<StdFile>,
         tree: nebari::Tree<Unversioned, StdFile>,
     },
 
@@ -55,7 +56,9 @@ pub enum GenericDatabase {
 const TABLE: TableDefinition<&[u8], Vec<u8>> = TableDefinition::new("data");
 
 impl DatabaseWrapper {
-    pub fn insert(&self, key: &[u8], value: &[u8], durable: bool, args: Arc<Args>) {
+    pub fn insert(&self, key: &[u8], value: &[u8], durable: bool, _args: Arc<Args>) {
+        let start = Instant::now();
+
         match &self.inner {
             #[cfg(feature = "rocksdb")]
             GenericDatabase::RocksDb(db) => {
@@ -87,7 +90,7 @@ impl DatabaseWrapper {
                     std::sync::atomic::Ordering::Relaxed,
                 );
             }
-            GenericDatabase::Nebari { roots: _, tree } => {
+            GenericDatabase::Nebari { tree, .. } => {
                 if !durable {
                     log::warn!("WARNING: Nebari does not support eventual durability");
                 }
@@ -95,88 +98,51 @@ impl DatabaseWrapper {
                 let key = key.to_vec();
                 let value = key.to_vec();
 
-                let start = Instant::now();
-
                 tree.set(key, value).unwrap();
-
-                self.write_latency.fetch_add(
-                    start.elapsed().as_micros() as u64,
-                    std::sync::atomic::Ordering::Relaxed,
-                );
             }
             GenericDatabase::Fjall { keyspace, db } => {
-                let start = Instant::now();
-
                 db.insert(key, value).unwrap();
 
                 if durable {
-                    keyspace.persist(fjall::FlushMode::SyncAll).unwrap();
+                    keyspace.persist(fjall::PersistMode::SyncAll).unwrap();
                 }
-
-                self.write_latency.fetch_add(
-                    start.elapsed().as_micros() as u64,
-                    std::sync::atomic::Ordering::Relaxed,
-                );
             }
             GenericDatabase::Sled(db) => {
-                let start = Instant::now();
-
                 db.insert(key, value).unwrap();
 
                 if durable {
                     db.flush().unwrap();
                 }
-
-                self.write_latency.fetch_add(
-                    start.elapsed().as_micros() as u64,
-                    std::sync::atomic::Ordering::Relaxed,
-                );
             }
             // GenericDatabase::Bloodstone(db) => {
-            //     let start = Instant::now();
-
             //     db.insert(key, value).unwrap();
 
             //     if durable {
             //         db.flush().unwrap();
             //     } else if args.sled_flush {
             //         // NOTE: TODO: OOM Workaround
-            //         // Intermittenly flush sled to keep memory usage sane
+            //         // Intermittently flush sled to keep memory usage sane
             //         // This is hopefully a temporary workaround
             //         if self.write_ops.load(std::sync::atomic::Ordering::Relaxed) % 5_000_000 == 0 {
             //             db.flush().unwrap();
             //         }
             //     }
-
-            //     self.write_latency.fetch_add(
-            //         start.elapsed().as_micros() as u64,
-            //         std::sync::atomic::Ordering::Relaxed,
-            //     );
             // }
             GenericDatabase::Jamm(db) => {
                 if !durable {
                     log::warn!("WARNING: JammDB does not support eventual durability",);
                 }
 
-                let start = Instant::now();
-
                 let tx = db.tx(true).unwrap();
                 let bucket = tx.get_bucket("data").unwrap();
                 bucket.put(key, value).unwrap();
                 tx.commit().unwrap();
-
-                self.write_latency.fetch_add(
-                    start.elapsed().as_micros() as u64,
-                    std::sync::atomic::Ordering::Relaxed,
-                );
             }
             GenericDatabase::Persy(db) => {
                 use persy::{PersyId, TransactionConfig};
 
                 let key = String::from_utf8_lossy(key);
                 let key = key.to_string();
-
-                let start = Instant::now();
 
                 let mut tx = db
                     .begin_with(TransactionConfig::new().set_background_sync(!durable))
@@ -187,34 +153,34 @@ impl DatabaseWrapper {
                 let prepared = tx.prepare().unwrap();
 
                 prepared.commit().unwrap();
-
-                self.write_latency.fetch_add(
-                    start.elapsed().as_micros() as u64,
-                    std::sync::atomic::Ordering::Relaxed,
-                );
             }
             GenericDatabase::Redb(db) => {
-                use redb::Durability::{Eventual, Immediate};
-
-                let start = Instant::now();
+                use redb::Durability;
 
                 let mut write_txn = db.begin_write().unwrap();
 
-                write_txn.set_durability(if durable { Immediate } else { Eventual });
+                // REDB doesn't support/recommend _completely_ non-durable usage.
+                // Work around that by injecting a durable commit every 1000 writes or so.
+                let durable = durable
+                    || self.write_ops.load(std::sync::atomic::Ordering::Relaxed) % 10_000 == 0;
+                write_txn.set_durability(if durable {
+                    Durability::Immediate
+                } else {
+                    Durability::None
+                });
 
                 {
                     let mut table = write_txn.open_table(TABLE).unwrap();
                     table.insert(key, value.to_vec()).unwrap();
                 }
                 write_txn.commit().unwrap();
-
-                self.write_latency.fetch_add(
-                    start.elapsed().as_micros() as u64,
-                    std::sync::atomic::Ordering::Relaxed,
-                );
             }
         }
 
+        self.write_latency.fetch_add(
+            start.elapsed().as_nanos() as u64,
+            std::sync::atomic::Ordering::Relaxed,
+        );
         self.write_ops
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
@@ -233,7 +199,7 @@ impl DatabaseWrapper {
                 ret.map(|x| x.to_vec())
             }
 
-            GenericDatabase::Nebari { roots: _, tree } => {
+            GenericDatabase::Nebari { tree, .. } => {
                 let item = tree.get(key).unwrap();
                 item.map(|x| x.to_vec())
             }
@@ -265,10 +231,9 @@ impl DatabaseWrapper {
         };
 
         self.read_latency.fetch_add(
-            start.elapsed().as_micros() as u64,
+            start.elapsed().as_nanos() as u64,
             std::sync::atomic::Ordering::Relaxed,
         );
-
         self.read_ops
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 

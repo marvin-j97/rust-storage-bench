@@ -3,12 +3,12 @@ mod db;
 use crate::db::DatabaseWrapper;
 use clap::Parser;
 use db::GenericDatabase;
-use rand::distributions::Distribution;
-use rand::Rng;
+use rand::{distributions::Distribution, prelude::*};
 use rust_storage_bench::{Args, Backend, Workload};
 use std::fs::{create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;
+use std::sync::atomic::Ordering::Relaxed;
 use std::sync::Arc;
 use std::time::Duration;
 use sysinfo::Pid;
@@ -31,14 +31,26 @@ fn start_killer(min: u64) {
     });
 }
 
-/*
-#[cfg(not(target_env = "msvc"))]
+#[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
 use jemallocator::Jemalloc;
 
-#[cfg(not(target_env = "msvc"))]
+#[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
-*/
+
+fn fill_value(args: &Args, rng: &mut impl Rng, val: &mut Vec<u8>) {
+    const SHAKESPERE: &[u8] = include_bytes!("../../shakespere.txt");
+    if args.compressible_value {
+        let mut write = &mut val[..];
+        while !write.is_empty() {
+            write
+                .write(&SHAKESPERE[rng.gen_range(0..SHAKESPERE.len())..])
+                .unwrap();
+        }
+    } else {
+        rng.fill_bytes(val);
+    }
+}
 
 fn main() {
     env_logger::Builder::from_default_env().init();
@@ -99,26 +111,27 @@ fn main() {
             GenericDatabase::Heed { db, env }
         }
         Backend::Fjall => {
-            use fjall::{
-                compaction::{Levelled, SizeTiered, Strategy},
-                BlockCache, PartitionCreateOptions,
-            };
+            use fjall::{compaction::Strategy, BlockCache, PartitionCreateOptions};
 
-            let compaction_strategy: Arc<dyn Strategy + Send + Sync> = match args.lsm_compaction {
-                rust_storage_bench::LsmCompaction::Leveled => Arc::new(Levelled::default()),
-                rust_storage_bench::LsmCompaction::Tiered => Arc::new(SizeTiered::default()),
+            let compaction_strategy = match args.lsm_compaction {
+                rust_storage_bench::LsmCompaction::Leveled => Strategy::Leveled(Default::default()),
+                rust_storage_bench::LsmCompaction::Tiered => {
+                    Strategy::SizeTiered(Default::default())
+                }
             };
 
             let config = fjall::Config::new(&data_dir)
                 .fsync_ms(if args.fsync { None } else { Some(1_000) })
+                .max_write_buffer_size(args.write_buffer_size as u64)
                 .block_cache(BlockCache::with_capacity_bytes(args.cache_size.into()).into());
 
-            let create_opts =
-                PartitionCreateOptions::default().block_size(args.lsm_block_size.into());
+            let create_opts = PartitionCreateOptions::default()
+                .block_size(args.lsm_block_size.into())
+                .compaction_strategy(compaction_strategy)
+                .max_memtable_size(args.write_buffer_size as u32);
 
             let keyspace = config.open().unwrap();
             let db = keyspace.open_partition("data", create_opts).unwrap();
-            db.set_compaction_strategy(compaction_strategy);
 
             GenericDatabase::Fjall { keyspace, db }
         }
@@ -191,7 +204,10 @@ fn main() {
                 .unwrap();
             let tree = roots.tree(Unversioned::tree("data")).unwrap();
 
-            GenericDatabase::Nebari { roots, tree }
+            GenericDatabase::Nebari {
+                _roots: roots,
+                tree,
+            }
         }
     };
 
@@ -203,6 +219,7 @@ fn main() {
         scan_ops: Default::default(),
         read_latency: Default::default(),
         write_latency: Default::default(),
+        real_data_size: Default::default(),
     };
 
     {
@@ -210,8 +227,6 @@ fn main() {
         let args = args.clone();
 
         std::thread::spawn(move || {
-            use std::sync::atomic::Ordering::Relaxed;
-
             let backend = match args.backend {
                 Backend::Fjall => format!("{} {}", args.backend, args.lsm_compaction),
                 _ => args.backend.to_string(),
@@ -281,12 +296,15 @@ fn main() {
                     let write_ops = db.write_ops.load(Relaxed);
                     let read_ops = db.read_ops.load(Relaxed);
 
-                    let dataset_size_bytes =
+                    let real_dataset_size_bytes = db.real_data_size.load(Relaxed) as f64;
+                    let space_amp = du_bytes as f64 / real_dataset_size_bytes;
+
+                    let write_dataset_size_bytes =
                         write_ops as f64 * (args.key_size as f64 + args.value_size as f64);
-
-                    let space_amp = du_bytes as f64 / dataset_size_bytes;
-
-                    let write_amp = disk.total_written_bytes as f64 / dataset_size_bytes;
+                    let write_amp = disk.total_written_bytes as f64 / write_dataset_size_bytes;
+                    let read_dataset_size_bytes =
+                        read_ops as f64 * (args.key_size as f64 + args.value_size as f64);
+                    let read_amp = disk.total_read_bytes as f64 / read_dataset_size_bytes;
 
                     let accumulated_write_latency = db
                         .write_latency
@@ -321,7 +339,8 @@ fn main() {
                         "du_mib": (du_bytes as f32) / 1024.0 / 1024.0,
                         "space_amp": space_amp,
                         "write_amp": write_amp,
-                        "dataset_size": dataset_size_bytes,
+                        "read_amp": read_amp,
+                        "dataset_size": real_dataset_size_bytes,
                         "avg_write_latency": avg_write_latency,
                         "avg_read_latency": avg_read_latency,
                     });
@@ -346,6 +365,20 @@ fn main() {
         });
     }
 
+    let _args_is_random = args.random;
+    let map_key = move |k: u32| {
+        let mut h = std::num::Wrapping::<u32>(k);
+        if _args_is_random {
+            // murmurmix32
+            h ^= h >> 16;
+            h *= 0x85ebca6b;
+            h ^= h >> 13;
+            h *= 0xc2b2ae35;
+            h ^= h >> 16;
+        }
+        h.0
+    };
+
     match args.workload {
         Workload::TaskA => {
             let users = args.threads;
@@ -357,15 +390,16 @@ fn main() {
                     let user_id = format!("user{idx:0>2}");
 
                     for x in 0..args.items {
-                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
-                        for _ in 0..args.value_size {
-                            val.push(rng.gen::<u8>());
-                        }
+                        let x = map_key(x);
+                        let mut val: Vec<u8> = vec![0; args.value_size as usize];
+                        fill_value(&args, &mut rng, &mut val);
 
                         let key = format!("{user_id}:{x:0>10}");
                         let key = key.as_bytes();
 
                         db.insert(key, &val, false, args.clone());
+                        db.real_data_size
+                            .fetch_add((key.len() + val.len()) as u64, Relaxed);
                     }
                 }
             }
@@ -379,20 +413,21 @@ fn main() {
                     std::thread::spawn(move || {
                         let mut rng = rand::thread_rng();
 
-                        let zipf = ZipfDistribution::new((args.items - 1) as usize, 0.99).unwrap();
+                        let zipf =
+                            ZipfDistribution::new((args.items - 1) as usize, args.zipf_exponent)
+                                .unwrap();
 
                         loop {
                             let x = zipf.sample(&mut rng);
+                            let x = map_key(x as u32);
                             let key = format!("{user_id}:{x:0>10}");
                             let key = key.as_bytes();
 
                             let choice: f32 = rng.gen_range(0.0..1.0);
 
                             if choice > 0.5 {
-                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
-                                for _ in 0..args.value_size {
-                                    val.push(rng.gen::<u8>());
-                                }
+                                let mut val: Vec<u8> = vec![0; args.value_size as usize];
+                                fill_value(&args, &mut rng, &mut val);
 
                                 db.insert(key, &val, args.fsync, args.clone());
                             } else {
@@ -420,15 +455,16 @@ fn main() {
                     let user_id = format!("user{idx:0>2}");
 
                     for x in 0..args.items {
-                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
-                        for _ in 0..args.value_size {
-                            val.push(rng.gen::<u8>());
-                        }
+                        let x = map_key(x);
+                        let mut val: Vec<u8> = vec![0; args.value_size as usize];
+                        fill_value(&args, &mut rng, &mut val);
 
                         let key = format!("{user_id}:{x:0>10}");
                         let key = key.as_bytes();
 
                         db.insert(key, &val, false, args.clone());
+                        db.real_data_size
+                            .fetch_add((key.len() + val.len()) as u64, Relaxed);
                     }
                 }
             }
@@ -442,20 +478,21 @@ fn main() {
                     std::thread::spawn(move || {
                         let mut rng = rand::thread_rng();
 
-                        let zipf = ZipfDistribution::new((args.items - 1) as usize, 0.99).unwrap();
+                        let zipf =
+                            ZipfDistribution::new((args.items - 1) as usize, args.zipf_exponent)
+                                .unwrap();
 
                         loop {
                             let x = zipf.sample(&mut rng);
+                            let x = map_key(x as u32);
                             let key = format!("{user_id}:{x:0>10}");
                             let key = key.as_bytes();
 
                             let choice: f32 = rng.gen_range(0.0..1.0);
 
                             if choice > 0.95 {
-                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
-                                for _ in 0..args.value_size {
-                                    val.push(rng.gen::<u8>());
-                                }
+                                let mut val: Vec<u8> = vec![0; args.value_size as usize];
+                                fill_value(&args, &mut rng, &mut val);
 
                                 db.insert(key, &val, args.fsync, args.clone());
                             } else {
@@ -477,22 +514,25 @@ fn main() {
             let mut rng = rand::thread_rng();
 
             for x in 0..args.items {
+                let x = map_key(x);
                 let key = (x as u64).to_be_bytes();
 
-                let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
-                for _ in 0..args.value_size {
-                    val.push(rng.gen::<u8>());
-                }
+                let mut val: Vec<u8> = vec![0; args.value_size as usize];
+                fill_value(&args, &mut rng, &mut val);
 
                 db.insert(&key, &val, false, args.clone());
+                db.real_data_size
+                    .fetch_add((key.len() + val.len()) as u64, Relaxed);
             }
 
             start_killer(args.minutes.into());
 
-            let zipf = ZipfDistribution::new((args.items - 1) as usize, 0.99).unwrap();
+            let zipf =
+                ZipfDistribution::new((args.items - 1) as usize, args.zipf_exponent).unwrap();
 
             loop {
                 let x = zipf.sample(&mut rng);
+                let x = map_key(x as u32);
                 let key = (x as u64).to_be_bytes();
 
                 db.get(&key).unwrap();
@@ -509,15 +549,16 @@ fn main() {
                     let user_id = format!("user{idx:0>2}");
 
                     for x in 0..args.items {
-                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
-                        for _ in 0..args.value_size {
-                            val.push(rng.gen::<u8>());
-                        }
+                        let x = map_key(x);
+                        let mut val: Vec<u8> = vec![0; args.value_size as usize];
+                        fill_value(&args, &mut rng, &mut val);
 
                         let key = format!("{user_id}:{x:0>10}");
                         let key = key.as_bytes();
 
                         db.insert(key, &val, false, args.clone());
+                        db.real_data_size
+                            .fetch_add((key.len() + val.len()) as u64, Relaxed);
                     }
                 }
             }
@@ -536,15 +577,16 @@ fn main() {
                             let choice: f32 = rng.gen_range(0.0..1.0);
 
                             if choice > 0.95 {
-                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
-                                for _ in 0..args.value_size {
-                                    val.push(rng.gen::<u8>());
-                                }
+                                let mut val: Vec<u8> = vec![0; args.value_size as usize];
+                                fill_value(&args, &mut rng, &mut val);
 
-                                let key = format!("{user_id}:{records:0>10}");
+                                let x = map_key(records);
+                                let key = format!("{user_id}:{x:0>10}");
                                 let key = key.as_bytes();
 
                                 db.insert(key, &val, args.fsync, args.clone());
+                                db.real_data_size
+                                    .fetch_add((key.len() + val.len()) as u64, Relaxed);
                                 records += 1;
                             } else {
                                 let key = format!("{user_id}:{:0>10}", records - 1);
@@ -574,15 +616,16 @@ fn main() {
                     let user_id = format!("user{idx:0>2}");
 
                     for x in 0..args.items {
-                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
-                        for _ in 0..args.value_size {
-                            val.push(rng.gen::<u8>());
-                        }
+                        let x = map_key(x);
+                        let mut val: Vec<u8> = vec![0; args.value_size as usize];
+                        fill_value(&args, &mut rng, &mut val);
 
                         let key = format!("{user_id}:{x:0>10}");
                         let key = key.as_bytes();
 
                         db.insert(key, &val, false, args.clone());
+                        db.real_data_size
+                            .fetch_add((key.len() + val.len()) as u64, Relaxed);
                     }
                 }
             }
@@ -601,15 +644,16 @@ fn main() {
                             let choice: f32 = rng.gen_range(0.0..1.0);
 
                             if choice < 0.95 {
-                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
-                                for _ in 0..args.value_size {
-                                    val.push(rng.gen::<u8>());
-                                }
+                                let mut val: Vec<u8> = vec![0; args.value_size as usize];
+                                fill_value(&args, &mut rng, &mut val);
 
-                                let key = format!("{user_id}:{records:0>10}");
+                                let x = map_key(records);
+                                let key = format!("{user_id}:{x}");
                                 let key = key.as_bytes();
 
                                 db.insert(key, &val, args.fsync, args.clone());
+                                db.real_data_size
+                                    .fetch_add((key.len() + val.len()) as u64, Relaxed);
                                 records += 1;
                             } else {
                                 let key = format!("{user_id}:{:0>10}", records - 1);
@@ -639,15 +683,16 @@ fn main() {
                     let user_id = format!("user{idx:0>2}");
 
                     for x in 0..args.items {
-                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
-                        for _ in 0..args.value_size {
-                            val.push(rng.gen::<u8>());
-                        }
+                        let x = map_key(x);
+                        let mut val: Vec<u8> = vec![0; args.value_size as usize];
+                        fill_value(&args, &mut rng, &mut val);
 
                         let key = format!("{user_id:0>2}:{x:0>10}");
                         let key = key.as_bytes();
 
                         db.insert(key, &val, false, args.clone());
+                        db.real_data_size
+                            .fetch_add((key.len() + val.len()) as u64, Relaxed);
                     }
                 }
             }
@@ -666,20 +711,25 @@ fn main() {
                             let choice: f32 = rng.gen_range(0.0..1.0);
 
                             if choice > 0.95 {
-                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
-                                for _ in 0..args.value_size {
-                                    val.push(rng.gen::<u8>());
-                                }
+                                let mut val: Vec<u8> = vec![0; args.value_size as usize];
+                                fill_value(&args, &mut rng, &mut val);
 
-                                let key = format!("{user_id}:{records:0>10}");
+                                let x = map_key(records);
+                                let key = format!("{user_id}:{x:0>10}");
                                 let key = key.as_bytes();
 
                                 db.insert(key, &val, args.fsync, args.clone());
+                                db.real_data_size
+                                    .fetch_add((key.len() + val.len()) as u64, Relaxed);
                                 records += 1;
                             } else {
-                                let zipf =
-                                    ZipfDistribution::new((records - 1) as usize, 0.99).unwrap();
+                                let zipf = ZipfDistribution::new(
+                                    (records - 1) as usize,
+                                    args.zipf_exponent,
+                                )
+                                .unwrap();
                                 let x = zipf.sample(&mut rng);
+                                let x = map_key(x as u32);
 
                                 let key = format!("{user_id}:{x:0>10}");
                                 let key = key.as_bytes();
@@ -708,15 +758,16 @@ fn main() {
                     let user_id = format!("user{idx:0>2}");
 
                     for x in 0..args.items {
-                        let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
-                        for _ in 0..args.value_size {
-                            val.push(rng.gen::<u8>());
-                        }
+                        let x = map_key(x);
+                        let mut val: Vec<u8> = vec![0; args.value_size as usize];
+                        fill_value(&args, &mut rng, &mut val);
 
                         let key = format!("{user_id}:{x:0>10}");
                         let key = key.as_bytes();
 
                         db.insert(key, &val, false, args.clone());
+                        db.real_data_size
+                            .fetch_add((key.len() + val.len()) as u64, Relaxed);
                     }
                 }
             }
@@ -735,20 +786,25 @@ fn main() {
                             let choice: f32 = rng.gen_range(0.0..1.0);
 
                             if choice < 0.95 {
-                                let mut val: Vec<u8> = Vec::with_capacity(args.value_size as usize);
-                                for _ in 0..args.value_size {
-                                    val.push(rng.gen::<u8>());
-                                }
+                                let mut val: Vec<u8> = vec![0; args.value_size as usize];
+                                fill_value(&args, &mut rng, &mut val);
 
-                                let key = format!("{user_id}:{records:0>10}");
+                                let x = map_key(records);
+                                let key = format!("{user_id}:{x:0>10}");
                                 let key = key.as_bytes();
 
                                 db.insert(key, &val, args.fsync, args.clone());
+                                db.real_data_size
+                                    .fetch_add((key.len() + val.len()) as u64, Relaxed);
                                 records += 1;
                             } else {
-                                let zipf =
-                                    ZipfDistribution::new((records - 1) as usize, 0.99).unwrap();
+                                let zipf = ZipfDistribution::new(
+                                    (records - 1) as usize,
+                                    args.zipf_exponent,
+                                )
+                                .unwrap();
                                 let x = zipf.sample(&mut rng);
+                                let x = map_key(x as u32);
 
                                 let key = format!("{user_id}:{x:0>10}");
                                 let key = key.as_bytes();

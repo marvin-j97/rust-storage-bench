@@ -111,14 +111,21 @@ pub struct Args {
     #[arg(long, default_value_t = 1)]
     pub threads: u8,
 
-    #[arg(long)]
+    /// How many items to pre-load the database with before starting the workload
+    #[arg(long, default_value_t = 1000000)]
     pub items: u32,
 
-    #[arg(long)]
+    // FIXME: this isn't being respected
+    #[arg(long, default_value_t = 64)]
     pub key_size: u8,
 
-    #[arg(long)]
+    #[arg(long, default_value_t = 1024)]
     pub value_size: u32,
+
+    /// When set the values used are snippets of Shakespere works,
+    /// instead of random (uncompressible values)
+    #[arg(long, default_value_t = true)]
+    pub compressible_value: bool,
 
     /// Block size for LSM-trees
     #[arg(long, default_value_t = 4_096)]
@@ -133,8 +140,12 @@ pub struct Args {
     #[arg(long, default_value_t = false)]
     pub sled_flush: bool,
 
-    #[arg(long, default_value_t = 16_000_000)]
+    #[arg(long, default_value_t = 512_000_000)]
     pub cache_size: u32,
+
+    /// Memtable/write-buffer size where applicable
+    #[arg(long, default_value_t = 64_000_000)]
+    pub write_buffer_size: u32,
 
     #[arg(long, default_value = "log.jsonl")]
     pub out: String,
@@ -147,4 +158,14 @@ pub struct Args {
 
     #[arg(long, default_value_t = 1)]
     pub minutes: u16,
+
+    /// If set, use a random keyspace, where the hot keys (zipf distribution)
+    /// are distributed throughout the keyspace.
+    /// If not set, uses monotonically increasing keys, where the hot keys (zipf distribution)
+    /// are concentrated at the beginning of the keyspace.
+    #[arg(long, default_value_t = false)]
+    pub random: bool,
+
+    #[arg(long, default_value_t = 0.99)]
+    pub zipf_exponent: f64,
 }
