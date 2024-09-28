@@ -149,6 +149,7 @@ function App() {
       pointReadOps.push(pointReadSeries);
       pointReadLatency.push(pointReadLatSeries);
     }
+    // TODO: file input if there are no embedded metrics file
 
     setSetups(setups);
 
