@@ -16,4 +16,4 @@ Cargo.lock
 .data
 *.jsonl
 node_modules
-.results
+.results*

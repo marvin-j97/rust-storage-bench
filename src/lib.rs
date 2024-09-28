@@ -1,11 +1,12 @@
 use clap::{Parser, ValueEnum};
 use serde::Serialize;
+use std::path::PathBuf;
 
 #[derive(Copy, Eq, PartialEq, Debug, Clone, ValueEnum, Serialize)]
 #[clap(rename_all = "kebab_case")]
 pub enum Backend {
     Sled,
-    // Bloodstone,
+    Bloodstone,
     Fjall,
     Persy,
     JammDb,
@@ -26,11 +27,11 @@ impl std::fmt::Display for Backend {
             "{}",
             match self {
                 Self::Sled => "sled 0.34.7",
-                // Self::Bloodstone => "sled 1.0.0-alpha.118",
-                Self::Fjall => "fjall 1.0.2",
+                Self::Bloodstone => "sled 1.0.0-alpha.118",
+                Self::Fjall => "fjall 2",
                 Self::Persy => "persy 1.5.0",
                 Self::JammDb => "jammdb 0.11.0",
-                Self::Redb => "redb 2.1.0",
+                Self::Redb => "redb 2.1.1",
                 Self::Nebari => "nebari 0.5.5",
 
                 #[cfg(feature = "heed")]
@@ -46,7 +47,48 @@ impl std::fmt::Display for Backend {
 #[derive(Copy, Debug, Clone, ValueEnum, Serialize, PartialEq, Eq)]
 #[clap(rename_all = "kebab_case")]
 pub enum Workload {
-    /// Workload A: Update heavy workload
+    GarageBlockRef,
+
+    /// Workload A: (The company formerly known as Twitter)-style feed
+    ///
+    /// 1000 virtual users that post data to their feed
+    /// - each user's profile is stored as userID#p
+    /// - each post's key is: userID#f#cuid
+    ///
+    /// 90% a random virtual user's feed is queried by the last 10 items
+    ///
+    /// 10% a random virtual user will create a new post
+    Feed,
+
+    FeedWriteOnly,
+
+    // TODO: remove?
+    /// Workload B: Ingest 1 billion items as fast as possible
+    ///
+    /// Monotonic keys, no reads, no sync
+    Billion,
+
+    HtmlDump,
+
+    /// Webtable-esque storing of HTML documents per domain and deleting old versions
+    Webtable,
+
+    /// Monotonic writes and Zipfian point reads
+    Monotonic,
+
+    /// Mononic writes, then Zipfian point reads
+    MonotonicFixed,
+
+    MonotonicWriteOnly,
+
+    /// Mononic writes, then Zipfian point reads
+    MonotonicFixedRandom,
+
+    /// Timeseries data
+    ///
+    /// Monotonic keys, write-heavy, no sync, scan most recent data
+    Timeseries,
+    /*  /// Workload A: Update heavy workload
     ///
     /// Application example: Session store recording recent actions
     TaskA,
@@ -76,6 +118,8 @@ pub enum Workload {
 
     /// Workload G: Read zipfian workload with heavy inserts
     TaskG,
+
+    TaskI, */
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, clap::ValueEnum)]
@@ -97,6 +141,13 @@ impl std::fmt::Display for LsmCompaction {
     }
 }
 
+#[derive(Copy, Clone, ValueEnum, Debug, PartialEq, Eq)]
+pub enum Compression {
+    None,
+    Lz4,
+    Miniz,
+}
+
 /// CLI argument parse
 #[derive(Clone, Parser, Debug)]
 #[command(author = "marvin-j97", version = env!("CARGO_PKG_VERSION"), about = "Rust KV-store profiler")]
@@ -105,13 +156,16 @@ pub struct Args {
     #[arg(long, value_enum)]
     pub backend: Backend,
 
+    #[arg(long)]
+    pub display_name: Option<String>,
+
     #[arg(long, value_enum)]
     pub workload: Workload,
 
     #[arg(long, default_value_t = 1)]
     pub threads: u8,
 
-    #[arg(long)]
+    #[arg(long, default_value_t = 0)]
     pub items: u32,
 
     #[arg(long)]
@@ -119,6 +173,10 @@ pub struct Args {
 
     #[arg(long)]
     pub value_size: u32,
+
+    /// Use KV-separation
+    #[arg(long, alias = "lsm_kv_sep", default_value_t = false)]
+    pub lsm_kv_separation: bool,
 
     /// Block size for LSM-trees
     #[arg(long, default_value_t = 4_096)]
@@ -128,19 +186,23 @@ pub struct Args {
     #[arg(long, value_enum, default_value_t = LsmCompaction::Leveled)]
     pub lsm_compaction: LsmCompaction,
 
+    /// Compression for LSM-trees
+    #[arg(long, value_enum, default_value_t = Compression::Lz4)]
+    pub lsm_compression: Compression,
+
     /// Intermittenly flush sled to keep memory usage sane
     /// This is hopefully a temporary workaround
     #[arg(long, default_value_t = false)]
     pub sled_flush: bool,
 
     #[arg(long, default_value_t = 16_000_000)]
-    pub cache_size: u32,
+    pub cache_size: u64,
 
     #[arg(long, default_value = "log.jsonl")]
     pub out: String,
 
-    #[arg(long, default_value_t = false)]
-    pub snapshot_heap: bool,
+    #[arg(long)]
+    pub data_dir: PathBuf,
 
     #[arg(long, default_value_t = false)]
     pub fsync: bool,

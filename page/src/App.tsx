@@ -44,19 +44,26 @@ type MetricEntry = {
   space_amp: number;
   write_amp?: number;
   dataset_size?: number;
+
   write_ops: number
   read_ops: number
-  delete_ops: number
   scan_ops: number;
+  delete_ops: number;
 
   avg_write_latency: number;
   avg_read_latency: number;
+  avg_scan_latency: number;
+  avg_delete_latency: number;
 };
 
 const chartOptions: ApexChartProps["options"]["chart"] = {
   background: "#030712",
   animations: {
     enabled: false,
+  },
+  zoom: {
+    enabled: true,
+    type: "xy",
   },
   /* toolbar: {
     show: true,
@@ -89,7 +96,7 @@ const xaxisOptions: ApexChartProps["options"]["xaxis"] = {
 
 const colors = [
   "#a78bfa", "#38bdf8", "#4ade80", "#fbbf24",
-  "#f87171", "#f472b6", "#777777", "#fafafa",
+  "#4455FF", "#f472b6", "#ee5555", "#fafafa",
 ];
 
 const baseOptions: ApexChartProps["options"] = {
@@ -111,7 +118,7 @@ const baseOptions: ApexChartProps["options"] = {
   }
 }
 
-function LineChart(props: { xaxis?: ApexChartProps["options"]["xaxis"]; yaxis?: ApexChartProps["options"]["yaxis"], title: string, yFormatter: (val: number) => string, series: { name: string, data: { x: number, y: number }[] }[] }) {
+function LineChart(props: { dashed?: boolean; xaxis?: ApexChartProps["options"]["xaxis"]; yaxis?: ApexChartProps["options"]["yaxis"], title: string, yFormatter: (val: number) => string, series: { name: string, data: { x: number, y: number }[] }[] }) {
   const options = () => ({
     ...baseOptions,
     title: {
@@ -122,7 +129,8 @@ function LineChart(props: { xaxis?: ApexChartProps["options"]["xaxis"]; yaxis?: 
     },
     stroke: {
       colors: ["#aaffff"],
-      width: 2
+      width: 2,
+      dashArray: props.dashed ? 5 : undefined,
     },
     chart: {
       id: 'mem',
@@ -170,18 +178,116 @@ function LineChart(props: { xaxis?: ApexChartProps["options"]["xaxis"]; yaxis?: 
   />
 }
 
+function WriteRateHistory(props: { series: HistoryEntry[][] }) {
+  const series = () => props.series.map((series, idx) => {
+    const metrics = series.slice(2);
+    const start = metrics[0].time_micro;
+
+    const setupInfo = series[1] as unknown as { backend: string; display_name?: string, workload: string };
+
+    return {
+      name: setupInfo.display_name || setupInfo.backend,
+      data: metrics.map(({ time_micro, avg_write_latency }) => ({
+        x: (time_micro - start) / 1_000 / 1_000,
+        y: avg_write_latency ? (1_000_000_000 / avg_write_latency) : 0,
+      })),
+      color: colors[idx % colors.length]
+    } satisfies ApexAxisChartSeries[0]
+  });
+
+  return <LineChart
+    yFormatter={(n) => `${~~n}wps`}
+    title="Average writes per second (higher is better)"
+    series={series()}
+  />;
+}
+
+function ReadRateHistory(props: { series: HistoryEntry[][] }) {
+  const series = () => props.series.map((series, idx) => {
+    const metrics = series.slice(2);
+    const start = metrics[0].time_micro;
+
+    const setupInfo = series[1] as unknown as { backend: string; display_name?: string, workload: string };
+
+    console.log(metrics);
+
+    return {
+      name: setupInfo.display_name || setupInfo.backend,
+      data: metrics.map(({ time_micro, avg_read_latency }) => ({
+        x: (time_micro - start) / 1_000 / 1_000,
+        y: avg_read_latency ? (1_000_000_000 / avg_read_latency) : 0,
+      })),
+      color: colors[idx % colors.length]
+    } satisfies ApexAxisChartSeries[0]
+  });
+
+  return <LineChart
+    yFormatter={(n) => `${~~n}rps`}
+    title="Average reads per second (higher is better)"
+    series={series()}
+  />;
+}
+
+function ScanRateHistory(props: { series: HistoryEntry[][] }) {
+  const series = () => props.series.map((series, idx) => {
+    const metrics = series.slice(2);
+    const start = metrics[0].time_micro;
+
+    const setupInfo = series[1] as unknown as { backend: string; display_name?: string, workload: string };
+
+    return {
+      name: setupInfo.display_name || setupInfo.backend,
+      data: metrics.map(({ time_micro, avg_scan_latency }) => ({
+        x: (time_micro - start) / 1_000 / 1_000,
+        y: avg_scan_latency ? (1_000_000_000 / avg_scan_latency) : 0,
+      })),
+      color: colors[idx % colors.length]
+    } satisfies ApexAxisChartSeries[0]
+  });
+
+  return <LineChart
+    yFormatter={(n) => `${~~n}sps`}
+    title="Average scans per second (higher is better)"
+    series={series()}
+  />;
+}
+
+function DeleteRateHistory(props: { series: HistoryEntry[][] }) {
+  const series = () => props.series.map((series, idx) => {
+    const metrics = series.slice(2);
+    const start = metrics[0].time_micro;
+
+    const setupInfo = series[1] as unknown as { backend: string; display_name?: string, workload: string };
+
+    return {
+      name: setupInfo.display_name || setupInfo.backend,
+      data: metrics.map(({ time_micro, avg_delete_latency }) => ({
+        x: (time_micro - start) / 1_000 / 1_000,
+        y: avg_delete_latency ? (1_000_000_000 / avg_delete_latency) : 0,
+      })),
+      color: colors[idx % colors.length]
+    } satisfies ApexAxisChartSeries[0]
+  });
+
+  return <LineChart
+    yFormatter={(n) => `${~~n}dps`}
+    title="Average deletes per second (higher is better)"
+    series={series()}
+  />;
+}
+
 function WriteLatencyHistory(props: { series: HistoryEntry[][] }) {
   const series = () => props.series.map((series, idx) => {
     const metrics = series.slice(2);
     const start = metrics[0].time_micro;
 
-    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+    const setupInfo = series[1] as unknown as { backend: string; display_name?: string, workload: string };
 
     return {
-      name: setupInfo.backend,
+      name: setupInfo.display_name || setupInfo.backend,
       data: metrics.map(({ time_micro, avg_write_latency }) => ({
-        x: (time_micro - start) / 1000 / 1000,
-        y: avg_write_latency,
+        x: (time_micro - start) / 1_000 / 1_000,
+        y: avg_write_latency / 1_000,
       })),
       color: colors[idx % colors.length]
     } satisfies ApexAxisChartSeries[0]
@@ -199,13 +305,13 @@ function ReadLatencyHistory(props: { series: HistoryEntry[][] }) {
     const metrics = series.slice(2);
     const start = metrics[0].time_micro;
 
-    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+    const setupInfo = series[1] as unknown as { backend: string; display_name?: string, workload: string };
 
     return {
-      name: setupInfo.backend,
+      name: setupInfo.display_name || setupInfo.backend,
       data: metrics.map(({ time_micro, avg_read_latency }) => ({
-        x: (time_micro - start) / 1000 / 1000,
-        y: avg_read_latency,
+        x: (time_micro - start) / 1_000 / 1_000,
+        y: avg_read_latency / 1_000,
       })),
       color: colors[idx % colors.length]
     } satisfies ApexAxisChartSeries[0]
@@ -218,17 +324,65 @@ function ReadLatencyHistory(props: { series: HistoryEntry[][] }) {
   />;
 }
 
+function ScanLatencyHistory(props: { series: HistoryEntry[][] }) {
+  const series = () => props.series.map((series, idx) => {
+    const metrics = series.slice(2);
+    const start = metrics[0].time_micro;
+
+    const setupInfo = series[1] as unknown as { backend: string; display_name?: string, workload: string };
+
+    return {
+      name: setupInfo.display_name || setupInfo.backend,
+      data: metrics.map(({ time_micro, avg_scan_latency }) => ({
+        x: (time_micro - start) / 1_000 / 1_000,
+        y: avg_scan_latency / 1_000,
+      })),
+      color: colors[idx % colors.length]
+    } satisfies ApexAxisChartSeries[0]
+  });
+
+  return <LineChart
+    yFormatter={(n) => `${n.toFixed(1)}µs`}
+    title="Average scan latency (lower is better)"
+    series={series()}
+  />;
+}
+
+function DeleteLatencyHistory(props: { series: HistoryEntry[][] }) {
+  const series = () => props.series.map((series, idx) => {
+    const metrics = series.slice(2);
+    const start = metrics[0].time_micro;
+
+    const setupInfo = series[1] as unknown as { backend: string; display_name?: string, workload: string };
+
+    return {
+      name: setupInfo.display_name || setupInfo.backend,
+      data: metrics.map(({ time_micro, avg_delete_latency }) => ({
+        x: (time_micro - start) / 1_000 / 1_000,
+        y: avg_delete_latency / 1_000,
+      })),
+      color: colors[idx % colors.length],
+    } satisfies ApexAxisChartSeries[0]
+  });
+
+  return <LineChart
+    yFormatter={(n) => `${n.toFixed(1)}µs`}
+    title="Average delete latency (lower is better)"
+    series={series()}
+  />;
+}
+
 function WriteAmpHistory(props: { series: HistoryEntry[][] }) {
   const series = () => props.series.map((series, idx) => {
     const metrics = series.slice(2);
     const start = metrics[0].time_micro;
 
-    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+    const setupInfo = series[1] as unknown as { backend: string; display_name?: string, workload: string };
 
     return {
-      name: setupInfo.backend,
+      name: setupInfo.display_name || setupInfo.backend,
       data: metrics.map(({ time_micro, du_mib, disk_mib_w, write_amp }) => ({
-        x: (time_micro - start) / 1000 / 1000,
+        x: (time_micro - start) / 1_000 / 1_000,
         y: write_amp ??
           // TODO: remove
           (disk_mib_w / du_mib),
@@ -253,12 +407,12 @@ function DatasetSizeHistory(props: { series: HistoryEntry[][] }) {
     const metrics = series.slice(2);
     const start = metrics[0].time_micro;
 
-    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+    const setupInfo = series[1] as unknown as { backend: string; display_name?: string, workload: string };
 
     return {
-      name: setupInfo.backend,
+      name: setupInfo.display_name || setupInfo.backend,
       data: metrics.map(({ time_micro, dataset_size }) => ({
-        x: (time_micro - start) / 1000 / 1000,
+        x: (time_micro - start) / 1_000 / 1_000,
         y: (dataset_size ?? 0) / 1_024 / 1_024
       })),
       color: colors[idx % colors.length]
@@ -267,7 +421,7 @@ function DatasetSizeHistory(props: { series: HistoryEntry[][] }) {
 
   return <LineChart
     yFormatter={(n) => `${formatThousands(n)} MiB`}
-    title="True data set size (higher is better)"
+    title="True data set size"
     series={series()}
   />;
 }
@@ -277,12 +431,12 @@ function DiskWritesCumulative(props: { series: HistoryEntry[][] }) {
     const metrics = series.slice(2);
     const start = metrics[0].time_micro;
 
-    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+    const setupInfo = series[1] as unknown as { backend: string; display_name?: string, workload: string };
 
     return {
-      name: setupInfo.backend,
+      name: setupInfo.display_name || setupInfo.backend,
       data: metrics.map(({ time_micro, disk_mib_w }) => ({
-        x: (time_micro - start) / 1000 / 1000,
+        x: (time_micro - start) / 1_000 / 1_000,
         y: disk_mib_w,
       })),
       color: colors[idx % colors.length]
@@ -301,12 +455,12 @@ function WriteHistory(props: { series: HistoryEntry[][] }) {
     const metrics = series.slice(2);
     const start = metrics[0].time_micro;
 
-    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+    const setupInfo = series[1] as unknown as { backend: string; display_name?: string, workload: string };
 
     return {
-      name: setupInfo.backend,
+      name: setupInfo.display_name || setupInfo.backend,
       data: metrics.map(({ time_micro, write_ops }) => ({
-        x: (time_micro - start) / 1000 / 1000,
+        x: (time_micro - start) / 1_000 / 1_000,
         y: write_ops,
       })),
       color: colors[idx % colors.length]
@@ -314,7 +468,7 @@ function WriteHistory(props: { series: HistoryEntry[][] }) {
   });
 
   return <LineChart
-    yFormatter={(n) => `${n} ops`}
+    yFormatter={(n) => `${~~n} ops`}
     title="Write ops cumulative (higher is better)"
     series={series()}
   />;
@@ -325,12 +479,12 @@ function ReadHistory(props: { series: HistoryEntry[][] }) {
     const metrics = series.slice(2);
     const start = metrics[0].time_micro;
 
-    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+    const setupInfo = series[1] as unknown as { backend: string; display_name?: string, workload: string };
 
     return {
-      name: setupInfo.backend,
+      name: setupInfo.display_name || setupInfo.backend,
       data: metrics.map(({ time_micro, read_ops }) => ({
-        x: (time_micro - start) / 1000 / 1000,
+        x: (time_micro - start) / 1_000 / 1_000,
         y: read_ops,
       })),
       color: colors[idx % colors.length]
@@ -338,9 +492,12 @@ function ReadHistory(props: { series: HistoryEntry[][] }) {
   });
 
   return <LineChart
-    yFormatter={(n) => `${n} ops`}
+    yFormatter={(n) => `${~~n} ops`}
     title="Read ops cumulative (higher is better)"
     series={series()}
+    yaxis={{
+      min: 0,
+    }}
   />;
 }
 
@@ -349,12 +506,12 @@ function SpaceAmpHistory(props: { series: HistoryEntry[][] }) {
     const metrics = series.slice(2);
     const start = metrics[0].time_micro;
 
-    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+    const setupInfo = series[1] as unknown as { backend: string; display_name?: string, workload: string };
 
     return {
-      name: setupInfo.backend,
+      name: setupInfo.display_name || setupInfo.backend,
       data: metrics.map(({ time_micro, space_amp }) => ({
-        x: (time_micro - start) / 1000 / 1000,
+        x: (time_micro - start) / 1_000 / 1_000,
         y: space_amp,
       })),
       color: colors[idx % colors.length]
@@ -366,8 +523,8 @@ function SpaceAmpHistory(props: { series: HistoryEntry[][] }) {
     title="Space amplification (lower is better)"
     series={series()}
     yaxis={{
-      min: 1,
-      max: (n) => Math.min(5, n),
+      min: 0,
+      // max: (n) => Math.min(5, n),
     }}
   />;
 }
@@ -377,12 +534,12 @@ function DiskSpaceUsageHistory(props: { series: HistoryEntry[][] }) {
     const metrics = series.slice(2);
     const start = metrics[0].time_micro;
 
-    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+    const setupInfo = series[1] as unknown as { backend: string; display_name?: string, workload: string };
 
     return {
-      name: setupInfo.backend,
+      name: setupInfo.display_name || setupInfo.backend,
       data: metrics.map(({ time_micro, du_mib }) => ({
-        x: (time_micro - start) / 1000 / 1000,
+        x: (time_micro - start) / 1_000 / 1_000,
         y: du_mib,
       })),
       color: colors[idx % colors.length]
@@ -401,12 +558,12 @@ function MemoryUsageHistory(props: { series: HistoryEntry[][] }) {
     const metrics = series.slice(2);
     const start = metrics[0].time_micro;
 
-    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+    const setupInfo = series[1] as unknown as { backend: string; display_name?: string, workload: string };
 
     return {
-      name: setupInfo.backend,
+      name: setupInfo.display_name || setupInfo.backend,
       data: metrics.map(({ time_micro, mem_mib }) => ({
-        x: (time_micro - start) / 1000 / 1000,
+        x: (time_micro - start) / 1_000 / 1_000,
         y: mem_mib,
       })),
       color: colors[idx % colors.length]
@@ -425,12 +582,12 @@ function CpuUsageHistory(props: { series: HistoryEntry[][] }) {
     const metrics = series.slice(2);
     const start = metrics[0].time_micro;
 
-    const setupInfo = series[1] as unknown as { backend: string, workload: string };
+    const setupInfo = series[1] as unknown as { backend: string; display_name?: string, workload: string };
 
     return {
-      name: setupInfo.backend,
+      name: setupInfo.display_name || setupInfo.backend,
       data: metrics.map(({ time_micro, cpu }) => ({
-        x: (time_micro - start) / 1000 / 1000,
+        x: (time_micro - start) / 1_000 / 1_000,
         y: cpu,
       })),
       color: colors[idx % colors.length]
@@ -444,14 +601,14 @@ function CpuUsageHistory(props: { series: HistoryEntry[][] }) {
   />;
 }
 
-function PerformanceChart(props: { title: string, values: { backend: string, value: number }[] }) {
+/* function PerformanceChart(props: { title: string, values: { backend: string; display_name?: string, value: number }[] }) {
   const series = () => ({
     list: [
       {
         name: "ops",
         data: [
-          ...props.values.map(({ backend, value }, idx) => ({
-            x: backend,
+          ...props.values.map(({ display_name, value }, idx) => ({
+            x: display_name,
             y: value,
             fillColor: colors[idx % colors.length],
           }))
@@ -497,17 +654,15 @@ function PerformanceChart(props: { title: string, values: { backend: string, val
     },
   } satisfies ApexChartProps["options"]);
 
-
-
   return <SolidApexCharts
     type="bar"
     width="100%"
     options={options()}
     series={series().list}
   />
-}
+} */
 
-type OpsObject = { backend: string, write_ops: number; read_ops: number; scan_ops: number; delete_ops: number };
+type OpsObject = { backend: string; display_name?: string, write_ops: number; read_ops: number; scan_ops: number; delete_ops: number };
 
 function App() {
   const [items, setItems] = createSignal<(HistoryEntry)[][]>([]);
@@ -560,7 +715,7 @@ function App() {
     if (!items().length) {
       return 0;
     }
-    return (items().at(0)!.at(-1)!.time_micro - items().at(0)!.at(0)!.time_micro) / 1000 / 1000
+    return (items().at(0)!.at(-1)!.time_micro - items().at(0)!.at(0)!.time_micro) / 1_000 / 1_000
   };
 
   return (
@@ -576,11 +731,11 @@ function App() {
           <div>
             <For each={items()}>
               {item => {
-                const setupInfo = () => item[1] as unknown as { backend: string, workload: string };
+                const setupInfo = () => item[1] as unknown as { backend: string; display_name?: string, workload: string };
 
                 return <div>
                   <div>
-                    Backend: {setupInfo().backend} - Workload: {setupInfo().workload} - Runtime: {(runtimeSecs() / 60).toFixed(2)} min
+                    Backend: {setupInfo().display_name || setupInfo().backend} - Workload: {setupInfo().workload} - Runtime: {(runtimeSecs() / 60).toFixed(2)} min
                   </div>
                 </div>
               }}
@@ -602,10 +757,18 @@ function App() {
           <div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
             <WriteLatencyHistory series={items()} />
             <ReadLatencyHistory series={items()} />
+            <ScanLatencyHistory series={items()} />
+            <DeleteLatencyHistory series={items()} />
+          </div>
+          <div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+            <WriteRateHistory series={items()} />
+            <ReadRateHistory series={items()} />
+            <ScanRateHistory series={items()} />
+            <DeleteRateHistory series={items()} />
           </div>
         </div>
       </Show>
-      <Show when={ops().length > 0}>
+      {/*  <Show when={ops().length > 0}>
         <div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
           <PerformanceChart
             title="Write performance"
@@ -675,7 +838,7 @@ function App() {
             </tbody>
           </table>
         </div>
-      </Show>
+      </Show> */}
     </>
   )
 }

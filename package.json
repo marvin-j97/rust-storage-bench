@@ -1,6 +1,15 @@
 {
 	"dependencies": {
+		"@topcli/spinner": "2.1.2",
 		"chalk": "5.3.0",
 		"tiny-async-pool": "2.1.0"
+	},
+	"devDependencies": {
+		"@types/node": "20.14.2",
+		"@types/tiny-async-pool": "2.0.3",
+		"tsx": "4.13.2"
+	},
+	"scripts": {
+		"start": "tsx tasks.mts"
 	}
 }
