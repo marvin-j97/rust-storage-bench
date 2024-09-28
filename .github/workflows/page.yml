@@ -1,4 +1,4 @@
-name: Deploy page
+name: Deploy report page
 
 on:
   push:
@@ -18,14 +18,14 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: page/pnpm-lock.yaml
+          cache-dependency-path: report/pnpm-lock.yaml
       - name: Install dependencies
         run: pnpm i
-        working-directory: page
+        working-directory: report
       - name: Generate page
         run: pnpm build
-        working-directory: page
+        working-directory: report
       - name: Deploy page
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: page/dist
+          folder: report/dist
