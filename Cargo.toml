@@ -1,48 +1,49 @@
 [package]
 name = "rust-storage-bench"
-version = "0.0.1"
+version = "1.0.0"
 edition = "2021"
 
-[[bin]]
-name = "worker"
-path = "src/worker/main.rs"
+[profile.release]
+debug = true
 
 [features]
-default = ["heed", "rocksdb"]
-rocksdb = ["dep:rocksdb"]
-heed = ["dep:heed"]
-all = ["heed", "rocksdb"]
+default = ["jemalloc"]
+# rocksdb = ["dep:rocksdb"]
+# heed = ["dep:heed"]
+# all = ["heed", "rocksdb"]
+jemalloc = ["jemallocator"]
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
-jemallocator = "0.5.4"
+jemallocator = { version = "0.5.4", optional = true }
 
 [dependencies]
 clap = { version = "4.4.10", features = ["derive"] }
-bloodstone = { package = "sled", version = "1.0.0-alpha.121" }
+# bloodstone = { package = "sled", version = "1.0.0-alpha.121" }
 sled = { version = "0.34.7", features = [] }
-fjall = { path = "../fjall" }
-nanoid = "0.4.0"
-rand = "0.8.5"
+fjall = { version = "2.0.3" }
+# nanoid = "0.4.0"
+# rand = "0.8.5"
 sysinfo = { version = "0.30.1", features = ["serde"] }
 serde = { version = "1.0.193", features = ["derive", "rc"] }
 serde_json = "1.0.108"
 fs_extra = "1.3.0"
 env_logger = "0.10.1"
 log = { version = "0.4.20", features = ["release_max_level_trace"] }
-persy = { version = "1.5.0", features = ["background_ops"] }
-jammdb = "0.11.0"
-zipf = "7.0.1"
-redb = "2.1.1"
-nebari = "0.5.5"
-heed = { version = "0.20.3", optional = true }
-rocksdb = { version = "0.22.0", optional = true, default-features = false, features = [
-  "lz4",
-] }
-cuid = "1.3.2"
-scru128 = "3.0.2"
-fake = { version = "2.9.2", features = ["derive", "uuid"] }
-rmp-serde = "1.3.0"
-uuid = { version = "1.8.0", features = ["serde", "v4"] }
-random-string = "1.1.0"
-blake2 = "0.10.6"
+chrono = "0.4.38"
+# persy = { version = "1.5.0", features = ["background_ops"] }
+# jammdb = "0.11.0"
+# zipf = "7.0.1"
+# redb = "2.1.1"
+# nebari = "0.5.5"
+# heed = { version = "0.20.3", optional = true }
+# rocksdb = { version = "0.22.0", optional = true, default-features = false, features = [
+#   "lz4",
+# ] }
+# cuid = "1.3.2"
+# scru128 = "3.0.2"
+# fake = { version = "2.9.2", features = ["derive", "uuid"] }
+# rmp-serde = "1.3.0"
+# uuid = { version = "1.8.0", features = ["serde", "v4"] }
+# random-string = "1.1.0"
+# blake2 = "0.10.6"
 # mimalloc = "0.1.43"

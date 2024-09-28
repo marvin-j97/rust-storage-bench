@@ -1,5 +1,7 @@
 import { defineConfig } from "unocss";
 
 export default defineConfig({
-  // ...UnoCSS options
+  content: {
+    filesystem: ["src/**/*.tsx"],
+  }
 });

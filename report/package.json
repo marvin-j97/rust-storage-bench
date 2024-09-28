@@ -1,0 +1,22 @@
+{
+  "name": "p",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@unocss/reset": "0.63.0",
+    "solid-apexcharts": "0.3.4",
+    "solid-js": "1.8.20",
+    "unocss": "0.63.0"
+  },
+  "devDependencies": {
+    "typescript": "5.5.3",
+    "vite": "5.4.1",
+    "vite-plugin-solid": "2.10.2"
+  }
+}
