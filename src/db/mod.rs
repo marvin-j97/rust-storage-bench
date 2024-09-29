@@ -21,6 +21,7 @@ pub struct DatabaseWrapper {
 
     pub write_ops: Arc<AtomicU64>,
     pub write_latency: Arc<AtomicU64>,
+    pub written_bytes: Arc<AtomicU64>,
 
     pub point_read_ops: Arc<AtomicU64>,
     pub point_read_latency: Arc<AtomicU64>,
@@ -99,9 +100,9 @@ impl DatabaseWrapper {
         self.write_ops
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
-        /* self.written_bytes.fetch_add(
+        self.written_bytes.fetch_add(
             (key.len() + value.len()) as u64,
             std::sync::atomic::Ordering::Relaxed,
-        ); */
+        );
     }
 }

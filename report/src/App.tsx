@@ -1,5 +1,7 @@
 import { ApexOptions } from "apexcharts";
+import millify from "millify";
 import { createSignal, For, onMount } from "solid-js";
+
 import { SolidApexCharts } from './SolidApex';
 
 import devData from "../log.jsonl?raw";
@@ -34,6 +36,8 @@ function App() {
 
   const [writeOps, setWriteOps] = createSignal<Series[]>([]);
   const [writeLatency, setWriteLatency] = createSignal<Series[]>([]);
+  const [writtenBytes, setWrittenBytes] = createSignal<Series[]>([]);
+  const [writeAmp, setWriteAmp] = createSignal<Series[]>([]);
 
   const [pointReadOps, setPointReadOps] = createSignal<Series[]>([]);
   const [pointReadLatency, setPointReadLatency] = createSignal<Series[]>([]);
@@ -64,6 +68,8 @@ function App() {
 
     const writeOps: Series[] = [];
     const writeLatency: Series[] = [];
+    const writtenBytes: Series[] = [];
+    const writeAmp: Series[] = [];
 
     const pointReadOps: Series[] = [];
     const pointReadLatency: Series[] = [];
@@ -107,6 +113,16 @@ function App() {
         colour: COLORS[i],
         data: [],
       };
+      const writtenBytesSeries: Series = {
+        displayName: args.display_name,
+        colour: COLORS[i],
+        data: [],
+      };
+      const writeAmpSeries: Series = {
+        displayName: args.display_name,
+        colour: COLORS[i],
+        data: [],
+      };
 
       const pointReadSeries: Series = {
         displayName: args.display_name,
@@ -122,7 +138,7 @@ function App() {
       for (const line of lines.slice(3, -1)) {
         const metrics = JSON.parse(line);
 
-        const [ts, cpu, memKib, diskSpaceKib, diskWriteKib, diskReadKib, writeOps, pointReadOps, rangeOps, deleteOps, writeLatency, pointReadLatency] = metrics;
+        const [ts, cpu, memKib, diskSpaceKib, diskWriteKib, diskReadKib, writeOps, pointReadOps, rangeOps, deleteOps, writeLatency, pointReadLatency, rangeLatency, deleteLatency, writeAmp] = metrics;
 
         memorySeries.data.push([ts, memKib]);
 
@@ -135,6 +151,8 @@ function App() {
 
         writeSeries.data.push([ts, writeOps]);
         writeLatSeries.data.push([ts, writeLatency]);
+        writtenBytesSeries.data.push([ts, diskWriteKib]);
+        writeAmpSeries.data.push([ts, writeAmp]);
 
         pointReadSeries.data.push([ts, pointReadOps]);
         pointReadLatSeries.data.push([ts, pointReadLatency]);
@@ -145,6 +163,8 @@ function App() {
 
       writeOps.push(writeSeries);
       writeLatency.push(writeLatSeries);
+      writtenBytes.push(writtenBytesSeries);
+      writeAmp.push(writeAmpSeries);
 
       pointReadOps.push(pointReadSeries);
       pointReadLatency.push(pointReadLatSeries);
@@ -158,6 +178,10 @@ function App() {
 
     setWriteOps(writeOps);
     setWriteLatency(writeLatency);
+    setWrittenBytes(writtenBytes);
+    setWriteAmp(writeAmp);
+
+    console.log(writeAmp);
 
     setPointReadOps(pointReadOps);
     setPointReadLatency(pointReadLatency);
@@ -308,7 +332,10 @@ function App() {
                     title: {
                       text: "write ops (cumulative)",
                     },
-                    ...(commonChartOptions())
+                    ...(commonChartOptions({
+                      yFormatter: millify,
+                      dashed: 0,
+                    }))
                   }}
                   series={series()}
                 />
@@ -366,11 +393,73 @@ function App() {
                   width="100%"
                   options={{
                     title: {
-                      text: "write rate",
+                      text: "writes per second",
                     },
                     ...(commonChartOptions({
-                      yFormatter: hz => `${~~hz} Hz`,
+                      yFormatter: millify,
                       dashed: 0
+                    }))
+                  }}
+                  series={series()}
+                />
+              })()
+            }
+          </div>
+          <div class="p-2 bg-stone-100 rounded">
+            {
+              (() => {
+                const series = () => writtenBytes().map((series) => {
+                  return {
+                    name: series.displayName,
+                    data: series.data.map(([ts_milli, value]) => ({
+                      x: ts_milli / 1_000,
+                      y: value,
+                    })),
+                    color: series.colour,
+                  } satisfies ApexAxisChartSeries[0]
+                });
+
+                return <SolidApexCharts
+                  type="line"
+                  width="100%"
+                  options={{
+                    title: {
+                      text: "Disk write I/O",
+                    },
+                    ...(commonChartOptions({
+                      yFormatter: bytes => `${formatThousands(bytes / 1_024 / 1_024)} GB`,
+                      dashed: 0,
+                    }))
+                  }}
+                  series={series()}
+                />
+              })()
+            }
+          </div>
+          <div class="p-2 bg-stone-100 rounded">
+            {
+              (() => {
+                const series = () => writeAmp().map((series) => {
+                  return {
+                    name: series.displayName,
+                    data: series.data.map(([ts_milli, value]) => ({
+                      x: ts_milli / 1_000,
+                      y: value,
+                    })),
+                    color: series.colour,
+                  } satisfies ApexAxisChartSeries[0]
+                });
+
+                return <SolidApexCharts
+                  type="line"
+                  width="100%"
+                  options={{
+                    title: {
+                      text: "Write amplification",
+                    },
+                    ...(commonChartOptions({
+                      yFormatter: pct => `${pct}x`,
+                      dashed: 0,
                     }))
                   }}
                   series={series()}
@@ -399,7 +488,10 @@ function App() {
                     title: {
                       text: "point reads (cumulative)",
                     },
-                    ...(commonChartOptions())
+                    ...(commonChartOptions({
+                      yFormatter: millify,
+                      dashed: 0,
+                    }))
                   }}
                   series={series()}
                 />
@@ -458,10 +550,10 @@ function App() {
                   width="100%"
                   options={{
                     title: {
-                      text: "read rate",
+                      text: "reads per second",
                     },
                     ...(commonChartOptions({
-                      yFormatter: hz => `${~~hz} Hz`,
+                      yFormatter: millify,
                       dashed: 0
                     }))
                   }}

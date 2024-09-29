@@ -149,6 +149,9 @@ pub struct Args {
 
     #[arg(long, default_value_t = 1)]
     pub minutes: u16,
+
+    #[arg(long, alias = "granularity", default_value_t = 500)]
+    pub granularity_ms: u16,
     // #[arg(long, default_value_t = 1)]
     // pub threads: u8,
 
@@ -225,7 +228,6 @@ pub fn main() {
     if args.display_name.is_none() {
         args.display_name = Some(args.backend.to_string());
     }
-    println!("{args:#?}");
 
     let data_dir = args.data_dir.clone();
 
@@ -273,8 +275,6 @@ pub fn main() {
                 false
             }
         };
-        
-        // TODO: store refresh granularity (ms) in system object
 
         let json = serde_json::json!({
             "os": sysinfo::System::long_os_version(),
@@ -283,14 +283,19 @@ pub fn main() {
             "mem": sys.total_memory(),
             "datetime": datetime,
             "ts": start_time.as_millis(),
-            "jemalloc": jmalloc
+            "jemalloc": jmalloc,
         });
+
+        println!("System: {}", serde_json::to_string_pretty(&json).unwrap());
+
         let json = serde_json::to_string(&json).unwrap();
         writeln!(&mut file_writer, "{json}").unwrap();
     }
 
     // Write the args
     {
+        println!("Args: {}", serde_json::to_string_pretty(&args).unwrap());
+
         let json = serde_json::to_string(&args).unwrap();
         writeln!(&mut file_writer, "{json}").unwrap();
     }
@@ -313,6 +318,8 @@ pub fn main() {
             "point_read_latency",
             "range_latency",
             "delete_latency",
+            //
+            "write_amp",
         ]);
         writeln!(&mut file_writer, "{json}").unwrap();
     }
@@ -383,6 +390,7 @@ pub fn main() {
 
         write_ops: Default::default(),
         write_latency: Default::default(),
+        written_bytes: Default::default(),
 
         point_read_ops: Default::default(),
         point_read_latency: Default::default(),
@@ -408,7 +416,7 @@ pub fn main() {
 
         std::thread::spawn(move || {
             loop {
-                let duration = Duration::from_secs_f32(0.5);
+                let duration = Duration::from_millis(args.granularity_ms.into());
                 std::thread::sleep(duration);
 
                 sys.refresh_all();
@@ -428,6 +436,10 @@ pub fn main() {
                 let disk_space = fs_extra::dir::get_size(&data_dir).unwrap_or_default() / 1_024;
 
                 let disk = child.disk_usage();
+
+                let written_user_bytes = db.written_bytes.load(Ordering::Relaxed);
+                let write_amp = (disk.total_written_bytes as f64) / (written_user_bytes as f64);
+
                 let disk_writes_kib = disk.total_written_bytes / 1_024;
                 let disk_reads_kib = disk.total_read_bytes / 1_024;
 
@@ -466,6 +478,8 @@ pub fn main() {
                     avg_point_read_latency,
                     0,
                     0,
+                    //
+                    format!("{:.2}", write_amp).parse::<f64>().unwrap(),
                 ]);
                 writeln!(&mut file_writer, "{json}").unwrap();
 
