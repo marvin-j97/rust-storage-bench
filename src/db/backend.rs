@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Copy, Eq, PartialEq, Debug, Clone, ValueEnum, Serialize, Deserialize)]
 #[clap(rename_all = "kebab_case")]
 pub enum Backend {
+    #[serde(rename = "sled")]
     Sled,
 
     // Bloodstone,
