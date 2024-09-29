@@ -1,5 +1,5 @@
 {"cpu":"","datetime":"2024-09-29 13:53:23.251155054 UTC","jemalloc":true,"kernel":"6.5.0-41-generic","mem":33501261824,"os":"Linux 22.04 Ubuntu","ts":1727618003251}
-{"backend":"Sled","data_dir":".data","out":"report/log2.jsonl","display_name":"sled 0.34.7","workload":"TimeseriesWrite","minutes":5}
+{"backend":"sled","data_dir":".data","out":"report/log2.jsonl","display_name":"sled 0.34.7","workload":"TimeseriesWrite","minutes":5}
 ["time_ms","cpu","mem_kib","disk_space_kib","disk_writes_kib","write_ops","point_read_ops","range_ops","delete_ops","write_latency","point_read_latency","range_latency","delete_latency"]
 [509,18.72,92928,47616,133960,0,264736,1729311,0,0,1831,263,0,0]
 [1012,18.86,133760,91648,264012,0,517787,3209379,0,0,1917,312,0,0]
