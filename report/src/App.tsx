@@ -354,8 +354,6 @@ function App() {
                     name: series.displayName,
                     data: series.data.map(([ts_milli, value]) => ({
                       x: ts_milli / 1_000,
-
-                      // TODO: store refresh granularity (ms) in system object
                       y: value ? (1_000_000_000 / value) : 0,
                     })),
                     color: series.colour,

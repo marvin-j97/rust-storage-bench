@@ -273,6 +273,8 @@ pub fn main() {
                 false
             }
         };
+        
+        // TODO: store refresh granularity (ms) in system object
 
         let json = serde_json::json!({
             "os": sysinfo::System::long_os_version(),
@@ -406,7 +408,7 @@ pub fn main() {
 
         std::thread::spawn(move || {
             loop {
-                let duration = Duration::from_secs_f32(0.1);
+                let duration = Duration::from_secs_f32(0.5);
                 std::thread::sleep(duration);
 
                 sys.refresh_all();
