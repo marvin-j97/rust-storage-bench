@@ -1,6 +1,6 @@
 import { ApexOptions } from "apexcharts";
 import { createSignal, For, onMount } from "solid-js";
-import { SolidApexCharts } from 'solid-apexcharts';
+import { SolidApexCharts } from './SolidApex';
 
 import devData from "../log.jsonl?raw";
 import devData2 from "../log2.jsonl?raw";
@@ -223,7 +223,7 @@ function App() {
       <div class="px-2">
         <h2 class="text-lg mb-3">Results</h2>
         {/* graphs */}
-        <div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
+        <div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
           <div>cpu</div>
           <div class="p-2 bg-stone-100 rounded">
             {

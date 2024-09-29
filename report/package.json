@@ -10,13 +10,15 @@
   },
   "dependencies": {
     "@unocss/reset": "0.63.0",
-    "solid-apexcharts": "0.3.4",
+    "defu": "6.1.4",
     "solid-js": "1.8.20",
     "unocss": "0.63.0"
   },
   "devDependencies": {
+    "apexcharts": "3.53.0",
     "typescript": "5.5.3",
     "vite": "5.4.1",
+    "vite-plugin-singlefile": "2.0.2",
     "vite-plugin-solid": "2.10.2"
   }
 }

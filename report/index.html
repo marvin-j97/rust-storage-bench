@@ -3,7 +3,6 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>report - rust-storage-bench 1.0.0</title>
   <style>
@@ -24,6 +23,12 @@
       background: #101010 !important;
     } */
   </style>
+  <!--
+    NOTE: We use a CDN script instead to reduce HTML report size
+    the browser will cache the lib, so we don't have to distribute apexcharts with
+    every HTML report
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 </head>
 
 <body class="text-stone-950 dark:text-stone-50 bg-stone-50 dark:bg-stone-950">
