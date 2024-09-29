@@ -325,6 +325,13 @@ pub fn main() {
     }
 
     let db = match args.backend {
+        Backend::Bloodstone => GenericDatabase::Bloodstone(
+            bloodstone::Config::new()
+                // .cache_capacity_bytes(args.cache_size as usize)
+                .path(&data_dir)
+                .open()
+                .unwrap(),
+        ),
         Backend::Sled => GenericDatabase::Sled(
             sled::Config::new()
                 .path(&data_dir)

@@ -13,6 +13,7 @@ pub enum GenericDatabase {
         db: fjall::PartitionHandle,
     },
     Sled(sled::Db),
+    Bloodstone(bloodstone::Db),
 }
 
 #[derive(Clone)]
@@ -45,6 +46,10 @@ impl DatabaseWrapper {
                 item.map(|x| x.to_vec())
             }
             GenericDatabase::Sled(db) => {
+                let item = db.get(key).unwrap();
+                item.map(|x| x.to_vec())
+            }
+            GenericDatabase::Bloodstone(db) => {
                 let item = db.get(key).unwrap();
                 item.map(|x| x.to_vec())
             }
@@ -86,6 +91,21 @@ impl DatabaseWrapper {
                 if durable {
                     db.flush().unwrap();
                 }
+            }
+            GenericDatabase::Bloodstone(db) => {
+                db.insert(key, value).unwrap();
+
+                if durable {
+                    db.flush().unwrap();
+                } /* else if args.sled_flush {
+                      // NOTE: TODO: OOM Workaround
+                      // Intermittenly flush sled to keep memory usage sane
+                      // This is hopefully a temporary workaround
+                      if self.write_ops.load(std::sync::atomic::Ordering::Relaxed) % 50_000 == 0 {
+                          println!("\n\n\nanti OOM flush");
+                          db.flush().unwrap();
+                      }
+                  } */
             }
             _ => {
                 unimplemented!()

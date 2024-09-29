@@ -18,7 +18,7 @@ jemallocator = { version = "0.5.4", optional = true }
 
 [dependencies]
 clap = { version = "4.4.10", features = ["derive"] }
-# bloodstone = { package = "sled", version = "1.0.0-alpha.121" }
+bloodstone = { package = "sled", version = "1.0.0-alpha.122" }
 sled = { version = "0.34.7", features = [] }
 fjall = { version = "2.0.3" }
 # nanoid = "0.4.0"
