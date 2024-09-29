@@ -205,6 +205,7 @@ function App() {
       zoom: {
         enabled: true,
         type: "xy",
+        allowMouseWheelZoom: false,
       },
     },
     tooltip: {
