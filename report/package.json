@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "fmt": "biome format --write src"
   },
   "dependencies": {
     "@unocss/reset": "0.63.0",
@@ -16,6 +17,7 @@
     "unocss": "0.63.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "1.9.2",
     "apexcharts": "3.53.0",
     "typescript": "5.5.3",
     "vite": "5.4.1",
