@@ -16,9 +16,11 @@ use std::time::Instant;
 use sysinfo::Pid;
 use workload::Workload;
 
+#[cfg(feature = "jemalloc")]
 #[cfg(not(target_env = "msvc"))]
 use jemallocator::Jemalloc;
 
+#[cfg(feature = "jemalloc")]
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
@@ -421,6 +423,8 @@ pub fn main() {
         let mut prev_write_ops = 0;
         let mut prev_point_read_ops = 0;
 
+        println!("Starting monitor");
+
         std::thread::spawn(move || {
             loop {
                 let duration = Duration::from_millis(args.granularity_ms.into());
@@ -491,6 +495,7 @@ pub fn main() {
                 writeln!(&mut file_writer, "{json}").unwrap();
 
                 if finished.load(Ordering::Relaxed) {
+                    println!("its joever");
                     writeln!(&mut file_writer, "{{\"fin\":true}}").unwrap();
                     file_writer.sync_all().unwrap();
                     std::process::exit(0);
@@ -503,22 +508,26 @@ pub fn main() {
     };
 
     fn start_killer(min: u16, signal: Arc<AtomicBool>) {
+        println!("Started killer");
         std::thread::sleep(Duration::from_secs(min as u64 * 60));
-
-        println!("its joever");
         signal.store(true, Ordering::Relaxed);
     }
+
+    println!("Starting workload {:?}", args.workload);
 
     // TODO: match workload
     match args.workload {
         Workload::TimeseriesWrite => {
             {
                 let db = db.clone();
+
+                println!("Starting writer");
                 std::thread::spawn(move || loop {
                     db.insert(&unix_timestamp().as_nanos().to_be_bytes(), b"asdasd", false);
                 });
             }
 
+            println!("Starting reader");
             std::thread::spawn(move || loop {
                 db.get(&0u64.to_be_bytes());
             });
