@@ -29,6 +29,9 @@ pub struct Args {
 
     #[arg(long, alias = "granularity", default_value_t = 500)]
     pub granularity_ms: u16,
+
+    #[arg(long, default_value_t = 16_000_000)]
+    pub cache_size: u64,
     // #[arg(long, default_value_t = 1)]
     // pub threads: u8,
 

@@ -10,8 +10,10 @@ pub enum Backend {
     #[serde(rename = "sled")]
     Sled,
 
-    #[serde(rename = "bloodstone")]
-    Bloodstone,
+    #[serde(rename = "redb")]
+    Redb,
+    /*     #[serde(rename = "bloodstone")]
+    Bloodstone, */
     // Persy,
     // JammDb,
     // Redb,
@@ -31,11 +33,11 @@ impl std::fmt::Display for Backend {
             "{}",
             match self {
                 Self::Sled => "sled 0.34.7",
-                Self::Bloodstone => "sled 1.0.0-alpha.122",
                 Self::Fjall => "fjall 2.0.3",
+                Self::Redb => "redb 2.1.3",
+                // Self::Bloodstone => "sled 1.0.0-alpha.122",
                 // Self::Persy => "persy 1.5.0",
                 // Self::JammDb => "jammdb 0.11.0",
-                // Self::Redb => "redb 2.1.1",
                 // Self::Nebari => "nebari 0.5.5",
 
                 // #[cfg(feature = "heed")]

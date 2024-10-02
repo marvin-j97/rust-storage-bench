@@ -141,7 +141,7 @@ pub fn run_workload(db: DatabaseWrapper, args: &Args, finish_signal: Arc<AtomicB
 
             println!("Starting reader");
             std::thread::spawn(move || loop {
-                db.get(&0u64.to_be_bytes());
+                db.last_len();
             });
 
             start_killer(args.minutes, finish_signal);
