@@ -224,7 +224,22 @@ function App() {
 				width: 2,
 				dashArray: opts.dashed || undefined,
 			},
+			grid: {
+				strokeDashArray: 4,
+				borderColor: "#252525",
+				xaxis: {
+					lines: {
+						show: true,
+					},
+				},
+				yaxis: {
+					lines: {
+						show: true,
+					},
+				},
+			},
 			chart: {
+				background: "#1c1917",
 				animations: {
 					enabled: false,
 				},
@@ -243,6 +258,9 @@ function App() {
 			legend: {
 				position: "top",
 				horizontalAlign: "right",
+				labels: {
+					colors: "white"
+				}
 			},
 			xaxis: {
 				axisBorder: {
@@ -250,6 +268,9 @@ function App() {
 				},
 				type: "numeric",
 				labels: {
+					style: {
+						colors: "white"
+					},
 					formatter: (value) => `${Math.floor(+value)}s`,
 				},
 			},
@@ -258,6 +279,9 @@ function App() {
 					show: true,
 				},
 				labels: {
+					style: {
+						colors: "white"
+					},
 					formatter: opts.yFormatter,
 				},
 			},
@@ -266,7 +290,7 @@ function App() {
 	return (
 		<div class="flex flex-col gap-5">
 			{/* topbar */}
-			<div class="p-2 border-b border-stone-200">
+			<div class="p-2 border-b border-stone-200 dark:border-stone-800">
 				<h1 class="text-sm">rust-storage-bench 1.0.0</h1>
 			</div>
 
@@ -276,7 +300,7 @@ function App() {
 				{/* graphs */}
 				<div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
 					<div>cpu</div>
-					<div class="p-2 bg-stone-100 rounded">
+					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
 								memoryUsage().map((series) => {
@@ -297,6 +321,9 @@ function App() {
 									options={{
 										title: {
 											text: "Memory usage",
+											style: {
+												color: "white",
+											},
 										},
 										...commonChartOptions({
 											yFormatter: (bytes) =>
@@ -309,7 +336,7 @@ function App() {
 							);
 						})()}
 					</div>
-					<div class="p-2 bg-stone-100 rounded">
+					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
 								diskSpaceUsage().map((series) => {
@@ -330,6 +357,9 @@ function App() {
 									options={{
 										title: {
 											text: "Disk space used",
+											style: {
+												color: "white",
+											},
 										},
 										...commonChartOptions({
 											yFormatter: (bytes) =>
@@ -342,7 +372,7 @@ function App() {
 							);
 						})()}
 					</div>
-					<div class="p-2 bg-stone-100 rounded">
+					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
 								writeOps().map((series) => {
@@ -363,6 +393,9 @@ function App() {
 									options={{
 										title: {
 											text: "write ops (cumulative)",
+											style: {
+												color: "white",
+											},
 										},
 										...commonChartOptions({
 											yFormatter: millify,
@@ -374,7 +407,7 @@ function App() {
 							);
 						})()}
 					</div>
-					<div class="p-2 bg-stone-100 rounded">
+					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
 								writeLatency().map((series) => {
@@ -395,6 +428,9 @@ function App() {
 									options={{
 										title: {
 											text: "write latency (µs)",
+											style: {
+												color: "white",
+											},
 										},
 										...commonChartOptions({
 											yFormatter: (ns) => `${(ns / 1_000).toFixed(1)}µs`,
@@ -406,7 +442,7 @@ function App() {
 							);
 						})()}
 					</div>
-					<div class="p-2 bg-stone-100 rounded">
+					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
 								writeLatency().map((series) => {
@@ -427,6 +463,9 @@ function App() {
 									options={{
 										title: {
 											text: "writes per second",
+											style: {
+												color: "white",
+											},
 										},
 										...commonChartOptions({
 											yFormatter: millify,
@@ -438,7 +477,7 @@ function App() {
 							);
 						})()}
 					</div>
-					<div class="p-2 bg-stone-100 rounded">
+					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
 								writtenBytes().map((series) => {
@@ -459,6 +498,9 @@ function App() {
 									options={{
 										title: {
 											text: "Disk write I/O",
+											style: {
+												color: "white",
+											},
 										},
 										...commonChartOptions({
 											yFormatter: (bytes) =>
@@ -471,7 +513,7 @@ function App() {
 							);
 						})()}
 					</div>
-					<div class="p-2 bg-stone-100 rounded">
+					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
 								writeAmp().map((series) => {
@@ -492,6 +534,9 @@ function App() {
 									options={{
 										title: {
 											text: "Write amplification",
+											style: {
+												color: "white",
+											},
 										},
 										...commonChartOptions({
 											yFormatter: (pct) => `${pct}x`,
@@ -503,7 +548,7 @@ function App() {
 							);
 						})()}
 					</div>
-					<div class="p-2 bg-stone-100 rounded">
+					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
 								pointReadOps().map((series) => {
@@ -524,6 +569,9 @@ function App() {
 									options={{
 										title: {
 											text: "point reads (cumulative)",
+											style: {
+												color: "white",
+											},
 										},
 										...commonChartOptions({
 											yFormatter: millify,
@@ -535,7 +583,7 @@ function App() {
 							);
 						})()}
 					</div>
-					<div class="p-2 bg-stone-100 rounded">
+					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
 								pointReadLatency().map((series) => {
@@ -556,6 +604,9 @@ function App() {
 									options={{
 										title: {
 											text: "point read latency (µs)",
+											style: {
+												color: "white",
+											},
 										},
 										...commonChartOptions({
 											yFormatter: (ns) => `${(ns / 1_000).toFixed(1)}µs`,
@@ -567,7 +618,7 @@ function App() {
 							);
 						})()}
 					</div>
-					<div class="p-2 bg-stone-100 rounded">
+					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
 								pointReadLatency().map((series) => {
@@ -590,6 +641,9 @@ function App() {
 									options={{
 										title: {
 											text: "reads per second",
+											style: {
+												color: "white",
+											},
 										},
 										...commonChartOptions({
 											yFormatter: millify,
