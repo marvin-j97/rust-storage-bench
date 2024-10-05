@@ -298,7 +298,7 @@ function App() {
 			<div class="px-2">
 				<h2 class="text-lg mb-3">Results</h2>
 				{/* graphs */}
-				<div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+				<div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
 					<div>cpu</div>
 					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {

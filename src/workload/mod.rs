@@ -1,5 +1,6 @@
 use crate::{args::Args, db::DatabaseWrapper, unix_timestamp};
 use clap::ValueEnum;
+use rand::Rng;
 use serde::Serialize;
 use std::{
     sync::{
@@ -134,14 +135,25 @@ pub fn run_workload(db: DatabaseWrapper, args: &Args, finish_signal: Arc<AtomicB
                 let db = db.clone();
 
                 println!("Starting writer");
-                std::thread::spawn(move || loop {
-                    db.insert(&unix_timestamp().as_nanos().to_be_bytes(), b"asdasd", false);
+                std::thread::spawn(move || {
+                    for x in 0u128.. {
+                        let key = x.to_be_bytes();
+                        db.insert(&key, &key, false);
+                    }
                 });
             }
 
             println!("Starting reader");
-            std::thread::spawn(move || loop {
-                db.last_len();
+            std::thread::spawn(move || {
+                let mut rng = rand::thread_rng();
+
+                loop {
+                    let max_key = db.write_ops.load(Ordering::Relaxed) as u128;
+                    if max_key > 0 {
+                        let key = rng.gen_range(0..max_key);
+                        db.get(&key.to_be_bytes()).unwrap();
+                    }
+                }
             });
 
             start_killer(args.minutes, finish_signal);
