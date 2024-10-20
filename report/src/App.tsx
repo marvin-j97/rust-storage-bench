@@ -1,6 +1,7 @@
 import { ApexOptions } from "apexcharts";
 import millify from "millify";
 import { createSignal, For, onMount } from "solid-js";
+import { createStore, produce } from "solid-js/store";
 import prettyBytes from "pretty-bytes"
 
 import { SolidApexCharts } from "./SolidApex";
@@ -44,17 +45,17 @@ function formatNano(nanos: number): string {
 function App() {
 	const [setups, setSetups] = createSignal<Setup[]>([]);
 
-	const [cpuUsage, setCpuUsage] = createSignal<Series[]>([]);
-	const [memoryUsage, setMemoryUsage] = createSignal<Series[]>([]);
-	const [diskSpaceUsage, setDiskSpaceUsage] = createSignal<Series[]>([]);
+	const [state, setState] = createStore({
+		cpu: [] as Series[],
+		memory: [] as Series[],
+		diskSpace: [] as Series[],
 
-	const [writeOps, setWriteOps] = createSignal<Series[]>([]);
-	const [writeLatency, setWriteLatency] = createSignal<Series[]>([]);
-	const [writtenBytes, setWrittenBytes] = createSignal<Series[]>([]);
-	const [writeAmp, setWriteAmp] = createSignal<Series[]>([]);
+		writeLatency: [] as Series[],
+		writtenBytes: [] as Series[],
+		writeAmp: [] as Series[],
 
-	const [pointReadOps, setPointReadOps] = createSignal<Series[]>([]);
-	const [pointReadLatency, setPointReadLatency] = createSignal<Series[]>([]);
+		pointReadLatency: [] as Series[],
+	});
 
 	onMount(() => {
 		// NOTE: Patch HTML with dev data
@@ -83,12 +84,12 @@ function App() {
 		const memoryUsage: Series[] = [];
 		const diskSpaceUsage: Series[] = [];
 
-		const writeOps: Series[] = [];
+		//const writeOps: Series[] = [];
 		const writeLatency: Series[] = [];
 		const writtenBytes: Series[] = [];
 		const writeAmp: Series[] = [];
 
-		const pointReadOps: Series[] = [];
+		//const pointReadOps: Series[] = [];
 		const pointReadLatency: Series[] = [];
 
 		const els = document.querySelectorAll("script[type=data]");
@@ -201,31 +202,32 @@ function App() {
 			memoryUsage.push(memorySeries);
 			diskSpaceUsage.push(diskSpaceUsageSeries);
 
-			writeOps.push(writeSeries);
+			//	writeOps.push(writeSeries);
 			writeLatency.push(writeLatSeries);
 			writtenBytes.push(writtenBytesSeries);
 			writeAmp.push(writeAmpSeries);
 
-			pointReadOps.push(pointReadSeries);
+			//	pointReadOps.push(pointReadSeries);
 			pointReadLatency.push(pointReadLatSeries);
 		}
+
 		// TODO: file input if there are no embedded metrics file
 
 		setSetups(setups);
 
-		setCpuUsage(cpuUsage);
-		setMemoryUsage(memoryUsage);
-		setDiskSpaceUsage(diskSpaceUsage);
+		setState(
+			produce(state => {
+				state.cpu = cpuUsage;
+				state.memory = memoryUsage;
+				state.diskSpace = diskSpaceUsage;
 
-		setWriteOps(writeOps);
-		setWriteLatency(writeLatency);
-		setWrittenBytes(writtenBytes);
-		setWriteAmp(writeAmp);
+				state.writeLatency = writeLatency;
+				state.writtenBytes = writtenBytes;
+				state.writeAmp = writeAmp;
 
-		console.log(writeAmp);
-
-		setPointReadOps(pointReadOps);
-		setPointReadLatency(pointReadLatency);
+				state.pointReadLatency = pointReadLatency;
+			})
+		)
 	});
 
 	const defaultYFormatter = (x: number) => (~~x).toString();
@@ -320,7 +322,7 @@ function App() {
 					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
-								cpuUsage().map((series) => {
+								state.cpu.map((series) => {
 									return {
 										name: series.displayName,
 										data: series.data.map(([ts_milli, value]) => ({
@@ -355,7 +357,7 @@ function App() {
 					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
-								memoryUsage().map((series) => {
+								state.memory.map((series) => {
 									return {
 										name: series.displayName,
 										data: series.data.map(([ts_milli, value]) => ({
@@ -391,7 +393,7 @@ function App() {
 					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
-								diskSpaceUsage().map((series) => {
+								state.diskSpace.map((series) => {
 									return {
 										name: series.displayName,
 										data: series.data.map(([ts_milli, value]) => ({
@@ -426,42 +428,7 @@ function App() {
 					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
-								writeOps().map((series) => {
-									return {
-										name: series.displayName,
-										data: series.data.map(([ts_milli, value]) => ({
-											x: ts_milli / 1_000,
-											y: value,
-										})),
-										color: series.colour,
-									} satisfies ApexAxisChartSeries[0];
-								});
-
-							return (
-								<SolidApexCharts
-									type="line"
-									width="100%"
-									options={{
-										title: {
-											text: "write ops (cumulative)",
-											style: {
-												color: "white",
-											},
-										},
-										...commonChartOptions({
-											yFormatter: millify,
-											dashed: 0,
-										}),
-									}}
-									series={series()}
-								/>
-							);
-						})()}
-					</div>
-					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
-						{(() => {
-							const series = () =>
-								writeLatency().map((series) => {
+								state.writeLatency.map((series) => {
 									return {
 										name: series.displayName,
 										data: series.data.map(([ts_milli, value]) => ({
@@ -496,7 +463,7 @@ function App() {
 					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
-								writeLatency().map((series) => {
+								state.writeLatency.map((series) => {
 									return {
 										name: series.displayName,
 										data: series.data.map(([ts_milli, value]) => ({
@@ -531,7 +498,7 @@ function App() {
 					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
-								writtenBytes().map((series) => {
+								state.writtenBytes.map((series) => {
 									return {
 										name: series.displayName,
 										data: series.data.map(([ts_milli, value]) => ({
@@ -567,7 +534,7 @@ function App() {
 					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
-								writeAmp().map((series) => {
+								state.writeAmp.map((series) => {
 									return {
 										name: series.displayName,
 										data: series.data.map(([ts_milli, value]) => ({
@@ -602,42 +569,7 @@ function App() {
 					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
-								pointReadOps().map((series) => {
-									return {
-										name: series.displayName,
-										data: series.data.map(([ts_milli, value]) => ({
-											x: ts_milli / 1_000,
-											y: value,
-										})),
-										color: series.colour,
-									} satisfies ApexAxisChartSeries[0];
-								});
-
-							return (
-								<SolidApexCharts
-									type="line"
-									width="100%"
-									options={{
-										title: {
-											text: "point reads (cumulative)",
-											style: {
-												color: "white",
-											},
-										},
-										...commonChartOptions({
-											yFormatter: millify,
-											dashed: 0,
-										}),
-									}}
-									series={series()}
-								/>
-							);
-						})()}
-					</div>
-					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
-						{(() => {
-							const series = () =>
-								pointReadLatency().map((series) => {
+								state.pointReadLatency.map((series) => {
 									return {
 										name: series.displayName,
 										data: series.data.map(([ts_milli, value]) => ({
@@ -672,7 +604,7 @@ function App() {
 					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
-								pointReadLatency().map((series) => {
+								state.pointReadLatency.map((series) => {
 									return {
 										name: series.displayName,
 										data: series.data.map(([ts_milli, value]) => ({
