@@ -1,6 +1,6 @@
 use crate::db::Backend;
 use crate::workload::Workload;
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use serde::Serialize;
 use std::path::PathBuf;
 
@@ -9,13 +9,20 @@ use std::path::PathBuf;
 #[command(author = "marvin-j97", version = env!("CARGO_PKG_VERSION"), about = "Rust KV-store profiler")]
 #[command(propagate_version = true)]
 pub struct Args {
+    #[command(subcommand)]
+    pub command: Commands,
+}
+
+#[derive(Parser, Clone, Debug, Serialize)]
+#[clap(rename_all = "kebab_case")]
+pub struct RunOptions {
     #[arg(long, value_enum)]
     pub backend: Backend,
 
     #[arg(long)]
     pub data_dir: PathBuf,
 
-    #[arg(long, default_value = "log.jsonl")]
+    #[arg(long)]
     pub out: PathBuf,
 
     #[arg(long)]
@@ -65,18 +72,23 @@ pub struct Args {
     // #[arg(long, default_value_t = false)]
     // pub sled_flush: bool,
 
-    // #[arg(long, default_value_t = 16_000_000)]
-    // pub cache_size: u64,
-
-    // #[arg(long, default_value = "log.jsonl")]
-    // pub out: String,
-
-    // #[arg(long)]
-    // pub data_dir: PathBuf,
-
     // #[arg(long, default_value_t = false)]
     // pub fsync: bool,
+}
 
-    // #[arg(long, default_value_t = 1)]
-    // pub minutes: u16,
+#[derive(Parser, Clone, Debug, Serialize)]
+#[clap(rename_all = "kebab_case")]
+pub struct ReportOptions {
+    /// Input files
+    pub files: Vec<PathBuf>,
+
+    /// Output file
+    #[arg(short = 'o', long = "out", default_value = "out.html")]
+    pub out: PathBuf,
+}
+
+#[derive(Clone, Subcommand, Debug, Serialize)]
+pub enum Commands {
+    Run(RunOptions),
+    Report(ReportOptions),
 }

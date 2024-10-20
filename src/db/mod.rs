@@ -1,13 +1,12 @@
 mod backend;
 
+use crate::args::RunOptions;
 pub use backend::Backend;
 use std::{
     path::Path,
     sync::{atomic::AtomicU64, Arc},
     time::Instant,
 };
-
-use crate::Args;
 
 #[derive(Clone)]
 pub enum GenericDatabase {
@@ -43,7 +42,7 @@ impl std::ops::Deref for DatabaseWrapper {
 }
 
 impl DatabaseWrapper {
-    pub fn load<P: AsRef<Path>>(path: P, args: &Args) -> Self {
+    pub fn load<P: AsRef<Path>>(path: P, args: &RunOptions) -> Self {
         let db = match args.backend {
             /* Backend::Bloodstone => GenericDatabase::Bloodstone(
                 bloodstone::Config::new()
@@ -152,6 +151,7 @@ impl DatabaseWrapper {
         }
     }
 
+    /// NOTE: Purposefully only returns the length to avoid heap allocation
     pub fn last_len(&self) -> Option<usize> {
         let start = Instant::now();
 

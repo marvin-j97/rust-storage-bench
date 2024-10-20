@@ -1,5 +1,5 @@
 {"cpu":"","datetime":"2024-09-29 13:48:05.674816825 UTC","jemalloc":true,"kernel":"6.5.0-41-generic","mem":33501261824,"os":"Linux 22.04 Ubuntu","ts":1727617685674}
-{"backend":"fjall","data_dir":".data","out":"report/log.jsonl","display_name":"fjall 2.0.3","workload":"TimeseriesWrite","minutes":5}
+{"backend":"fjall","data_dir":".data","out":"log.jsonl","display_name":"fjall 2.0.3","workload":"TimeseriesWrite","minutes":5}
 ["time_ms","cpu","mem_kib","disk_space_kib","disk_writes_kib","write_ops","point_read_ops","range_ops","delete_ops","write_latency","point_read_latency","range_latency","delete_latency"]
 [505,11.34,86528,31953,1281652,196140,519366,2360116,0,0,918,183,0,0]
 [1008,14.5,108668,35258,1318256,196140,1013558,4506592,0,0,969,204,0,0]

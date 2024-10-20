@@ -20,3 +20,5 @@ node_modules
 old
 
 *.tsbuildinfo
+/*.jsonl
+out.html

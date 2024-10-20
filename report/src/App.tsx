@@ -1,6 +1,7 @@
 import { ApexOptions } from "apexcharts";
 import millify from "millify";
 import { createSignal, For, onMount } from "solid-js";
+import prettyBytes from "pretty-bytes"
 
 import { SolidApexCharts } from "./SolidApex";
 
@@ -33,9 +34,17 @@ const COLORS = [
 	"#ee5555",
 ];
 
+function formatNano(nanos: number): string {
+	if (nanos < 1_000) {
+		return `${formatThousands(nanos)}ns`
+	}
+	return `${(nanos / 1_000).toFixed(1)}µs`
+}
+
 function App() {
 	const [setups, setSetups] = createSignal<Setup[]>([]);
 
+	const [cpuUsage, setCpuUsage] = createSignal<Series[]>([]);
 	const [memoryUsage, setMemoryUsage] = createSignal<Series[]>([]);
 	const [diskSpaceUsage, setDiskSpaceUsage] = createSignal<Series[]>([]);
 
@@ -58,18 +67,19 @@ function App() {
 				[...dataContainer.childNodes.values()].every((x) => x.nodeType !== 1)
 			) {
 				dataContainer.innerHTML += `
-          <script type="data" compressed="false">
-            ${devData}
-          </script>
-          <script type="data" compressed="false">
-            ${devData2}
-          </script>
+				<script type="data" compressed="false">
+					${devData}
+				</script>
+				<script type="data" compressed="false">
+					${devData2}
+				</script>
         `;
 			}
 		}
 
 		const setups: Setup[] = [];
 
+		const cpuUsage: Series[] = [];
 		const memoryUsage: Series[] = [];
 		const diskSpaceUsage: Series[] = [];
 
@@ -99,6 +109,11 @@ function App() {
 
 			//const timeStart = system.ts;
 
+			const cpuSeries: Series = {
+				displayName: args.display_name,
+				colour: COLORS[i],
+				data: [],
+			};
 			const memorySeries: Series = {
 				displayName: args.display_name,
 				colour: COLORS[i],
@@ -163,6 +178,7 @@ function App() {
 					writeAmp,
 				] = metrics;
 
+				cpuSeries.data.push([ts, cpu]);
 				memorySeries.data.push([ts, memKib]);
 
 				if (diskSpaceKib) {
@@ -181,6 +197,7 @@ function App() {
 				pointReadLatSeries.data.push([ts, pointReadLatency]);
 			}
 
+			cpuUsage.push(cpuSeries);
 			memoryUsage.push(memorySeries);
 			diskSpaceUsage.push(diskSpaceUsageSeries);
 
@@ -196,6 +213,7 @@ function App() {
 
 		setSetups(setups);
 
+		setCpuUsage(cpuUsage);
 		setMemoryUsage(memoryUsage);
 		setDiskSpaceUsage(diskSpaceUsage);
 
@@ -299,7 +317,41 @@ function App() {
 				<h2 class="text-lg mb-3">Results</h2>
 				{/* graphs */}
 				<div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
-					<div>cpu</div>
+					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
+						{(() => {
+							const series = () =>
+								cpuUsage().map((series) => {
+									return {
+										name: series.displayName,
+										data: series.data.map(([ts_milli, value]) => ({
+											x: ts_milli / 1_000,
+											y: value,
+										})),
+										color: series.colour,
+									} satisfies ApexAxisChartSeries[0];
+								});
+
+							return (
+								<SolidApexCharts
+									type="line"
+									width="100%"
+									options={{
+										title: {
+											text: "CPU usage",
+											style: {
+												color: "white",
+											},
+										},
+										...commonChartOptions({
+											yFormatter: (pct) => `${pct}%`,
+											dashed: 0,
+										}),
+									}}
+									series={series()}
+								/>
+							);
+						})()}
+					</div>
 					<div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
 						{(() => {
 							const series = () =>
@@ -362,8 +414,7 @@ function App() {
 											},
 										},
 										...commonChartOptions({
-											yFormatter: (bytes) =>
-												`${formatThousands(bytes / 1_024 / 1_024)} GB`,
+											yFormatter: prettyBytes,
 											dashed: 0,
 										}),
 									}}
@@ -433,7 +484,7 @@ function App() {
 											},
 										},
 										...commonChartOptions({
-											yFormatter: (ns) => `${(ns / 1_000).toFixed(1)}µs`,
+											yFormatter: formatNano,
 											dashed: 0,
 										}),
 									}}
@@ -609,7 +660,7 @@ function App() {
 											},
 										},
 										...commonChartOptions({
-											yFormatter: (ns) => `${(ns / 1_000).toFixed(1)}µs`,
+											yFormatter: formatNano,
 											dashed: 0,
 										}),
 									}}
@@ -673,7 +724,7 @@ function App() {
 					<For each={setups()}>
 						{(series) => (
 							<div>
-								cargo run -r --{" "}
+								cargo run -r -- run{" "}
 								{Object.entries(series.args)
 									.map(([key, value]) =>
 										[`--${key.replace(/_/g, "-")}`, `"${value}"`].join(" "),

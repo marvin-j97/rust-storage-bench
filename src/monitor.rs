@@ -1,4 +1,4 @@
-use crate::{args::Args, db::DatabaseWrapper};
+use crate::{args::RunOptions, db::DatabaseWrapper};
 use std::{
     fs::File,
     io::Write,
@@ -17,7 +17,7 @@ pub fn start_monitor(
     data_dir: PathBuf,
     mut sys: System,
     db: DatabaseWrapper,
-    args: Args,
+    args: RunOptions,
     finish_signal: Arc<AtomicBool>,
 ) -> JoinHandle<()> {
     let mut prev_write_ops = 0;

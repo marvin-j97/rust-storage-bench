@@ -13,6 +13,7 @@
     "@unocss/reset": "0.63.0",
     "defu": "6.1.4",
     "millify": "6.1.0",
+    "pretty-bytes": "6.1.1",
     "solid-js": "1.8.20",
     "unocss": "0.63.0"
   },

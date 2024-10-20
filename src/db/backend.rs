@@ -33,8 +33,8 @@ impl std::fmt::Display for Backend {
             "{}",
             match self {
                 Self::Sled => "sled 0.34.7",
-                Self::Fjall => "fjall 2.0.3",
-                Self::Redb => "redb 2.1.3",
+                Self::Fjall => "fjall 2.2.0",
+                Self::Redb => "redb 2.1.4",
                 // Self::Bloodstone => "sled 1.0.0-alpha.122",
                 // Self::Persy => "persy 1.5.0",
                 // Self::JammDb => "jammdb 0.11.0",
