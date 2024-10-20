@@ -22,3 +22,4 @@ old
 *.tsbuildinfo
 /*.jsonl
 out.html
+report.html
