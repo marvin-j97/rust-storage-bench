@@ -1,7 +1,7 @@
 // From: https://github.com/wobsoriano/solid-apexcharts
 // but we use a CDN
 
-// NOTE: We only use apexharts for types
+// NOTE: We only use apexcharts for types
 import type { ApexOptions } from "apexcharts";
 
 import type { Component } from "solid-js";
