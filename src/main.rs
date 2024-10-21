@@ -166,7 +166,20 @@ pub fn main() {
                     "range_latency",
                     "delete_latency",
                     //
+                    "write_rate",
+                    "point_read_rate",
+                    "range_rate",
+                    "delete_rate",
+                    //
+                    "write_potential",
+                    "point_read_potential",
+                    "range_potential",
+                    "delete_potential",
+                    //
                     "write_amp",
+                    "space_amp",
+                    "read_amp",
+                    //
                 ]);
                 writeln!(&mut file_writer, "{json}").unwrap();
             }

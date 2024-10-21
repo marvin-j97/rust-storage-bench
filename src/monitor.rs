@@ -10,7 +10,7 @@ use std::{
     thread::JoinHandle,
     time::{Duration, Instant},
 };
-use sysinfo::{Pid, System};
+use sysinfo::{Pid, ProcessRefreshKind, System};
 
 pub fn start_monitor(
     mut file_writer: File,
@@ -31,17 +31,23 @@ pub fn start_monitor(
     let start_instant = Instant::now();
 
     std::thread::spawn(move || {
+        // "How often does this run per second?"
+        let frequency = (Duration::from_secs(1).as_millis() as f32) / (args.granularity_ms as f32);
+
+        let mut potential_write_ops = 0;
+        let mut potential_point_read_ops = 0;
+
         loop {
             let duration = Duration::from_millis(args.granularity_ms.into());
             std::thread::sleep(duration);
 
-            sys.refresh_all();
+            sys.refresh_process_specifics(pid, ProcessRefreshKind::everything());
 
             let proc = sys.processes();
             let child = proc.get(&pid).unwrap();
 
             let time_ms = start_instant.elapsed().as_millis();
-            let cpu = sys.global_cpu_info().cpu_usage();
+            let cpu = child.cpu_usage();
             let mem = (child.memory() as f32 / 1_024.0) as u64;
 
             if mem >= 16 * 1_024 * 1_024 {
@@ -49,7 +55,7 @@ pub fn start_monitor(
                 std::process::exit(666);
             }
 
-            let disk_space = fs_extra::dir::get_size(&data_dir).unwrap_or_default() / 1_024;
+            let disk_space_kib = fs_extra::dir::get_size(&data_dir).unwrap_or_default() / 1_024;
 
             let disk = child.disk_usage();
 
@@ -69,6 +75,12 @@ pub fn start_monitor(
                 .fetch_min(0, std::sync::atomic::Ordering::Release);
             let write_ops_since = write_ops - prev_write_ops;
             let avg_write_latency = accumulated_write_latency / write_ops_since.max(1);
+            let write_rate_per_second = if avg_write_latency > 0 {
+                Duration::from_secs(1).as_nanos() / avg_write_latency as u128
+            } else {
+                0
+            };
+            potential_write_ops += (write_rate_per_second as f32 / frequency) as u64;
 
             let accumulated_point_read_latency = db
                 .point_read_latency
@@ -76,12 +88,19 @@ pub fn start_monitor(
             let point_read_ops_since = point_read_ops - prev_point_read_ops;
             let avg_point_read_latency =
                 accumulated_point_read_latency / point_read_ops_since.max(1);
+            let point_read_rate_per_second = if avg_point_read_latency > 0 {
+                Duration::from_secs(1).as_nanos() / avg_point_read_latency as u128
+            } else {
+                0
+            };
+            potential_point_read_ops += (point_read_rate_per_second as f32 / frequency) as u64;
 
             let json = serde_json::json!([
                 time_ms,
                 format!("{:.2}", cpu).parse::<f64>().unwrap(),
                 mem,
-                disk_space,
+                //
+                disk_space_kib,
                 disk_writes_kib,
                 disk_reads_kib,
                 //
@@ -92,10 +111,22 @@ pub fn start_monitor(
                 //
                 avg_write_latency,
                 avg_point_read_latency,
-                0,
-                0,
+                0, // TODO:
+                0, // TODO:
+                //
+                write_rate_per_second,
+                point_read_rate_per_second,
+                0, // TODO:
+                0, // TODO:
+                //
+                potential_write_ops,
+                potential_point_read_ops,
+                0, // TODO:
+                0, // TODO:
                 //
                 format!("{:.2}", write_amp).parse::<f64>().unwrap(),
+                1.0, // TODO:
+                1.0, // TODO:
             ]);
             writeln!(&mut file_writer, "{json}").unwrap();
 

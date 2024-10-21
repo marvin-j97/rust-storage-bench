@@ -15,10 +15,10 @@ Benchmarking Rust storage engines:
 
 ## Example usage
 
-Build before in report/ directory: 
+Build before:
 
 ```bash
-pnpm build
+sh build.sh
 ```
 
 Then run benchmarks and create HTML report:
