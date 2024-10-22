@@ -39,6 +39,10 @@ pub struct RunOptions {
 
     #[arg(long, default_value_t = 16_000_000)]
     pub cache_size: u64,
+
+    /// Use durable writes
+    #[arg(long, default_value_t = false)]
+    pub fsync: bool,
     // #[arg(long, default_value_t = 1)]
     // pub threads: u8,
 

@@ -792,8 +792,18 @@ function App() {
               <div>
                 cargo run -r -- run{" "}
                 {Object.entries(series.args)
-                  .map(([key, value]) =>
-                    [`--${key.replace(/_/g, "-")}`, `"${value}"`].join(" "),
+                  .filter(([_, value]) => typeof value === "string" || typeof value === "number" || (typeof value === "boolean" && value))
+                  .map(([key, value]) => {
+                    const kekabKey = key.replace(/_/g, "-");
+
+                    if (typeof value === "boolean") {
+                      return [`--${kekabKey}`].join(" ");
+                    }
+                    if (typeof value === "number") {
+                      return [`--${kekabKey}`, `${value}`].join(" ");
+                    }
+                    return [`--${kekabKey}`, `"${value}"`].join(" ");
+                  },
                   )
                   .join(" ")}
               </div>
