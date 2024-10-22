@@ -24,12 +24,9 @@ sh build.sh
 Then run benchmarks and create HTML report:
 
 ```bash
-cargo run -r -- run --backend fjall --data-dir=.data --workload timeseries-write --out log.jsonl --minutes 1
-cargo run -r -- run --backend sled --data-dir=.data --workload timeseries-write --out log2.jsonl --minutes 1
-cargo run -r -- report --out report.html log.jsonl log2.jsonl
+alias bench="cargo run -r --"
+bench run --backend fjall --data-dir=.data --workload timeseries-write --out log.jsonl --minutes 1
+bench run --backend sled --data-dir=.data --workload timeseries-write --out log2.jsonl --minutes 1
+bench report --out report.html log.jsonl log2.jsonl
 open report.html
 ```
-
-## Run many benchmarks
-
-TODO:
