@@ -118,16 +118,11 @@ pub fn main() {
                     now.to_string()
                 };
 
-                let jmalloc = {
-                    #[cfg(feature = "jemalloc")]
-                    {
-                        true
-                    }
-
-                    #[cfg(not(feature = "jemalloc"))]
-                    {
-                        false
-                    }
+                let allocator = match (cfg!(feature = "jemalloc"), cfg!(feature = "mimalloc")) {
+                    (true, false) => "jemalloc",
+                    (false, true) => "mimalloc",
+                    (false, false) => "system",
+                    _ => unreachable!(),
                 };
 
                 let json = serde_json::json!({
@@ -137,7 +132,7 @@ pub fn main() {
                     "mem": sys.total_memory(),
                     "datetime": datetime,
                     "ts": start_time.as_millis(),
-                    "jemalloc": jmalloc,
+                    "allocator": allocator,
                 });
 
                 println!("System: {}", serde_json::to_string_pretty(&json).unwrap());
