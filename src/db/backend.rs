@@ -12,18 +12,22 @@ pub enum Backend {
 
     #[serde(rename = "redb")]
     Redb,
+
+    #[cfg(feature = "heed")]
+    #[serde(rename = "heed")]
+    Heed,
+
+    #[cfg(feature = "rocksdb")]
+    #[serde(rename = "rocksdb")]
+    #[serde(alias = "rocks")]
+    #[clap(name = "rocksdb", alias = "rocks")]
+    RocksDb,
+    //
     /*     #[serde(rename = "bloodstone")]
     Bloodstone, */
     // Persy,
     // JammDb,
-    // Redb,
     // Nebari,
-
-    // #[cfg(feature = "heed")]
-    // Heed,
-
-    // #[cfg(feature = "rocksdb")]
-    // RocksDb,
 }
 
 impl std::fmt::Display for Backend {
@@ -35,16 +39,15 @@ impl std::fmt::Display for Backend {
                 Self::Sled => "sled 0.34.7",
                 Self::Fjall => "fjall 2.2.0",
                 Self::Redb => "redb 2.1.4",
+
+                #[cfg(feature = "heed")]
+                Self::Heed => "heed 0.20.5",
                 // Self::Bloodstone => "sled 1.0.0-alpha.122",
                 // Self::Persy => "persy 1.5.0",
                 // Self::JammDb => "jammdb 0.11.0",
                 // Self::Nebari => "nebari 0.5.5",
-
-                // #[cfg(feature = "heed")]
-                // Self::Heed => "heed 0.20.0",
-
-                // #[cfg(feature = "rocksdb")]
-                // Self::RocksDb => "rocksdb 0.22.0",
+                #[cfg(feature = "rocksdb")]
+                Self::RocksDb => "rocksdb 0.22.0",
             }
         )
     }

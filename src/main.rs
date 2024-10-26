@@ -21,6 +21,13 @@ use jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
+#[cfg(feature = "mimalloc")]
+use mimalloc::MiMalloc;
+
+#[cfg(feature = "mimalloc")]
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 /// Gets the unix timestamp as a duration
 pub fn unix_timestamp() -> std::time::Duration {
     let now = std::time::SystemTime::now();
@@ -112,12 +119,12 @@ pub fn main() {
                 };
 
                 let jmalloc = {
-                    #[cfg(feature = "jemallocator")]
+                    #[cfg(feature = "jemalloc")]
                     {
                         true
                     }
 
-                    #[cfg(not(feature = "jemallocator"))]
+                    #[cfg(not(feature = "jemalloc"))]
                     {
                         false
                     }
@@ -155,6 +162,9 @@ pub fn main() {
                     "mem_kib",
                     "disk_space_kib",
                     "disk_writes_kib",
+                    "disk_reads_kib",
+                    //
+                    "disk_segment_count",
                     //
                     "write_ops",
                     "point_read_ops",

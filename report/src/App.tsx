@@ -7,7 +7,7 @@ import prettyBytes from "pretty-bytes";
 import { SolidApexCharts } from "./SolidApex";
 
 import devData from "../log.jsonl?raw";
-import devData2 from "../log2.jsonl?raw";
+// import devData2 from "../log2.jsonl?raw";
 
 const thousandsFormatter = Intl.NumberFormat(undefined, {
   maximumFractionDigits: 1,
@@ -50,6 +50,8 @@ function App() {
     memory: [] as Series[],
     diskSpace: [] as Series[],
 
+    diskSegments: [] as Series[],
+
     writeOps: [] as Series[],
     writeLatency: [] as Series[],
     writeRate: [] as Series[],
@@ -76,9 +78,6 @@ function App() {
 				<script type="data" compressed="false">
 					${devData}
 				</script>
-				<script type="data" compressed="false">
-					${devData2}
-				</script>
         `;
       }
     }
@@ -87,7 +86,10 @@ function App() {
 
     const cpuUsage: Series[] = [];
     const memoryUsage: Series[] = [];
+
     const diskSpaceUsage: Series[] = [];
+
+    const diskSegments: Series[] = [];
 
     const writeOps: Series[] = [];
     const writeLatency: Series[] = [];
@@ -109,7 +111,7 @@ function App() {
 
       const txt = item.textContent!.trim();
       const lines = txt.split("\n");
-      const system = JSON.parse(lines[0]);
+      const _system = JSON.parse(lines[0]);
       const args = JSON.parse(lines[1]);
 
       setups.push({
@@ -130,6 +132,12 @@ function App() {
         data: [],
       };
       const diskSpaceUsageSeries: Series = {
+        displayName: args.display_name,
+        colour: COLORS[i],
+        data: [],
+      };
+
+      const diskSegmentSeries: Series = {
         displayName: args.display_name,
         colour: COLORS[i],
         data: [],
@@ -188,7 +196,7 @@ function App() {
       };
 
       for (const line of lines.slice(3, -1)) {
-        const metrics = JSON.parse(line);
+        const metrics = JSON.parse(line) as number[];
 
         const [
           ts,
@@ -198,6 +206,8 @@ function App() {
           diskSpaceKib,
           diskWriteKib,
           diskReadKib,
+          //
+          diskSegments,
           //
           writeOps,
           pointReadOps,
@@ -234,6 +244,8 @@ function App() {
           diskSpaceUsageSeries.data.push([ts, diskSpaceKib]);
         }
 
+        diskSegmentSeries.data.push([ts, diskSegments]);
+
         writeSeries.data.push([ts, writeOps]);
         writeLatSeries.data.push([ts, writeLatency]);
         writeRateSeries.data.push([ts, writeRate]);
@@ -250,6 +262,8 @@ function App() {
       cpuUsage.push(cpuSeries);
       memoryUsage.push(memorySeries);
       diskSpaceUsage.push(diskSpaceUsageSeries);
+
+      diskSegments.push(diskSegmentSeries);
 
       writeOps.push(writeSeries);
       writeLatency.push(writeLatSeries);
@@ -273,6 +287,8 @@ function App() {
         state.cpu = cpuUsage;
         state.memory = memoryUsage;
         state.diskSpace = diskSpaceUsage;
+
+        state.diskSegments = diskSegments;
 
         state.writeOps = writeOps;
         state.writeLatency = writeLatency;
@@ -764,6 +780,43 @@ function App() {
                     },
                     ...commonChartOptions({
                       yFormatter: millify,
+                      dashed: 0,
+                    }),
+                  }}
+                  series={series()}
+                />
+              );
+            })()}
+          </div>
+          <div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
+            {(() => {
+              const series = () =>
+                state.diskSegments.map((series) => {
+                  return {
+                    name: series.displayName,
+                    data: series.data.map(([ts_milli, value]) => ({
+                      x: ts_milli / 1_000,
+                      y: value,
+                    })),
+                    color: series.colour,
+                  } satisfies ApexAxisChartSeries[0];
+                });
+
+              // TODO: store refresh granularity (ms) in system object
+
+              return (
+                <SolidApexCharts
+                  type="line"
+                  width="100%"
+                  options={{
+                    title: {
+                      text: "# disk segments",
+                      style: {
+                        color: "white",
+                      },
+                    },
+                    ...commonChartOptions({
+                      yFormatter: x => x.toString(),
                       dashed: 0,
                     }),
                   }}

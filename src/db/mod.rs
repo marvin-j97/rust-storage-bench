@@ -17,6 +17,14 @@ pub enum GenericDatabase {
     Sled(sled::Db),
     Redb(Arc<redb::Database>),
     /* Bloodstone(bloodstone::Db), */
+    #[cfg(feature = "heed")]
+    Heed {
+        db: heed::Database<heed::types::Bytes, heed::types::Bytes>,
+        env: heed::Env,
+    },
+
+    #[cfg(feature = "rocksdb")]
+    RocksDb(Arc<rocksdb::DB>),
 }
 
 const TABLE: redb::TableDefinition<&[u8], &[u8]> = redb::TableDefinition::new("data");
@@ -42,6 +50,16 @@ impl std::ops::Deref for DatabaseWrapper {
 }
 
 impl DatabaseWrapper {
+    pub fn disk_segment_count(&self) -> usize {
+        if let GenericDatabase::Fjall { db, .. } = &self.inner {
+            use fjall::AbstractTree;
+
+            db.tree.segment_count()
+        } else {
+            0
+        }
+    }
+
     pub fn load<P: AsRef<Path>>(path: P, args: &RunOptions) -> Self {
         let db = match args.backend {
             /* Backend::Bloodstone => GenericDatabase::Bloodstone(
@@ -51,6 +69,55 @@ impl DatabaseWrapper {
                     .open()
                     .unwrap(),
             ), */
+            #[cfg(feature = "rocksdb")]
+            Backend::RocksDb => {
+                use rocksdb::BlockBasedOptions;
+
+                std::fs::create_dir_all(&path).unwrap();
+
+                let mut opts = rocksdb::Options::default();
+                opts.create_if_missing(true);
+                // opts.set_enable_blob_files(args.lsm_kv_separation);
+                opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
+                opts.set_manual_wal_flush(true);
+
+                let mut bopts = BlockBasedOptions::default();
+                bopts.set_block_cache(&rocksdb::Cache::new_lru_cache(args.cache_size as usize));
+                bopts.set_bloom_filter(10.0, false);
+
+                opts.set_block_based_table_factory(&bopts);
+                opts.set_blob_compression_type(rocksdb::DBCompressionType::Lz4);
+
+                // TODO: how to set blob cache???
+
+                let db = rocksdb::DB::open(&opts, &path).unwrap();
+                GenericDatabase::RocksDb(Arc::new(db))
+            }
+
+            #[cfg(feature = "heed")]
+            Backend::Heed => {
+                use heed::EnvFlags;
+
+                std::fs::create_dir_all(&path).unwrap();
+
+                let env = unsafe {
+                    heed::EnvOpenOptions::new()
+                        .map_size(64_000_000_000)
+                        .flags(if args.fsync {
+                            EnvFlags::NO_READ_AHEAD
+                        } else {
+                            EnvFlags::NO_SYNC | EnvFlags::NO_READ_AHEAD
+                        })
+                        .open(&path)
+                        .unwrap()
+                };
+
+                let mut wtxn = env.write_txn().unwrap();
+                let db = env.create_database(&mut wtxn, None).unwrap();
+                wtxn.commit().unwrap();
+
+                GenericDatabase::Heed { db, env }
+            }
             Backend::Sled => GenericDatabase::Sled(
                 sled::Config::new()
                     .path(path)
@@ -263,6 +330,17 @@ impl DatabaseWrapper {
                     table.insert(key, value).unwrap();
                 }
                 write_txn.commit().unwrap();
+            }
+            #[cfg(feature = "heed")]
+            GenericDatabase::Heed { env, db } => {
+                let mut wtxn = env.write_txn().unwrap();
+                db.put(&mut wtxn, key, value).unwrap();
+                wtxn.commit().unwrap();
+            }
+            #[cfg(feature = "rocksdb")]
+            GenericDatabase::RocksDb(db) => {
+                db.put(key, value).unwrap();
+                db.flush_wal(durable).unwrap();
             }
             /* GenericDatabase::Bloodstone(db) => {
                 db.insert(key, value).unwrap();
