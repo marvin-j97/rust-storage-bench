@@ -50,6 +50,16 @@ impl std::ops::Deref for DatabaseWrapper {
 }
 
 impl DatabaseWrapper {
+    pub fn bloom_filter_size(&self) -> usize {
+        if let GenericDatabase::Fjall { db, .. } = &self.inner {
+            use fjall::AbstractTree;
+
+            db.tree.bloom_filter_size()
+        } else {
+            0
+        }
+    }
+
     pub fn disk_segment_count(&self) -> usize {
         if let GenericDatabase::Fjall { db, .. } = &self.inner {
             use fjall::AbstractTree;

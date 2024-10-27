@@ -51,6 +51,7 @@ function App() {
     diskSpace: [] as Series[],
 
     diskSegments: [] as Series[],
+    bloomFilterSize: [] as Series[],
 
     writeOps: [] as Series[],
     writeLatency: [] as Series[],
@@ -90,6 +91,7 @@ function App() {
     const diskSpaceUsage: Series[] = [];
 
     const diskSegments: Series[] = [];
+    const bloomFilters: Series[] = [];
 
     const writeOps: Series[] = [];
     const writeLatency: Series[] = [];
@@ -138,6 +140,11 @@ function App() {
       };
 
       const diskSegmentSeries: Series = {
+        displayName: args.display_name,
+        colour: COLORS[i],
+        data: [],
+      };
+      const bloomFilterSizeSeries: Series = {
         displayName: args.display_name,
         colour: COLORS[i],
         data: [],
@@ -208,6 +215,7 @@ function App() {
           diskReadKib,
           //
           diskSegments,
+          bloomFilterSize,
           //
           writeOps,
           pointReadOps,
@@ -245,6 +253,7 @@ function App() {
         }
 
         diskSegmentSeries.data.push([ts, diskSegments]);
+        bloomFilterSizeSeries.data.push([ts, bloomFilterSize]);
 
         writeSeries.data.push([ts, writeOps]);
         writeLatSeries.data.push([ts, writeLatency]);
@@ -264,6 +273,7 @@ function App() {
       diskSpaceUsage.push(diskSpaceUsageSeries);
 
       diskSegments.push(diskSegmentSeries);
+      bloomFilters.push(bloomFilterSizeSeries);
 
       writeOps.push(writeSeries);
       writeLatency.push(writeLatSeries);
@@ -289,6 +299,7 @@ function App() {
         state.diskSpace = diskSpaceUsage;
 
         state.diskSegments = diskSegments;
+        state.bloomFilterSize = bloomFilters;
 
         state.writeOps = writeOps;
         state.writeLatency = writeLatency;
@@ -817,6 +828,43 @@ function App() {
                     },
                     ...commonChartOptions({
                       yFormatter: x => x.toString(),
+                      dashed: 0,
+                    }),
+                  }}
+                  series={series()}
+                />
+              );
+            })()}
+          </div>
+          <div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
+            {(() => {
+              const series = () =>
+                state.bloomFilterSize.map((series) => {
+                  return {
+                    name: series.displayName,
+                    data: series.data.map(([ts_milli, value]) => ({
+                      x: ts_milli / 1_000,
+                      y: value,
+                    })),
+                    color: series.colour,
+                  } satisfies ApexAxisChartSeries[0];
+                });
+
+              // TODO: store refresh granularity (ms) in system object
+
+              return (
+                <SolidApexCharts
+                  type="line"
+                  width="100%"
+                  options={{
+                    title: {
+                      text: "Bloom filter size",
+                      style: {
+                        color: "white",
+                      },
+                    },
+                    ...commonChartOptions({
+                      yFormatter: prettyBytes,
                       dashed: 0,
                     }),
                   }}

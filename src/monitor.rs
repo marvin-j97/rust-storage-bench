@@ -105,6 +105,7 @@ pub fn start_monitor(
                 disk_reads_kib,
                 //
                 db.disk_segment_count(),
+                db.bloom_filter_size(),
                 //
                 write_ops,
                 point_read_ops,

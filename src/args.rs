@@ -23,7 +23,7 @@ pub struct RunOptions {
     pub data_dir: PathBuf,
 
     #[arg(long)]
-    pub out: PathBuf,
+    pub out: Option<PathBuf>,
 
     #[arg(long)]
     pub display_name: Option<String>,

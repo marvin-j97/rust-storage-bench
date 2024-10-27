@@ -100,7 +100,13 @@ pub fn main() {
             // [data point, data point, data point]
             // [data point, data point, data point]
             // { fin: true }
-            let mut file_writer = std::fs::File::create(&args.out).unwrap();
+            let mut file_writer = std::fs::File::create(
+                args.out
+                    .as_ref()
+                    .cloned()
+                    .unwrap_or_else(|| format!("{}.jsonl", scru128::new_string()).into()),
+            )
+            .unwrap();
 
             let mut sys = sysinfo::System::new_all();
             sys.refresh_all();
@@ -160,6 +166,7 @@ pub fn main() {
                     "disk_reads_kib",
                     //
                     "disk_segment_count",
+                    "bloom_filter_size",
                     //
                     "write_ops",
                     "point_read_ops",
