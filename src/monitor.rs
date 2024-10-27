@@ -106,6 +106,8 @@ pub fn start_monitor(
                 //
                 db.disk_segment_count(),
                 db.bloom_filter_size(),
+                0, // TODO:
+                0, // TODO:
                 //
                 write_ops,
                 point_read_ops,

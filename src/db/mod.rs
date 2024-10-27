@@ -305,6 +305,60 @@ impl DatabaseWrapper {
         item
     }
 
+    pub fn ingest(&self, items: impl Iterator<Item = (Vec<u8>, Vec<u8>)>) {
+        let start = Instant::now();
+
+        let mut count = 0;
+        let mut bytes_written = 0;
+
+        match &self.inner {
+            GenericDatabase::Fjall { keyspace, db } => {
+                for (key, value) in items {
+                    db.insert(&key, &value).unwrap();
+
+                    count += 1;
+                    bytes_written += key.len() + value.len();
+                }
+                keyspace.persist(fjall::PersistMode::SyncAll).unwrap();
+            }
+            GenericDatabase::Sled(db) => {
+                for (key, value) in items {
+                    db.insert(&key, &*value).unwrap();
+
+                    count += 1;
+                    bytes_written += key.len() + value.len();
+                }
+                db.flush().unwrap();
+            }
+            GenericDatabase::Redb(db) => {
+                let write_txn = db.begin_write().unwrap();
+                {
+                    let mut table = write_txn.open_table(TABLE).unwrap();
+
+                    for (key, value) in items {
+                        table.insert(&*key, &*value).unwrap();
+
+                        count += 1;
+                        bytes_written += key.len() + value.len();
+                    }
+                }
+                write_txn.commit().unwrap();
+            }
+            _ => unimplemented!(),
+        }
+
+        self.write_latency.fetch_add(
+            start.elapsed().as_nanos() as u64,
+            std::sync::atomic::Ordering::Relaxed,
+        );
+
+        self.write_ops
+            .fetch_add(count, std::sync::atomic::Ordering::Relaxed);
+
+        self.written_bytes
+            .fetch_add(bytes_written as u64, std::sync::atomic::Ordering::Relaxed);
+    }
+
     pub fn insert(&self, key: &[u8], value: &[u8], durable: bool) {
         let start = Instant::now();
 

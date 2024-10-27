@@ -167,6 +167,8 @@ pub fn main() {
                     //
                     "disk_segment_count",
                     "bloom_filter_size",
+                    "block_index_size",
+                    "cache_size",
                     //
                     "write_ops",
                     "point_read_ops",

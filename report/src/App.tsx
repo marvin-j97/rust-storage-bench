@@ -216,6 +216,8 @@ function App() {
           //
           diskSegments,
           bloomFilterSize,
+          blockIndexSize,
+          cacheSize,
           //
           writeOps,
           pointReadOps,
