@@ -108,6 +108,7 @@ pub fn start_monitor(
                 db.bloom_filter_size(),
                 0, // TODO:
                 0, // TODO:
+                db.tree_height(),
                 //
                 write_ops,
                 point_read_ops,

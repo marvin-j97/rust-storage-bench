@@ -50,6 +50,20 @@ impl std::ops::Deref for DatabaseWrapper {
 }
 
 impl DatabaseWrapper {
+    pub fn tree_height(&self) -> usize {
+        match &self.inner {
+            GenericDatabase::Redb(db) => {
+                use redb::ReadableTableMetadata;
+
+                let tx = db.begin_read().unwrap();
+                let table = tx.open_table(TABLE).unwrap();
+                table.stats().unwrap().tree_height() as usize
+            }
+            // TODO: lmdb etc
+            _ => 0,
+        }
+    }
+
     pub fn bloom_filter_size(&self) -> usize {
         if let GenericDatabase::Fjall { db, .. } = &self.inner {
             use fjall::AbstractTree;
@@ -156,12 +170,16 @@ impl DatabaseWrapper {
                 use fjall::PartitionCreateOptions;
 
                 let config = fjall::Config::new(path)
+                    // .max_write_buffer_size(256_000_000)
+                    .manual_journal_persist(true)
                     .block_cache(fjall::BlockCache::with_capacity_bytes(args.cache_size).into())
                     .blob_cache(fjall::BlobCache::with_capacity_bytes(args.cache_size).into());
 
                 let keyspace = config.open().unwrap();
 
-                let create_opts = PartitionCreateOptions::default();
+                let create_opts = PartitionCreateOptions::default()
+                    /* .max_memtable_size(64_000_000) */
+                    ;
                 let db = keyspace.open_partition("data", create_opts).unwrap();
 
                 /* let compaction_strategy = match args.lsm_compaction {
@@ -272,6 +290,7 @@ impl DatabaseWrapper {
         let start = Instant::now();
 
         let item = match &self.inner {
+            GenericDatabase::RocksDb(db) => db.get(key).unwrap(),
             GenericDatabase::Fjall { keyspace: _, db } => {
                 let item = db.get(key).unwrap();
                 item.map(|x| x.to_vec())
@@ -312,6 +331,15 @@ impl DatabaseWrapper {
         let mut bytes_written = 0;
 
         match &self.inner {
+            GenericDatabase::RocksDb(db) => {
+                for (key, value) in items {
+                    db.put(&key, &value).unwrap();
+
+                    count += 1;
+                    bytes_written += key.len() + value.len();
+                }
+                db.flush_wal(true).unwrap();
+            }
             GenericDatabase::Fjall { keyspace, db } => {
                 for (key, value) in items {
                     db.insert(&key, &value).unwrap();

@@ -169,6 +169,7 @@ pub fn main() {
                     "bloom_filter_size",
                     "block_index_size",
                     "cache_size",
+                    "tree_height",
                     //
                     "write_ops",
                     "point_read_ops",
