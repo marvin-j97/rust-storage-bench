@@ -31,8 +31,8 @@ pub struct RunOptions {
     #[arg(long, value_enum)]
     pub workload: Workload,
 
-    #[arg(long, default_value_t = 1)]
-    pub minutes: u16,
+    #[arg(long, default_value_t = 60)]
+    pub seconds: u16,
 
     #[arg(long, alias = "granularity", default_value_t = 500)]
     pub granularity_ms: u16,

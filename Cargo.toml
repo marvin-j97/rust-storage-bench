@@ -21,10 +21,8 @@ jemallocator = { version = "0.5.4", optional = true }
 mimalloc = { version = "0.1.43", default-features = false, features = [
 ], optional = true }
 clap = { version = "4.4.10", features = ["derive"] }
-# bloodstone = { package = "sled", version = "1.0.0-alpha.122" }
 sled = { version = "0.34.7", features = [] }
-fjall = { path = "../fjall" }
-# nanoid = "0.4.0"
+fjall = { version = "2.3.0" }
 rand = "0.8.5"
 sysinfo = { version = "0.30.1", features = ["serde"] }
 serde = { version = "1.0.193", features = ["derive", "rc"] }
@@ -40,6 +38,7 @@ rocksdb = { version = "0.22.0", optional = true, default-features = false, featu
     "lz4",
 ] }
 scru128 = "3.0.2"
+# bloodstone = { package = "sled", version = "1.0.0-alpha.124" }
 # nebari = "0.5.5"
 # persy = { version = "1.5.0", features = ["background_ops"] }
 # jammdb = "0.11.0"

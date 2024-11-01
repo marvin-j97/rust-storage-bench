@@ -25,8 +25,8 @@ Then run benchmarks and create HTML report:
 
 ```bash
 alias bench="cargo run -r --"
-bench run --backend fjall --data-dir=.data --workload timeseries-write --out stats.jsonl --minutes 1
-bench run --backend sled --data-dir=.data --workload timeseries-write --out stats2.jsonl --minutes 1
+bench run --backend fjall --data-dir=.data --workload timeseries-write --out stats.jsonl --seconds 60
+bench run --backend sled --data-dir=.data --workload timeseries-write --out stats2.jsonl --seconds 60
 bench report --out report.html stats.jsonl stats2.jsonl
 open report.html
 ```
