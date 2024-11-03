@@ -7,7 +7,7 @@ import prettyBytes from "pretty-bytes";
 import { SolidApexCharts } from "./SolidApex";
 
 import devData from "../log.jsonl?raw";
-// import devData2 from "../log2.jsonl?raw";
+import devData2 from "../log2.jsonl?raw";
 
 const thousandsFormatter = Intl.NumberFormat(undefined, {
   maximumFractionDigits: 1,
@@ -64,6 +64,10 @@ function App() {
     pointReadLatency: [] as Series[],
     pointReadRate: [] as Series[],
     pointReadPotential: [] as Series[],
+
+    rangeLatency: [] as Series[],
+    rangeRate: [] as Series[],
+    rangePotential: [] as Series[],
   });
 
   onMount(() => {
@@ -79,6 +83,9 @@ function App() {
         dataContainer.innerHTML += `
 				<script type="data" compressed="false">
 					${devData}
+				</script>
+        <script type="data" compressed="false">
+					${devData2}
 				</script>
         `;
       }
@@ -106,6 +113,10 @@ function App() {
     const pointReadLatency: Series[] = [];
     const pointReadRate: Series[] = [];
     const pointReadPotential: Series[] = [];
+
+    const rangeLatency: Series[] = [];
+    const rangeRate: Series[] = [];
+    const rangePotential: Series[] = [];
 
     const els = document.querySelectorAll("script[type=data]");
 
@@ -209,6 +220,22 @@ function App() {
         data: [],
       };
 
+      const rangeRateSeries: Series = {
+        displayName: args.display_name,
+        colour: COLORS[i],
+        data: [],
+      };
+      const rangeLatSeries: Series = {
+        displayName: args.display_name,
+        colour: COLORS[i],
+        data: [],
+      };
+      const rangePotentialSeries: Series = {
+        displayName: args.display_name,
+        colour: COLORS[i],
+        data: [],
+      };
+
       for (const line of lines.slice(3, -1)) {
         const metrics = JSON.parse(line) as number[];
 
@@ -277,6 +304,10 @@ function App() {
         pointReadLatSeries.data.push([ts, pointReadLatency]);
         pointReadRateSeries.data.push([ts, pointReadRate]);
         pointReadPotentialSeries.data.push([ts, pointReadPotential]);
+
+        rangeLatSeries.data.push([ts, rangeLatency]);
+        rangeRateSeries.data.push([ts, rangeRate]);
+        rangePotentialSeries.data.push([ts, rangePotential]);
       }
 
       cpuUsage.push(cpuSeries);
@@ -298,6 +329,10 @@ function App() {
       pointReadLatency.push(pointReadLatSeries);
       pointReadRate.push(pointReadRateSeries);
       pointReadPotential.push(pointReadPotentialSeries);
+
+      rangeLatency.push(rangeLatSeries);
+      rangeRate.push(rangeRateSeries);
+      rangePotential.push(rangePotentialSeries);
     }
 
     // TODO: file input if there are no embedded metrics file
@@ -325,6 +360,10 @@ function App() {
         state.pointReadRate = pointReadRate;
         state.pointReadLatency = pointReadLatency;
         state.pointReadPotential = pointReadPotential;
+
+        state.rangeRate = rangeRate;
+        state.rangeLatency = rangeLatency;
+        state.rangePotential = rangePotential;
       }),
     );
   });
@@ -723,7 +762,79 @@ function App() {
                   width="100%"
                   options={{
                     title: {
-                      text: "reads per second",
+                      text: "point reads per second",
+                      style: {
+                        color: "white",
+                      },
+                    },
+                    ...commonChartOptions({
+                      yFormatter: millify,
+                      dashed: 0,
+                    }),
+                  }}
+                  series={series()}
+                />
+              );
+            })()}
+          </div>
+          <div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
+            {(() => {
+              const series = () =>
+                state.rangeLatency.map((series) => {
+                  return {
+                    name: series.displayName,
+                    data: series.data.map(([ts_milli, value]) => ({
+                      x: ts_milli / 1_000,
+                      y: value,
+                    })),
+                    color: series.colour,
+                  } satisfies ApexAxisChartSeries[0];
+                });
+
+              return (
+                <SolidApexCharts
+                  type="line"
+                  width="100%"
+                  options={{
+                    title: {
+                      text: "range latency (µs)",
+                      style: {
+                        color: "white",
+                      },
+                    },
+                    ...commonChartOptions({
+                      yFormatter: formatNano,
+                      dashed: 0,
+                    }),
+                  }}
+                  series={series()}
+                />
+              );
+            })()}
+          </div>
+          <div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
+            {(() => {
+              const series = () =>
+                state.rangeRate.map((series) => {
+                  return {
+                    name: series.displayName,
+                    data: series.data.map(([ts_milli, value]) => ({
+                      x: ts_milli / 1_000,
+                      y: value,
+                    })),
+                    color: series.colour,
+                  } satisfies ApexAxisChartSeries[0];
+                });
+
+              // TODO: store refresh granularity (ms) in system object
+
+              return (
+                <SolidApexCharts
+                  type="line"
+                  width="100%"
+                  options={{
+                    title: {
+                      text: "ranges per second",
                       style: {
                         color: "white",
                       },
@@ -798,6 +909,43 @@ function App() {
                   options={{
                     title: {
                       text: "read ops (cumulative)",
+                      style: {
+                        color: "white",
+                      },
+                    },
+                    ...commonChartOptions({
+                      yFormatter: millify,
+                      dashed: 0,
+                    }),
+                  }}
+                  series={series()}
+                />
+              );
+            })()}
+          </div>
+          <div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
+            {(() => {
+              const series = () =>
+                state.rangePotential.map((series) => {
+                  return {
+                    name: series.displayName,
+                    data: series.data.map(([ts_milli, value]) => ({
+                      x: ts_milli / 1_000,
+                      y: value,
+                    })),
+                    color: series.colour,
+                  } satisfies ApexAxisChartSeries[0];
+                });
+
+              // TODO: store refresh granularity (ms) in system object
+
+              return (
+                <SolidApexCharts
+                  type="line"
+                  width="100%"
+                  options={{
+                    title: {
+                      text: "range ops (cumulative)",
                       style: {
                         color: "white",
                       },

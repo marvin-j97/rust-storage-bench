@@ -14,9 +14,13 @@ pub enum GenericDatabase {
         keyspace: fjall::Keyspace,
         db: fjall::PartitionHandle,
     },
+    LocalFjall {
+        keyspace: local_fjall::Keyspace,
+        db: local_fjall::PartitionHandle,
+    },
     Sled(sled::Db),
     Redb(Arc<redb::Database>),
-    /* Bloodstone(bloodstone::Db), */
+
     #[cfg(feature = "heed")]
     Heed {
         db: heed::Database<heed::types::Bytes, heed::types::Bytes>,
@@ -39,6 +43,9 @@ pub struct DatabaseWrapper {
 
     pub point_read_ops: Arc<AtomicU64>,
     pub point_read_latency: Arc<AtomicU64>,
+
+    pub range_ops: Arc<AtomicU64>,
+    pub range_latency: Arc<AtomicU64>,
 }
 
 impl std::ops::Deref for DatabaseWrapper {
@@ -50,6 +57,118 @@ impl std::ops::Deref for DatabaseWrapper {
 }
 
 impl DatabaseWrapper {
+    pub fn prefix_len(&self, prefix: &[u8], rev: bool, take: usize) -> usize {
+        let start = Instant::now();
+
+        let v = match &self.inner {
+            GenericDatabase::LocalFjall { db, .. } => {
+                let iter = db.prefix(prefix);
+
+                if rev {
+                    iter.rev().take(take).map(|kv| kv.unwrap()).count()
+                } else {
+                    iter.take(take).count()
+                }
+            }
+            GenericDatabase::Fjall { db, .. } => {
+                let iter = db.prefix(prefix);
+
+                if rev {
+                    iter.rev().take(take).map(|kv| kv.unwrap()).count()
+                } else {
+                    iter.take(take).count()
+                }
+            }
+            GenericDatabase::Sled(db) => {
+                let iter = db.scan_prefix(prefix);
+
+                if rev {
+                    iter.rev().take(take).map(|kv| kv.unwrap()).count()
+                } else {
+                    iter.take(take).map(|kv| kv.unwrap()).count()
+                }
+            }
+            GenericDatabase::Redb(db) => {
+                let tx = db.begin_read().unwrap();
+
+                let table = tx.open_table(TABLE).unwrap();
+
+                let iter = table.range(prefix..).unwrap();
+
+                if rev {
+                    iter.rev()
+                        .map(|x| {
+                            let (k, v) = x.unwrap();
+                            let k: Vec<u8> = k.value().into();
+                            let v: Vec<u8> = v.value().into();
+                            (k, v)
+                        })
+                        .filter(|(k, _)| k.starts_with(prefix))
+                        .take(take)
+                        .count()
+                } else {
+                    iter.map(|x| {
+                        let (k, v) = x.unwrap();
+                        let k: Vec<u8> = k.value().into();
+                        let v: Vec<u8> = v.value().into();
+                        (k, v)
+                    })
+                    .take_while(|(k, _)| k.starts_with(prefix))
+                    .take(take)
+                    .count()
+                }
+            }
+
+            #[cfg(feature = "heed")]
+            GenericDatabase::Heed { db, env } => {
+                let tx = env.read_txn().unwrap();
+
+                if rev {
+                    let iter = db.rev_range(&tx, &..).unwrap();
+
+                    iter.take(take)
+                        .map(|kv| {
+                            let (k, v) = kv.unwrap();
+                            (k.to_vec(), v.to_vec())
+                        })
+                        .count()
+                } else {
+                    let iter = db.range(&tx, &..).unwrap();
+
+                    iter.take(take)
+                        .map(|kv| {
+                            let (k, v) = kv.unwrap();
+                            (k.to_vec(), v.to_vec())
+                        })
+                        .count()
+                }
+            }
+
+            #[cfg(feature = "rocksdb")]
+            GenericDatabase::RocksDb(db) => {
+                let dir = if rev {
+                    rocksdb::IteratorMode::End
+                } else {
+                    rocksdb::IteratorMode::Start
+                };
+                let iter = db.iterator(dir);
+
+                iter.take(take).map(|kv| kv.unwrap()).count()
+            }
+            _ => unimplemented!(),
+        };
+
+        self.range_latency.fetch_add(
+            start.elapsed().as_nanos() as u64,
+            std::sync::atomic::Ordering::Relaxed,
+        );
+
+        self.range_ops
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+        v
+    }
+
     pub fn tree_height(&self) -> usize {
         match &self.inner {
             GenericDatabase::Redb(db) => {
@@ -59,40 +178,48 @@ impl DatabaseWrapper {
                 let table = tx.open_table(TABLE).unwrap();
                 table.stats().unwrap().tree_height() as usize
             }
-            // TODO: lmdb etc
+            GenericDatabase::Heed { db, env } => {
+                let tx = env.read_txn().unwrap();
+                db.stat(&tx).unwrap().depth as usize
+            }
             _ => 0,
         }
     }
 
     pub fn bloom_filter_size(&self) -> usize {
-        if let GenericDatabase::Fjall { db, .. } = &self.inner {
-            use fjall::AbstractTree;
+        match &self.inner {
+            GenericDatabase::Fjall { db, .. } => {
+                use fjall::AbstractTree;
 
-            db.tree.bloom_filter_size()
-        } else {
-            0
+                db.tree.bloom_filter_size()
+            }
+            GenericDatabase::LocalFjall { db, .. } => {
+                use local_fjall::AbstractTree;
+
+                db.tree.bloom_filter_size()
+            }
+            _ => 0,
         }
     }
 
     pub fn disk_segment_count(&self) -> usize {
-        if let GenericDatabase::Fjall { db, .. } = &self.inner {
-            use fjall::AbstractTree;
+        match &self.inner {
+            GenericDatabase::Fjall { db, .. } => {
+                use fjall::AbstractTree;
 
-            db.tree.segment_count()
-        } else {
-            0
+                db.tree.segment_count()
+            }
+            GenericDatabase::LocalFjall { db, .. } => {
+                use local_fjall::AbstractTree;
+
+                db.tree.segment_count()
+            }
+            _ => 0,
         }
     }
 
     pub fn load<P: AsRef<Path>>(path: P, args: &RunOptions) -> Self {
         let db = match args.backend {
-            /* Backend::Bloodstone => GenericDatabase::Bloodstone(
-                bloodstone::Config::new()
-                    // .cache_capacity_bytes(args.cache_size as usize)
-                    .path(path)
-                    .open()
-                    .unwrap(),
-            ), */
             #[cfg(feature = "rocksdb")]
             Backend::RocksDb => {
                 use rocksdb::BlockBasedOptions;
@@ -145,8 +272,7 @@ impl DatabaseWrapper {
             Backend::Sled => GenericDatabase::Sled(
                 sled::Config::new()
                     .path(path)
-                    // .flush_every_ms(if args.fsync { None } else { Some(1_000) })
-                    // .cache_capacity(args.cache_size)
+                    .cache_capacity(args.cache_size)
                     .open()
                     .unwrap(),
             ),
@@ -167,61 +293,34 @@ impl DatabaseWrapper {
                 GenericDatabase::Redb(Arc::new(db))
             }
             Backend::Fjall => {
-                use fjall::PartitionCreateOptions;
-
                 let config = fjall::Config::new(path)
-                    // .max_write_buffer_size(256_000_000)
                     .manual_journal_persist(true)
                     .block_cache(fjall::BlockCache::with_capacity_bytes(args.cache_size).into())
                     .blob_cache(fjall::BlobCache::with_capacity_bytes(args.cache_size).into());
 
                 let keyspace = config.open().unwrap();
 
-                let create_opts = PartitionCreateOptions::default()
-                    /* .max_memtable_size(64_000_000) */
-                    ;
+                let create_opts = fjall::PartitionCreateOptions::default();
                 let db = keyspace.open_partition("data", create_opts).unwrap();
 
-                /* let compaction_strategy = match args.lsm_compaction {
-                    rust_storage_bench::LsmCompaction::Leveled => Strategy::Leveled(Leveled {
-                        level_ratio: 8,
-                        ..Default::default()
-                    }),
-                    rust_storage_bench::LsmCompaction::Tiered => {
-                        Strategy::SizeTiered(SizeTiered::default())
-                    }
-                };
-
-                let config = fjall::Config::new(&data_dir)
-                    .max_write_buffer_size(256_000_000)
-                    .fsync_ms(if args.fsync { None } else { Some(1_000) })
-                    .block_cache(BlockCache::with_capacity_bytes(args.cache_size).into())
-                    .blob_cache(fjall::BlobCache::with_capacity_bytes(args.cache_size).into());
-
-                let create_opts = PartitionCreateOptions::default()
-                    .block_size(args.lsm_block_size.into())
-                    .compression(match args.lsm_compression {
-                        rust_storage_bench::Compression::None => fjall::CompressionType::None,
-                        rust_storage_bench::Compression::Lz4 => fjall::CompressionType::Lz4,
-                        rust_storage_bench::Compression::Miniz => {
-                            unimplemented!()
-                            // fjall::CompressionType::Miniz(6)
-                        }
-                    })
-                    // .max_memtable_size(8_000_000)
-                    .manual_journal_persist(true)
-                    .compaction_strategy(compaction_strategy); */
-
-                /* let keyspace = config.open().unwrap();
-                let db = if args.lsm_kv_separation {
-                    keyspace
-                        .open_partition("data", create_opts.with_kv_separation(Default::default()))
-                        .unwrap()
-                } else {
-                    keyspace.open_partition("data", create_opts).unwrap()
-                }; */
-
                 GenericDatabase::Fjall { keyspace, db }
+            }
+            Backend::LocalFjall => {
+                let config = local_fjall::Config::new(path)
+                    .manual_journal_persist(true)
+                    .block_cache(
+                        local_fjall::BlockCache::with_capacity_bytes(args.cache_size).into(),
+                    )
+                    .blob_cache(
+                        local_fjall::BlobCache::with_capacity_bytes(args.cache_size).into(),
+                    );
+
+                let keyspace = config.open().unwrap();
+
+                let create_opts = local_fjall::PartitionCreateOptions::default();
+                let db = keyspace.open_partition("data", create_opts).unwrap();
+
+                GenericDatabase::LocalFjall { keyspace, db }
             }
         };
 
@@ -234,24 +333,31 @@ impl DatabaseWrapper {
 
             point_read_ops: Default::default(),
             point_read_latency: Default::default(),
-            /*  read_ops: Default::default(),
+
+            range_ops: Default::default(),
+            range_latency: Default::default(),
+            /*
             delete_ops: Default::default(),
-            scan_ops: Default::default(),
-            read_latency: Default::default(),
-            write_latency: Default::default(),
-            scan_latency: Default::default(),
-            written_bytes: Default::default(),
             deleted_bytes: Default::default(),
             delete_latency: Default::default(), */
         }
     }
+
+    /* pub fn scan_all(&self) -> usize {
+        let len = match &self.inner {
+            GenericDatabase::Fjall { db,.. } => db.iter().count(),
+            _ => unimplemented!(),
+        };
+
+        len
+    } */
 
     /// NOTE: Purposefully only returns the length to avoid heap allocation
     pub fn last_len(&self) -> Option<usize> {
         let start = Instant::now();
 
         let item = match &self.inner {
-            GenericDatabase::Fjall { keyspace: _, db } => {
+            GenericDatabase::Fjall { db, .. } => {
                 let item = db.last_key_value().unwrap();
                 item.map(|(_, v)| v.len())
             }
@@ -291,7 +397,11 @@ impl DatabaseWrapper {
 
         let item = match &self.inner {
             GenericDatabase::RocksDb(db) => db.get(key).unwrap(),
-            GenericDatabase::Fjall { keyspace: _, db } => {
+            GenericDatabase::Fjall { db, .. } => {
+                let item = db.get(key).unwrap();
+                item.map(|x| x.to_vec())
+            }
+            GenericDatabase::LocalFjall { db, .. } => {
                 let item = db.get(key).unwrap();
                 item.map(|x| x.to_vec())
             }
@@ -304,10 +414,10 @@ impl DatabaseWrapper {
                 let table = read_txn.open_table(TABLE).unwrap();
                 table.get(key).unwrap().map(|x| x.value().to_vec())
             }
-            /* GenericDatabase::Bloodstone(db) => {
-                let item = db.get(key).unwrap();
-                item.map(|x| x.to_vec())
-            } */
+            GenericDatabase::Heed { db, env } => {
+                let read_txn = env.read_txn().unwrap();
+                db.get(&read_txn, key).unwrap().map(|x| x.to_vec())
+            }
             _ => {
                 unimplemented!()
             }
@@ -349,6 +459,15 @@ impl DatabaseWrapper {
                 }
                 keyspace.persist(fjall::PersistMode::SyncAll).unwrap();
             }
+            GenericDatabase::LocalFjall { keyspace, db } => {
+                for (key, value) in items {
+                    db.insert(&key, &value).unwrap();
+
+                    count += 1;
+                    bytes_written += key.len() + value.len();
+                }
+                keyspace.persist(local_fjall::PersistMode::SyncAll).unwrap();
+            }
             GenericDatabase::Sled(db) => {
                 for (key, value) in items {
                     db.insert(&key, &*value).unwrap();
@@ -365,6 +484,18 @@ impl DatabaseWrapper {
 
                     for (key, value) in items {
                         table.insert(&*key, &*value).unwrap();
+
+                        count += 1;
+                        bytes_written += key.len() + value.len();
+                    }
+                }
+                write_txn.commit().unwrap();
+            }
+            GenericDatabase::Heed { db, env } => {
+                let mut write_txn = env.write_txn().unwrap();
+                {
+                    for (key, value) in items {
+                        db.put(&mut write_txn, &key, &value).unwrap();
 
                         count += 1;
                         bytes_written += key.len() + value.len();
@@ -400,6 +531,18 @@ impl DatabaseWrapper {
                         fjall::PersistMode::SyncData
                     } else {
                         fjall::PersistMode::Buffer
+                    })
+                    .unwrap();
+            }
+            GenericDatabase::LocalFjall { keyspace, db } => {
+                db.insert(key, value).unwrap();
+
+                keyspace
+                    .persist(if durable {
+                        // NOTE: RocksDB uses fsyncdata by default, too
+                        local_fjall::PersistMode::SyncData
+                    } else {
+                        local_fjall::PersistMode::Buffer
                     })
                     .unwrap();
             }
