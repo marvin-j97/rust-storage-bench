@@ -41,18 +41,17 @@ impl std::fmt::Display for Backend {
             "{}",
             match self {
                 Self::Sled => "sled 0.34.7",
-                Self::Fjall => "fjall 2.3.0",
-                Self::LocalFjall => "fjall 2.4.0",
+                Self::Fjall => "fjall 2.4.0",
+                Self::LocalFjall => "localfjall 2.5.0",
                 Self::Redb => "redb 2.2.0",
 
                 #[cfg(feature = "heed")]
                 Self::Heed => "heed 0.20.5",
-                // Self::Bloodstone => "sled 1.0.0-alpha.122",
-                // Self::Persy => "persy 1.5.0",
-                // Self::JammDb => "jammdb 0.11.0",
-                // Self::Nebari => "nebari 0.5.5",
+
                 #[cfg(feature = "rocksdb")]
                 Self::RocksDb => "rocksdb 0.22.0",
+                // Self::Bloodstone => "sled 1.0.0-alpha.122",
+                // Self::Persy => "persy 1.5.0",
             }
         )
     }

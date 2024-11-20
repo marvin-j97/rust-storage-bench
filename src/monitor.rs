@@ -52,12 +52,18 @@ pub fn start_monitor(
             let cpu = child.cpu_usage();
             let mem = (child.memory() as f32 / 1_024.0) as u64;
 
-            if mem >= 16 * 1_024 * 1_024 {
-                println!("OOM KILLER!! Exceeded 16GB of memory");
+            if mem >= 10 * 1_024 * 1_024 {
+                println!("OOM KILLER!! Exceeded 10GB of memory");
                 std::process::exit(666);
             }
 
             let disk_space_kib = fs_extra::dir::get_size(&data_dir).unwrap_or_default() / 1_024;
+
+            // 500 GiB limit
+            if disk_space_kib >= 500 * 1_024 * 1_024 {
+                println!("DRIVE LIMITER!! Exceeded 500 GiB of data, good job");
+                std::process::exit(0);
+            }
 
             let disk = child.disk_usage();
 
@@ -148,6 +154,7 @@ pub fn start_monitor(
                 1.0, // TODO:
                 1.0, // TODO:
             ]);
+
             writeln!(&mut file_writer, "{json}").unwrap();
 
             if finish_signal.load(Ordering::Relaxed) {

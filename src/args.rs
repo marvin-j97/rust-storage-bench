@@ -1,7 +1,7 @@
 use crate::db::Backend;
 use crate::workload::Workload;
 use clap::{Parser, Subcommand};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// CLI argument parse
@@ -11,6 +11,25 @@ use std::path::PathBuf;
 pub struct Args {
     #[command(subcommand)]
     pub command: Commands,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, clap::ValueEnum, Serialize, Deserialize)]
+pub enum LsmCompaction {
+    Leveled,
+    Tiered,
+}
+
+impl std::fmt::Display for LsmCompaction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Leveled => "LCS",
+                Self::Tiered => "STCS",
+            }
+        )
+    }
 }
 
 #[derive(Parser, Clone, Debug, Serialize)]
@@ -41,7 +60,7 @@ pub struct RunOptions {
     pub cache_size: u64,
 
     /// Use durable writes
-    #[arg(long, default_value_t = false)]
+    #[arg(long, alias = "sync", default_value_t = false)]
     pub fsync: bool,
 
     #[arg(long, default_value_t = 1_000_000)]
@@ -49,6 +68,15 @@ pub struct RunOptions {
 
     #[arg(long)]
     pub value_size: u32,
+
+    // TODO: zipf exponent
+    /// Whether to use random or Zipfian read distribution
+    #[arg(long, default_value_t = false)]
+    pub random: bool,
+
+    /// Compaction for LSM-trees
+    #[arg(long, value_enum, default_value_t = LsmCompaction::Leveled)]
+    pub lsm_compaction: LsmCompaction,
     // #[arg(long, default_value_t = 1)]
     // pub threads: u8,
 
@@ -68,10 +96,6 @@ pub struct RunOptions {
     // /// Block size for LSM-trees
     // #[arg(long, default_value_t = 4_096)]
     // pub lsm_block_size: u16,
-
-    // /// Compaction for LSM-trees
-    // #[arg(long, value_enum, default_value_t = LsmCompaction::Leveled)]
-    // pub lsm_compaction: LsmCompaction,
 
     // /// Compression for LSM-trees
     // #[arg(long, value_enum, default_value_t = Compression::Lz4)]

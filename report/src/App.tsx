@@ -1056,7 +1056,7 @@ function App() {
                   width="100%"
                   options={{
                     title: {
-                      text: "Tree height",
+                      text: "Tree depth",
                       style: {
                         color: "white",
                       },

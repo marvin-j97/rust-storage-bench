@@ -25,8 +25,15 @@ Then run benchmarks and create HTML report:
 
 ```bash
 alias bench="cargo run -r --"
-bench run --backend fjall --data-dir=.data --workload timeseries-write --out stats.jsonl
-bench run --backend sled --data-dir=.data --workload timeseries-write --out stats2.jsonl
-bench report --out report.html stats.jsonl stats2.jsonl
+systemd-run --scope -p MemoryLimit=2G bench run --backend fjall --seconds 30 --value-size 100 --data-dir=.data --workload monotonic-write --out stats.jsonl
+systemd-run --scope -p MemoryLimit=2G bench run --backend redb --seconds 30 --value-size 100 --data-dir=.data --workload monotonic-write --out stats2.jsonl
+systemd-run --scope -p MemoryLimit=2G bench run --backend sled --seconds 30 --value-size 100 --data-dir=.data --workload monotonic-write --out stats3.jsonl
+bench report --out report.html stats.jsonl stats2.jsonl stats3.jsonl
 open report.html
+```
+
+Run YCSB-like benchmarks:
+
+```bash
+systemd-run --scope -p MemoryLimit=2G nu ycsb.nu
 ```
