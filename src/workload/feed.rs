@@ -7,7 +7,7 @@ use fake::faker::name::en::*;
 use fake::uuid::UUIDv4;
 use fake::{Dummy, Fake, Faker};
 use rand::prelude::Distribution;
-use rand::Rng;
+use rand::{Rng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -43,29 +43,41 @@ pub struct FeedPost {
     shares: usize,
 }
 
-const VIRTUAL_USERS: i32 = 1_000;
+const VIRTUAL_USERS: usize = 10_000;
+const INITIAL_POSTS_PER_USER: usize = 1_000;
 
 pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBool>) {
-    for idx in 0..VIRTUAL_USERS {
-        let user_id = format!("u{idx:0>7}");
+    println!("Pre-writing items");
+
+    let users = (0..VIRTUAL_USERS).map(|user_idx| {
+        let user_id = format!("u{user_idx:0>7}");
         let user_profile_key = format!("{user_id}#p");
 
         let profile: UserProfile = Faker.fake();
         let profile = rmp_serde::to_vec(&profile).unwrap();
 
-        db.insert(user_profile_key.as_bytes(), &profile, false);
+        (user_profile_key.as_bytes().to_vec(), profile)
+    });
 
-        for _ in 0..1_000 {
+    let mut rng = rand::thread_rng();
+    let mut buf = vec![0; args.value_size as usize];
+
+    let iter = (0..VIRTUAL_USERS)
+        .flat_map(|x| (0..INITIAL_POSTS_PER_USER).clone().map(move |y| (x, y)))
+        .map(|(user_idx, _post_idx)| {
+            let user_id = format!("u{user_idx:0>7}");
+
             // Insert post
             let post_id = scru128::new_string();
             let post_key = format!("{user_id}#f#{post_id}");
 
-            let post: FeedPost = Faker.fake();
-            let post = rmp_serde::to_vec(&post).unwrap();
+            rng.fill_bytes(&mut buf);
 
-            db.insert(post_key.as_bytes(), &post, false);
-        }
-    }
+            (post_key.as_bytes().to_vec(), buf.clone())
+        })
+        .chain(users);
+
+    db.ingest(iter);
 
     let threads = (0..1)
         .map(|_thread_no| {
@@ -74,6 +86,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
 
             std::thread::spawn(move || {
                 let mut rng = rand::thread_rng();
+                let mut buf = vec![0; args.value_size as usize];
 
                 for _loop_idx in 0.. {
                     let choice: f32 = rng.gen_range(0.0..1.0);
@@ -89,10 +102,9 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
                         let post_id = scru128::new_string();
                         let post_key = format!("{user_id}#f#{post_id}");
 
-                        let post: FeedPost = Faker.fake();
-                        let post = rmp_serde::to_vec(&post).unwrap();
+                        rng.fill_bytes(&mut buf);
 
-                        db.insert(post_key.as_bytes(), &post, args.fsync);
+                        db.insert(post_key.as_bytes(), &buf, args.fsync);
                     } else {
                         // Which user?
                         let zipf =
@@ -105,14 +117,14 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
                         db.get(user_profile_key.as_bytes()).unwrap();
 
                         // // + latest 10 posts
-                        // let feed_prefix = format!("{user_id}#f#");
-                        // let limit = 10;
+                        let feed_prefix = format!("{user_id}#f#");
+                        let limit = 10;
 
-                        // assert_eq!(
-                        //     limit,
-                        //     db.prefix_len(feed_prefix.as_bytes(), true, limit),
-                        //     "{feed_prefix} failed"
-                        // );
+                        assert_eq!(
+                            limit,
+                            db.prefix_len(feed_prefix.as_bytes(), true, limit),
+                            "{feed_prefix} failed"
+                        );
                     }
                 }
             })
