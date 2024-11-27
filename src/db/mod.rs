@@ -63,7 +63,7 @@ impl DatabaseWrapper {
         let v = match &self.inner {
             GenericDatabase::LocalFjall { db, keyspace } => {
                 let read_tx = keyspace.read_tx();
-                let iter = read_tx.prefix(&db, prefix);
+                let iter = read_tx.prefix(db, prefix);
 
                 if rev {
                     iter.rev().take(take).map(|kv| kv.unwrap()).count()
@@ -73,7 +73,7 @@ impl DatabaseWrapper {
             }
             GenericDatabase::Fjall { db, keyspace } => {
                 let read_tx = keyspace.read_tx();
-                let iter = read_tx.prefix(&db, prefix);
+                let iter = read_tx.prefix(db, prefix);
 
                 if rev {
                     iter.rev().take(take).map(|kv| kv.unwrap()).count()
@@ -126,7 +126,7 @@ impl DatabaseWrapper {
                 let tx = env.read_txn().unwrap();
 
                 if rev {
-                    let iter = db.rev_range(&tx, &..).unwrap();
+                    let iter = db.rev_prefix_iter(&tx, prefix).unwrap();
 
                     iter.take(take)
                         .map(|kv| {
@@ -135,7 +135,7 @@ impl DatabaseWrapper {
                         })
                         .count()
                 } else {
-                    let iter = db.range(&tx, &..).unwrap();
+                    let iter = db.prefix_iter(&tx, prefix).unwrap();
 
                     iter.take(take)
                         .map(|kv| {
@@ -302,7 +302,9 @@ impl DatabaseWrapper {
                 GenericDatabase::Redb(Arc::new(db))
             }
             Backend::Fjall => {
-                let mut config = fjall::Config::new(path).manual_journal_persist(true);
+                let mut config = fjall::Config::new(path)
+                    .max_write_buffer_size(256 * 1_024 * 1_024)
+                    .manual_journal_persist(true);
 
                 // TODO: fjall will unify caches... soon
                 config = if args.value_size
@@ -310,10 +312,12 @@ impl DatabaseWrapper {
                 {
                     config
                         .block_cache(
-                            fjall::BlockCache::with_capacity_bytes(args.cache_size / 10).into(),
+                            fjall::BlockCache::with_capacity_bytes(args.cache_size / 100 * 5)
+                                .into(),
                         )
                         .blob_cache(
-                            fjall::BlobCache::with_capacity_bytes(args.cache_size / 10 * 9).into(),
+                            fjall::BlobCache::with_capacity_bytes(args.cache_size / 100 * 95)
+                                .into(),
                         )
                 } else {
                     config
@@ -327,10 +331,9 @@ impl DatabaseWrapper {
                     .block_size(4 * 1_024)
                     .compaction_strategy(match args.lsm_compaction {
                         crate::args::LsmCompaction::Leveled => {
-                            fjall::compaction::Strategy::Leveled(fjall::compaction::Leveled {
-                                level_ratio: 10,
-                                ..Default::default()
-                            })
+                            fjall::compaction::Strategy::Leveled(
+                                fjall::compaction::Leveled::default(),
+                            )
                         }
                         crate::args::LsmCompaction::Tiered => {
                             fjall::compaction::Strategy::SizeTiered(
@@ -348,14 +351,28 @@ impl DatabaseWrapper {
                 GenericDatabase::Fjall { keyspace, db }
             }
             Backend::LocalFjall => {
-                let config = local_fjall::Config::new(path)
-                    .manual_journal_persist(true)
-                    .block_cache(
+                let mut config = local_fjall::Config::new(path)
+                    .max_write_buffer_size(256 * 1_024 * 1_024)
+                    .manual_journal_persist(true);
+
+                // TODO: fjall will unify caches... soon
+                config = if args.value_size
+                    >= local_fjall::KvSeparationOptions::default().separation_threshold
+                {
+                    config
+                        .block_cache(
+                            local_fjall::BlockCache::with_capacity_bytes(args.cache_size / 100 * 5)
+                                .into(),
+                        )
+                        .blob_cache(
+                            local_fjall::BlobCache::with_capacity_bytes(args.cache_size / 100 * 95)
+                                .into(),
+                        )
+                } else {
+                    config.block_cache(
                         local_fjall::BlockCache::with_capacity_bytes(args.cache_size).into(),
                     )
-                    .blob_cache(
-                        local_fjall::BlobCache::with_capacity_bytes(args.cache_size).into(),
-                    );
+                };
 
                 let keyspace = config.open_transactional().unwrap();
 
@@ -582,6 +599,8 @@ impl DatabaseWrapper {
 
         self.written_bytes
             .fetch_add(bytes_written as u64, std::sync::atomic::Ordering::Relaxed);
+
+        log::info!("Ingested {count} initial items");
     }
 
     pub fn insert(&self, key: &[u8], value: &[u8], durable: bool) {
