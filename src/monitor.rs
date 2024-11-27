@@ -52,8 +52,8 @@ pub fn start_monitor(
             let cpu = child.cpu_usage();
             let mem = (child.memory() as f32 / 1_024.0) as u64;
 
-            if mem >= 10 * 1_024 * 1_024 {
-                println!("OOM KILLER!! Exceeded 10GB of memory");
+            if mem >= 16 * 1_024 * 1_024 {
+                println!("OOM KILLER!! Exceeded 16GB of memory");
                 std::process::exit(666);
             }
 

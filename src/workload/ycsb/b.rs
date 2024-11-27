@@ -2,7 +2,7 @@ use super::super::start_killer;
 use crate::args::RunOptions;
 use crate::db::DatabaseWrapper;
 use rand::{Rng, RngCore};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use zipf::ZipfDistribution;
 
