@@ -8,7 +8,7 @@ debug = true
 
 [features]
 default = ["jemalloc"]
-localfjall = ["dep:local_fjall"]
+# localfjall = ["dep:local_fjall"]
 rocksdb = ["dep:rocksdb"]
 heed = ["dep:heed"]
 jemalloc = ["dep:jemallocator"]
@@ -23,7 +23,7 @@ mimalloc = { version = "0.1.43", default-features = false, features = [
 ], optional = true }
 clap = { version = "4.4.10", features = ["derive"] }
 sled = { version = "0.34.7", features = [] }
-local_fjall = { package = "fjall", path = "../fjall", optional = true }
+# local_fjall = { package = "fjall", path = "../fjall", optional = true }
 fjall = { version = "2.4.0" }
 rand = "0.8.5"
 sysinfo = { version = "0.30.1", features = ["serde"] }
