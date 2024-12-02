@@ -1,2 +1,3 @@
 cargo build -r
-cd report && pnpm build
+cd report
+pnpm build
