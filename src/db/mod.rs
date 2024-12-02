@@ -14,6 +14,7 @@ pub enum GenericDatabase {
         keyspace: fjall::TxKeyspace,
         db: fjall::TxPartition,
     },
+    #[cfg(feature = "localfjall")]
     LocalFjall {
         keyspace: local_fjall::TxKeyspace,
         db: local_fjall::TxPartition,
@@ -61,6 +62,7 @@ impl DatabaseWrapper {
         let start = Instant::now();
 
         let v = match &self.inner {
+            #[cfg(feature = "localfjall")]
             GenericDatabase::LocalFjall { db, keyspace } => {
                 let read_tx = keyspace.read_tx();
                 let iter = read_tx.prefix(db, prefix);
@@ -199,6 +201,7 @@ impl DatabaseWrapper {
 
                 db.inner().tree.bloom_filter_size()
             }
+            #[cfg(feature = "localfjall")]
             GenericDatabase::LocalFjall { db, .. } => {
                 use local_fjall::AbstractTree;
 
@@ -215,6 +218,7 @@ impl DatabaseWrapper {
 
                 db.inner().tree.segment_count()
             }
+            #[cfg(feature = "localfjall")]
             GenericDatabase::LocalFjall { db, .. } => {
                 use local_fjall::AbstractTree;
 
@@ -353,6 +357,7 @@ impl DatabaseWrapper {
 
                 GenericDatabase::Fjall { keyspace, db }
             }
+            #[cfg(feature = "localfjall")]
             Backend::LocalFjall => {
                 let mut config = local_fjall::Config::new(path)
                     .max_write_buffer_size(256 * 1_024 * 1_024)
@@ -485,6 +490,7 @@ impl DatabaseWrapper {
                 let item = db.get(key).unwrap();
                 item.map(|x| x.to_vec())
             }
+            #[cfg(feature = "localfjall")]
             GenericDatabase::LocalFjall { db, .. } => {
                 let item = db.get(key).unwrap();
                 item.map(|x| x.to_vec())
@@ -545,6 +551,7 @@ impl DatabaseWrapper {
                 }
                 keyspace.persist(fjall::PersistMode::SyncAll).unwrap();
             }
+            #[cfg(feature = "localfjall")]
             GenericDatabase::LocalFjall { keyspace, db } => {
                 for (key, value) in items {
                     db.insert(&key, &value).unwrap();
@@ -622,6 +629,7 @@ impl DatabaseWrapper {
                     })
                     .unwrap();
             }
+            #[cfg(feature = "localfjall")]
             GenericDatabase::LocalFjall { keyspace, db } => {
                 db.insert(key, value).unwrap();
 

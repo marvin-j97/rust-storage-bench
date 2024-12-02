@@ -8,6 +8,7 @@ debug = true
 
 [features]
 default = ["jemalloc"]
+localfjall = []
 rocksdb = ["dep:rocksdb"]
 heed = ["dep:heed"]
 jemalloc = ["dep:jemallocator"]

@@ -7,6 +7,7 @@ pub enum Backend {
     #[serde(rename = "fjall")]
     Fjall,
 
+    #[cfg(feature = "localfjall")]
     #[serde(rename = "local_fjall")]
     #[serde(alias = "localfjall")]
     LocalFjall,
@@ -42,7 +43,10 @@ impl std::fmt::Display for Backend {
             match self {
                 Self::Sled => "sled 0.34.7",
                 Self::Fjall => "fjall 2.4.0",
+
+                #[cfg(feature = "localfjall")]
                 Self::LocalFjall => "localfjall 2.5.0",
+
                 Self::Redb => "redb 2.2.0",
 
                 #[cfg(feature = "heed")]
