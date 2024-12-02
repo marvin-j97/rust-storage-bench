@@ -237,6 +237,9 @@ impl DatabaseWrapper {
                 // opts.set_enable_blob_files(args.lsm_kv_separation);
                 opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
                 opts.set_manual_wal_flush(true);
+                opts.set_max_background_jobs(
+                    std::thread::available_parallelism().unwrap().get() as i32
+                );
 
                 let mut bopts = BlockBasedOptions::default();
                 bopts.set_block_cache(&rocksdb::Cache::new_lru_cache(args.cache_size as usize));

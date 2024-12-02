@@ -40,7 +40,7 @@ pub fn unix_timestamp() -> std::time::Duration {
 
 const RESULT_PLACEHOLDER: &str = "<!-- __DATA__ -->";
 
-pub fn main() {
+pub fn main() -> std::io::Result<()> {
     env_logger::Builder::from_default_env()
         .filter_module("rust_storage_bench", log::LevelFilter::Debug)
         .init();
@@ -93,6 +93,17 @@ pub fn main() {
                 std::fs::remove_dir_all(&data_dir).unwrap();
             }
 
+            let out_path = args
+                .out
+                .as_ref()
+                .cloned()
+                .unwrap_or_else(|| format!("{}.jsonl", scru128::new_string()).into());
+
+            if out_path.try_exists()? {
+                log::warn!("{out_path:?} already exists");
+                std::process::exit(0);
+            }
+
             // The disk format of a log file is like this:
             // { system info object }
             // { args object }
@@ -100,13 +111,7 @@ pub fn main() {
             // [data point, data point, data point]
             // [data point, data point, data point]
             // { fin: true }
-            let mut file_writer = std::fs::File::create(
-                args.out
-                    .as_ref()
-                    .cloned()
-                    .unwrap_or_else(|| format!("{}.jsonl", scru128::new_string()).into()),
-            )
-            .unwrap();
+            let mut file_writer = std::fs::File::create(out_path).unwrap();
 
             let mut sys = sysinfo::System::new_all();
             sys.refresh_all();
@@ -217,4 +222,6 @@ pub fn main() {
             monitor.join().unwrap();
         }
     }
+
+    Ok(())
 }
