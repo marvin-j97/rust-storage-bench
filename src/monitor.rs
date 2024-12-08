@@ -159,8 +159,51 @@ pub fn start_monitor(
 
             if finish_signal.load(Ordering::Relaxed) {
                 println!("its joever");
-                writeln!(&mut file_writer, "{{\"fin\":true}}").unwrap();
+
+                writeln!(&mut file_writer, "{}", serde_json::json!({ "fin": true })).unwrap();
+
+                {
+                    // NOTE: We store values in deci-nano-seconds
+                    let histogram = db.write_latency_histogram.lock().unwrap();
+                    writeln!(
+                        &mut file_writer,
+                        "{}",
+                        serde_json::json!({
+                            "histogram": true,
+                            "type": "write",
+                            "unit": "ns",
+                            "mean": (histogram.mean() * 10.0) as u64,
+                            "p50": histogram.value_at_quantile(0.50) * 10,
+                            "p90": histogram.value_at_quantile(0.90) * 10,
+                            "p95": histogram.value_at_quantile(0.95) * 10,
+                            "p99": histogram.value_at_quantile(0.99) * 10,
+                        })
+                    )
+                    .unwrap();
+                }
+
+                {
+                    // NOTE: We store values in deci-nano-seconds
+                    let histogram = db.point_read_latency_histogram.lock().unwrap();
+                    writeln!(
+                        &mut file_writer,
+                        "{}",
+                        serde_json::json!({
+                            "histogram": true,
+                            "type": "point_read",
+                            "unit": "ns",
+                            "mean": (histogram.mean() * 10.0) as u64,
+                            "p50": histogram.value_at_quantile(0.50) * 10,
+                            "p90": histogram.value_at_quantile(0.90) * 10,
+                            "p95": histogram.value_at_quantile(0.95) * 10,
+                            "p99": histogram.value_at_quantile(0.99) * 10,
+                        })
+                    )
+                    .unwrap();
+                }
+
                 file_writer.sync_all().unwrap();
+
                 std::process::exit(0);
             }
 

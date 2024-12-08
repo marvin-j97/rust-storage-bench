@@ -43,6 +43,7 @@ scru128 = "3.0.2"
 fake = { version = "2.9.2", features = ["derive", "uuid"] }
 rmp-serde = "1.3.0"
 uuid = { version = "1.8.0", features = ["serde", "v4"] }
+hdrhistogram = "7.5.4"
 
 # bloodstone = { package = "sled", version = "1.0.0-alpha.124" }
 # nebari = "0.5.5"

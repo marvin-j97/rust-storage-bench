@@ -5,21 +5,23 @@ import { createStore, produce } from "solid-js/store";
 import prettyBytes from "pretty-bytes";
 
 import { SolidApexCharts } from "./SolidApex";
+import { formatNano, formatThousands } from "./util";
 
 import devData from "../log.jsonl?raw";
 import devData2 from "../log2.jsonl?raw";
-
-const thousandsFormatter = Intl.NumberFormat(undefined, {
-  maximumFractionDigits: 1,
-});
-const formatThousands = (n: number) => thousandsFormatter.format(n);
 
 type Setup = {
   displayName: string;
   args: any;
 };
 
-type Series = {
+type GroupedSeries = {
+  name: string;
+  color: string;
+  data: number[];
+};
+
+type TimeSeries = {
   displayName: string;
   colour: string;
   data: [number, number][];
@@ -35,39 +37,35 @@ const COLORS = [
   "#ee5555",
 ];
 
-function formatNano(nanos: number): string {
-  if (nanos < 1_000) {
-    return `${formatThousands(nanos)}ns`;
-  }
-  return `${(nanos / 1_000).toFixed(1)}µs`;
-}
-
 function App() {
   const [setups, setSetups] = createSignal<Setup[]>([]);
 
   const [state, setState] = createStore({
-    cpu: [] as Series[],
-    memory: [] as Series[],
-    diskSpace: [] as Series[],
+    cpu: [] as TimeSeries[],
+    memory: [] as TimeSeries[],
+    diskSpace: [] as TimeSeries[],
 
-    diskSegments: [] as Series[],
-    bloomFilterSize: [] as Series[],
-    treeHeight: [] as Series[],
+    diskSegments: [] as TimeSeries[],
+    bloomFilterSize: [] as TimeSeries[],
+    treeHeight: [] as TimeSeries[],
 
-    writeOps: [] as Series[],
-    writeLatency: [] as Series[],
-    writeRate: [] as Series[],
-    writtenBytes: [] as Series[],
-    writePotential: [] as Series[],
-    writeAmp: [] as Series[],
+    writeOps: [] as TimeSeries[],
+    writeLatency: [] as TimeSeries[],
+    writeRate: [] as TimeSeries[],
+    writtenBytes: [] as TimeSeries[],
+    writePotential: [] as TimeSeries[],
+    writeAmp: [] as TimeSeries[],
 
-    pointReadLatency: [] as Series[],
-    pointReadRate: [] as Series[],
-    pointReadPotential: [] as Series[],
+    pointReadLatency: [] as TimeSeries[],
+    pointReadRate: [] as TimeSeries[],
+    pointReadPotential: [] as TimeSeries[],
 
-    rangeLatency: [] as Series[],
-    rangeRate: [] as Series[],
-    rangePotential: [] as Series[],
+    rangeLatency: [] as TimeSeries[],
+    rangeRate: [] as TimeSeries[],
+    rangePotential: [] as TimeSeries[],
+
+    writePercentiles: [] as GroupedSeries[],
+    pointReadPercentiles: [] as GroupedSeries[],
   });
 
   onMount(() => {
@@ -93,30 +91,30 @@ function App() {
 
     const setups: Setup[] = [];
 
-    const cpuUsage: Series[] = [];
-    const memoryUsage: Series[] = [];
+    const cpuUsage: TimeSeries[] = [];
+    const memoryUsage: TimeSeries[] = [];
 
-    const diskSpaceUsage: Series[] = [];
+    const diskSpaceUsage: TimeSeries[] = [];
 
-    const diskSegments: Series[] = [];
-    const bloomFilters: Series[] = [];
-    const treeHeight: Series[] = [];
+    const diskSegments: TimeSeries[] = [];
+    const bloomFilters: TimeSeries[] = [];
+    const treeHeight: TimeSeries[] = [];
 
-    const writeOps: Series[] = [];
-    const writeLatency: Series[] = [];
-    const writeRate: Series[] = [];
-    const writtenBytes: Series[] = [];
-    const writePotential: Series[] = [];
-    const writeAmp: Series[] = [];
+    const writeOps: TimeSeries[] = [];
+    const writeLatency: TimeSeries[] = [];
+    const writeRate: TimeSeries[] = [];
+    const writtenBytes: TimeSeries[] = [];
+    const writePotential: TimeSeries[] = [];
+    const writeAmp: TimeSeries[] = [];
 
     //const pointReadOps: Series[] = [];
-    const pointReadLatency: Series[] = [];
-    const pointReadRate: Series[] = [];
-    const pointReadPotential: Series[] = [];
+    const pointReadLatency: TimeSeries[] = [];
+    const pointReadRate: TimeSeries[] = [];
+    const pointReadPotential: TimeSeries[] = [];
 
-    const rangeLatency: Series[] = [];
-    const rangeRate: Series[] = [];
-    const rangePotential: Series[] = [];
+    const rangeLatency: TimeSeries[] = [];
+    const rangeRate: TimeSeries[] = [];
+    const rangePotential: TimeSeries[] = [];
 
     const els = document.querySelectorAll("script[type=data]");
 
@@ -136,107 +134,159 @@ function App() {
 
       //const timeStart = system.ts;
 
-      const cpuSeries: Series = {
+      const cpuSeries: TimeSeries = {
         displayName: args.display_name,
         colour: COLORS[i],
         data: [],
       };
-      const memorySeries: Series = {
+      const memorySeries: TimeSeries = {
         displayName: args.display_name,
         colour: COLORS[i],
         data: [],
       };
-      const diskSpaceUsageSeries: Series = {
-        displayName: args.display_name,
-        colour: COLORS[i],
-        data: [],
-      };
-
-      const diskSegmentSeries: Series = {
-        displayName: args.display_name,
-        colour: COLORS[i],
-        data: [],
-      };
-      const bloomFilterSizeSeries: Series = {
-        displayName: args.display_name,
-        colour: COLORS[i],
-        data: [],
-      };
-      const treeHeightSeries: Series = {
+      const diskSpaceUsageSeries: TimeSeries = {
         displayName: args.display_name,
         colour: COLORS[i],
         data: [],
       };
 
-      const writeSeries: Series = {
+      const diskSegmentSeries: TimeSeries = {
         displayName: args.display_name,
         colour: COLORS[i],
         data: [],
       };
-      const writeLatSeries: Series = {
+      const bloomFilterSizeSeries: TimeSeries = {
         displayName: args.display_name,
         colour: COLORS[i],
         data: [],
       };
-      const writeRateSeries: Series = {
-        displayName: args.display_name,
-        colour: COLORS[i],
-        data: [],
-      };
-      const writtenBytesSeries: Series = {
-        displayName: args.display_name,
-        colour: COLORS[i],
-        data: [],
-      };
-      const writePotentialSeries: Series = {
-        displayName: args.display_name,
-        colour: COLORS[i],
-        data: [],
-      };
-      const writeAmpSeries: Series = {
+      const treeHeightSeries: TimeSeries = {
         displayName: args.display_name,
         colour: COLORS[i],
         data: [],
       };
 
-      const pointReadSeries: Series = {
+      const writeSeries: TimeSeries = {
         displayName: args.display_name,
         colour: COLORS[i],
         data: [],
       };
-      const pointReadRateSeries: Series = {
+      const writeLatSeries: TimeSeries = {
         displayName: args.display_name,
         colour: COLORS[i],
         data: [],
       };
-      const pointReadLatSeries: Series = {
+      const writeRateSeries: TimeSeries = {
         displayName: args.display_name,
         colour: COLORS[i],
         data: [],
       };
-      const pointReadPotentialSeries: Series = {
+      const writtenBytesSeries: TimeSeries = {
         displayName: args.display_name,
         colour: COLORS[i],
         data: [],
       };
-
-      const rangeRateSeries: Series = {
+      const writePotentialSeries: TimeSeries = {
         displayName: args.display_name,
         colour: COLORS[i],
         data: [],
       };
-      const rangeLatSeries: Series = {
-        displayName: args.display_name,
-        colour: COLORS[i],
-        data: [],
-      };
-      const rangePotentialSeries: Series = {
+      const writeAmpSeries: TimeSeries = {
         displayName: args.display_name,
         colour: COLORS[i],
         data: [],
       };
 
-      for (const line of lines.slice(3, -1)) {
+      const pointReadSeries: TimeSeries = {
+        displayName: args.display_name,
+        colour: COLORS[i],
+        data: [],
+      };
+      const pointReadRateSeries: TimeSeries = {
+        displayName: args.display_name,
+        colour: COLORS[i],
+        data: [],
+      };
+      const pointReadLatSeries: TimeSeries = {
+        displayName: args.display_name,
+        colour: COLORS[i],
+        data: [],
+      };
+      const pointReadPotentialSeries: TimeSeries = {
+        displayName: args.display_name,
+        colour: COLORS[i],
+        data: [],
+      };
+
+      const rangeRateSeries: TimeSeries = {
+        displayName: args.display_name,
+        colour: COLORS[i],
+        data: [],
+      };
+      const rangeLatSeries: TimeSeries = {
+        displayName: args.display_name,
+        colour: COLORS[i],
+        data: [],
+      };
+      const rangePotentialSeries: TimeSeries = {
+        displayName: args.display_name,
+        colour: COLORS[i],
+        data: [],
+      };
+
+      {
+        const writeHistogram = lines.at(-2)!;
+        const parsed = JSON.parse(writeHistogram) as {
+          histogram: true,
+          mean: number;
+          p50: number;
+          p90: number;
+          p95: number;
+          p99: number;
+        };
+
+        if (parsed.histogram) {
+          const { mean, p50, p90, p95, p99 } = parsed;
+
+          setState(
+            produce(x => {
+              x.writePercentiles.push({
+                data: [mean, p50, p90, p95, p99],
+                color: COLORS[i],
+                name: args.display_name,
+              });
+            })
+          );
+        }
+      }
+
+      {
+        const pointReadHistogram = lines.at(-1)!;
+        const parsed = JSON.parse(pointReadHistogram) as {
+          histogram: true,
+          mean: number;
+          p50: number;
+          p90: number;
+          p95: number;
+          p99: number;
+        };
+
+        if (parsed.histogram) {
+          const { mean, p50, p90, p95, p99 } = parsed;
+
+          setState(
+            produce(x => {
+              x.pointReadPercentiles.push({
+                data: [mean, p50, p90, p95, p99],
+                color: COLORS[i],
+                name: args.display_name,
+              });
+            })
+          );
+        }
+      }
+
+      for (const line of lines.slice(3, -3)) {
         const metrics = JSON.parse(line) as number[];
 
         const [
@@ -584,7 +634,7 @@ function App() {
                   width="100%"
                   options={{
                     title: {
-                      text: "write latency (µs)",
+                      text: "write latency",
                       style: {
                         color: "white",
                       },
@@ -725,7 +775,7 @@ function App() {
                   width="100%"
                   options={{
                     title: {
-                      text: "point read latency (µs)",
+                      text: "point read latency",
                       style: {
                         color: "white",
                       },
@@ -797,7 +847,7 @@ function App() {
                   width="100%"
                   options={{
                     title: {
-                      text: "range latency (µs)",
+                      text: "range latency",
                       style: {
                         color: "white",
                       },
@@ -1067,6 +1117,88 @@ function App() {
                     }),
                   }}
                   series={series()}
+                />
+              );
+            })()}
+          </div>
+          <div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
+            {(() => {
+              return (
+                <SolidApexCharts
+                  type="bar"
+                  width="100%"
+                  options={{
+                    title: {
+                      text: "Write percentiles",
+                      style: {
+                        color: "white",
+                      },
+                    },
+                    ...commonChartOptions({
+                      yFormatter: formatNano,
+                      dashed: 0,
+                    }),
+                    xaxis: {
+                      categories: ["Mean", "P50", "P90", "P95", "P99"],
+                      labels: {
+                        style: {
+                          colors: ["white", "white", "white", "white", "white"]
+                        },
+                      },
+                    },
+                    dataLabels: {
+                      enabled: true,
+                      formatter: formatNano,
+                      dropShadow: {
+                        enabled: true,
+                      },
+                    },
+                    stroke: {
+                      show: false,
+                    },
+                  }}
+                  series={state.writePercentiles}
+                />
+              );
+            })()}
+          </div>
+          <div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
+            {(() => {
+              return (
+                <SolidApexCharts
+                  type="bar"
+                  width="100%"
+                  options={{
+                    title: {
+                      text: "Point read percentiles",
+                      style: {
+                        color: "white",
+                      },
+                    },
+                    ...commonChartOptions({
+                      yFormatter: formatNano,
+                      dashed: 0,
+                    }),
+                    xaxis: {
+                      categories: ["Mean", "P50", "P90", "P95", "P99"],
+                      labels: {
+                        style: {
+                          colors: ["white", "white", "white", "white", "white"]
+                        },
+                      },
+                    },
+                    dataLabels: {
+                      enabled: true,
+                      formatter: formatNano,
+                      dropShadow: {
+                        enabled: true,
+                      },
+                    },
+                    stroke: {
+                      show: false,
+                    },
+                  }}
+                  series={state.pointReadPercentiles}
                 />
               );
             })()}

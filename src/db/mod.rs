@@ -2,9 +2,10 @@ mod backend;
 
 use crate::args::RunOptions;
 pub use backend::Backend;
+use hdrhistogram::Histogram;
 use std::{
     path::Path,
-    sync::{atomic::AtomicU64, Arc},
+    sync::{atomic::AtomicU64, Arc, Mutex},
     time::Instant,
 };
 
@@ -47,6 +48,9 @@ pub struct DatabaseWrapper {
 
     pub range_ops: Arc<AtomicU64>,
     pub range_latency: Arc<AtomicU64>,
+
+    pub write_latency_histogram: Arc<Mutex<Histogram<u64>>>,
+    pub point_read_latency_histogram: Arc<Mutex<Histogram<u64>>>,
 }
 
 impl std::ops::Deref for DatabaseWrapper {
@@ -175,15 +179,12 @@ impl DatabaseWrapper {
     pub fn tree_height(&self) -> usize {
         match &self.inner {
             GenericDatabase::Redb(db) => {
-                /*  use redb::ReadableTableMetadata;
-
-                let tx = db.begin_read().unwrap();
-                let table = tx.open_table(TABLE).unwrap();
-                table.stats().unwrap().tree_height() as usize */
+                use redb::ReadableTableMetadata;
 
                 // TODO: too expensive!!! memoize??
-
-                0
+                let tx = db.begin_read().unwrap();
+                let table = tx.open_table(TABLE).unwrap();
+                table.stats().unwrap().tree_height() as usize
             }
             #[cfg(feature = "heed")]
             GenericDatabase::Heed { db, env } => {
@@ -241,9 +242,7 @@ impl DatabaseWrapper {
                 // opts.set_enable_blob_files(args.lsm_kv_separation);
                 opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
                 opts.set_manual_wal_flush(true);
-                opts.set_max_background_jobs(
-                    std::thread::available_parallelism().unwrap().get() as i32
-                );
+                opts.set_max_background_jobs(6);
 
                 let mut bopts = BlockBasedOptions::default();
                 bopts.set_block_cache(&rocksdb::Cache::new_lru_cache(args.cache_size as usize));
@@ -310,6 +309,7 @@ impl DatabaseWrapper {
             }
             Backend::Fjall => {
                 let mut config = fjall::Config::new(path)
+                    .compaction_workers(6)
                     .max_write_buffer_size(256 * 1_024 * 1_024)
                     .manual_journal_persist(true);
 
@@ -334,7 +334,7 @@ impl DatabaseWrapper {
                 let keyspace = config.open_transactional().unwrap();
 
                 let mut create_opts = fjall::PartitionCreateOptions::default()
-                    .max_memtable_size(64 * 1_024 * 1_024)
+                    //  .max_memtable_size(16 * 1_024 * 1_024)
                     .block_size(4 * 1_024)
                     .compaction_strategy(match args.lsm_compaction {
                         crate::args::LsmCompaction::Leveled => {
@@ -360,6 +360,7 @@ impl DatabaseWrapper {
             #[cfg(feature = "localfjall")]
             Backend::LocalFjall => {
                 let mut config = local_fjall::Config::new(path)
+                    .compaction_workers(6)
                     .max_write_buffer_size(256 * 1_024 * 1_024)
                     .manual_journal_persist(true);
 
@@ -386,6 +387,7 @@ impl DatabaseWrapper {
 
                 let mut create_opts = local_fjall::PartitionCreateOptions::default()
                     .max_memtable_size(64 * 1_024 * 1_024)
+                    .block_size(4 * 1_024)
                     .compaction_strategy(match args.lsm_compaction {
                         crate::args::LsmCompaction::Leveled => {
                             local_fjall::compaction::Strategy::Leveled(
@@ -423,6 +425,9 @@ impl DatabaseWrapper {
 
             range_ops: Default::default(),
             range_latency: Default::default(),
+
+            write_latency_histogram: Arc::new(Mutex::new(Histogram::new(5).unwrap())),
+            point_read_latency_histogram: Arc::new(Mutex::new(Histogram::new(5).unwrap())),
             /*
             delete_ops: Default::default(),
             deleted_bytes: Default::default(),
@@ -514,13 +519,22 @@ impl DatabaseWrapper {
             }
         };
 
-        self.point_read_latency.fetch_add(
-            start.elapsed().as_nanos() as u64,
-            std::sync::atomic::Ordering::Relaxed,
-        );
+        let point_read_latency = start.elapsed().as_nanos() as u64;
+
+        self.point_read_latency
+            .fetch_add(point_read_latency, std::sync::atomic::Ordering::Relaxed);
 
         self.point_read_ops
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+        self.point_read_latency_histogram
+            .lock()
+            .unwrap()
+            .record(point_read_latency / 10)
+            .inspect_err(|_| {
+                log::warn!("Point read latency value too large for histogram");
+            })
+            .ok();
 
         item
     }
@@ -689,10 +703,10 @@ impl DatabaseWrapper {
               } */
         }
 
-        self.write_latency.fetch_add(
-            start.elapsed().as_nanos() as u64,
-            std::sync::atomic::Ordering::Relaxed,
-        );
+        let written_latency = start.elapsed().as_nanos() as u64;
+
+        self.write_latency
+            .fetch_add(written_latency, std::sync::atomic::Ordering::Relaxed);
 
         self.write_ops
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -701,5 +715,14 @@ impl DatabaseWrapper {
             (key.len() + value.len()) as u64,
             std::sync::atomic::Ordering::Relaxed,
         );
+
+        self.write_latency_histogram
+            .lock()
+            .unwrap()
+            .record(written_latency / 10)
+            .inspect_err(|_| {
+                log::warn!("Write latency value too large for histogram");
+            })
+            .ok();
     }
 }
