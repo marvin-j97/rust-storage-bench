@@ -31,6 +31,9 @@ pub enum GenericDatabase {
 
     #[cfg(feature = "rocksdb")]
     RocksDb(Arc<rocksdb::DB>),
+
+    #[cfg(feature = "sqlite")]
+    Sqlite(Arc<Mutex<rusqlite::Connection>>),
 }
 
 const TABLE: redb::TableDefinition<&[u8], &[u8]> = redb::TableDefinition::new("data");
@@ -66,6 +69,10 @@ impl DatabaseWrapper {
         let start = Instant::now();
 
         let v = match &self.inner {
+            GenericDatabase::Sqlite(_db) => {
+                unimplemented!();
+            }
+
             #[cfg(feature = "localfjall")]
             GenericDatabase::LocalFjall { db, keyspace } => {
                 let read_tx = keyspace.read_tx();
@@ -178,6 +185,7 @@ impl DatabaseWrapper {
 
     pub fn tree_height(&self) -> usize {
         match &self.inner {
+            // TODO: fjall: non-vacant levels
             GenericDatabase::Redb(db) => {
                 use redb::ReadableTableMetadata;
 
@@ -231,6 +239,31 @@ impl DatabaseWrapper {
 
     pub fn load<P: AsRef<Path>>(path: P, args: &RunOptions) -> Self {
         let db = match args.backend {
+            #[cfg(feature = "sqlite")]
+            Backend::Sqlite => {
+                use rusqlite::Connection;
+
+                std::fs::create_dir_all(&path).unwrap();
+
+                let conn = Connection::open(path.as_ref().join("sqlite.db")).unwrap();
+
+                conn.pragma_update(None, "journal_mode", "WAL").unwrap();
+
+                if args.fsync {
+                    conn.pragma_update(None, "synchronous", "FULL").unwrap();
+                } else {
+                    conn.pragma_update(None, "synchronous", "NORMAL").unwrap();
+                }
+
+                conn.execute(
+                    "CREATE TABLE data (key BLOB NOT NULL UNIQUE, value BLOB NOT NULL)",
+                    (),
+                )
+                .unwrap();
+
+                GenericDatabase::Sqlite(Arc::new(Mutex::new(conn)))
+            }
+
             #[cfg(feature = "rocksdb")]
             Backend::RocksDb => {
                 use rocksdb::BlockBasedOptions;
@@ -335,7 +368,7 @@ impl DatabaseWrapper {
 
                 let mut create_opts = fjall::PartitionCreateOptions::default()
                     //  .max_memtable_size(16 * 1_024 * 1_024)
-                    .block_size(4 * 1_024)
+                    // .block_size(4 * 1_024)
                     .compaction_strategy(match args.lsm_compaction {
                         crate::args::LsmCompaction::Leveled => {
                             fjall::compaction::Strategy::Leveled(
@@ -386,8 +419,8 @@ impl DatabaseWrapper {
                 let keyspace = config.open_transactional().unwrap();
 
                 let mut create_opts = local_fjall::PartitionCreateOptions::default()
-                    .max_memtable_size(64 * 1_024 * 1_024)
-                    .block_size(4 * 1_024)
+                    //  .max_memtable_size(64 * 1_024 * 1_024)
+                    //  .block_size(4 * 1_024)
                     .compaction_strategy(match args.lsm_compaction {
                         crate::args::LsmCompaction::Leveled => {
                             local_fjall::compaction::Strategy::Leveled(
@@ -489,17 +522,41 @@ impl DatabaseWrapper {
         let start = Instant::now();
 
         let item = match &self.inner {
+            #[cfg(feature = "sqlite")]
+            GenericDatabase::Sqlite(db) => {
+                let value = db.lock().unwrap().query_row(
+                    "SELECT value FROM data WHERE key = ?",
+                    [key],
+                    |row| Ok(row.get(0).unwrap()),
+                );
+
+                match value {
+                    Ok(row) => Some(row),
+                    Err(e) => {
+                        if e == rusqlite::Error::QueryReturnedNoRows {
+                            None
+                        } else {
+                            panic!("{e:?}");
+                        }
+                    }
+                }
+
+                // NOTE: Durability is controlled by pragma in load()
+            }
+
             #[cfg(feature = "rocksdb")]
             GenericDatabase::RocksDb(db) => db.get(key).unwrap(),
             GenericDatabase::Fjall { db, .. } => {
                 let item = db.get(key).unwrap();
                 item.map(|x| x.to_vec())
             }
+
             #[cfg(feature = "localfjall")]
             GenericDatabase::LocalFjall { db, .. } => {
                 let item = db.get(key).unwrap();
                 item.map(|x| x.to_vec())
             }
+
             GenericDatabase::Sled(db) => {
                 let item = db.get(key).unwrap();
                 item.map(|x| x.to_vec())
@@ -546,6 +603,11 @@ impl DatabaseWrapper {
         let mut bytes_written = 0;
 
         match &self.inner {
+            #[cfg(feature = "sqlite")]
+            GenericDatabase::Sqlite(_db) => {
+                unimplemented!();
+            }
+
             #[cfg(feature = "rocksdb")]
             GenericDatabase::RocksDb(db) => {
                 for (key, value) in items {
@@ -631,6 +693,16 @@ impl DatabaseWrapper {
         let start = Instant::now();
 
         match &self.inner {
+            #[cfg(feature = "sqlite")]
+            GenericDatabase::Sqlite(db) => {
+                db.lock()
+                    .unwrap()
+                    .execute("INSERT INTO data (key, value) VALUES (?, ?)", (key, value))
+                    .unwrap();
+
+                // NOTE: Durability is controlled by pragma in load()
+            }
+
             GenericDatabase::Fjall { keyspace, db } => {
                 db.insert(key, value).unwrap();
 

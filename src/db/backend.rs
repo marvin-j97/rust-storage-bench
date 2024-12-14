@@ -27,6 +27,9 @@ pub enum Backend {
     #[serde(alias = "rocks")]
     #[clap(name = "rocksdb", alias = "rocks")]
     RocksDb,
+
+    #[cfg(feature = "sqlite")]
+    Sqlite,
     //
     /*     #[serde(rename = "bloodstone")]
     Bloodstone, */
@@ -41,11 +44,13 @@ impl std::fmt::Display for Backend {
             f,
             "{}",
             match self {
+                Self::Sqlite => "rusqlite 0.32.1",
+
                 Self::Sled => "sled 0.34.7",
                 Self::Fjall => "fjall 2.4.0",
 
                 #[cfg(feature = "localfjall")]
-                Self::LocalFjall => "localfjall 2.5.0",
+                Self::LocalFjall => "fjall 2.5.0",
 
                 Self::Redb => "redb 2.2.0",
 

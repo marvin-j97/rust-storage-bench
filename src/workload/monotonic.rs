@@ -13,7 +13,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
     let written_count = Arc::new(AtomicU64::new(item_count));
     let mut buf = vec![0; args.value_size as usize];
 
-    {
+    if item_count > 0 {
         println!("Pre-writing {item_count} items");
         let mut rng = rand::thread_rng();
 
