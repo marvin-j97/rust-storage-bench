@@ -115,6 +115,12 @@ pub fn start_monitor(
             };
             potential_range_ops += (range_rate_per_second as f32 / frequency) as u64;
 
+            let space_amp = if disk_space_kib == 0 {
+                0.0
+            } else {
+                ((disk_space_kib * 1_024) as f64) / (written_user_bytes as f64)
+            };
+
             let json = serde_json::json!([
                 time_ms,
                 format!("{:.2}", cpu).parse::<f64>().unwrap(),
@@ -151,7 +157,7 @@ pub fn start_monitor(
                 0, // TODO:
                 //
                 format!("{:.2}", write_amp).parse::<f64>().unwrap(),
-                1.0, // TODO:
+                format!("{:.2}", space_amp).parse::<f64>().unwrap(),
                 1.0, // TODO:
             ]);
 

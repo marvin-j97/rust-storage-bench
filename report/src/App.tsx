@@ -43,7 +43,9 @@ function App() {
   const [state, setState] = createStore({
     cpu: [] as TimeSeries[],
     memory: [] as TimeSeries[],
+
     diskSpace: [] as TimeSeries[],
+    spaceAmp: [] as TimeSeries[],
 
     diskSegments: [] as TimeSeries[],
     bloomFilterSize: [] as TimeSeries[],
@@ -95,6 +97,7 @@ function App() {
     const memoryUsage: TimeSeries[] = [];
 
     const diskSpaceUsage: TimeSeries[] = [];
+    const spaceAmp: TimeSeries[] = [];
 
     const diskSegments: TimeSeries[] = [];
     const bloomFilters: TimeSeries[] = [];
@@ -144,7 +147,13 @@ function App() {
         colour: COLORS[i],
         data: [],
       };
+
       const diskSpaceUsageSeries: TimeSeries = {
+        displayName: args.display_name,
+        colour: COLORS[i],
+        data: [],
+      };
+      const spaceAmpSeries: TimeSeries = {
         displayName: args.display_name,
         colour: COLORS[i],
         data: [],
@@ -325,8 +334,8 @@ function App() {
           deletePotential,
           //
           writeAmp,
-          space_amp,
-          read_amp,
+          spaceAmp,
+          readAmp,
         ] = metrics;
 
         cpuSeries.data.push([ts, cpu]);
@@ -337,6 +346,10 @@ function App() {
           // this can happen sometimes when the folder size is summed up
           // because files might come and go in an LSM-tree
           diskSpaceUsageSeries.data.push([ts, diskSpaceKib]);
+        }
+
+        if (spaceAmp) {
+          spaceAmpSeries.data.push([ts, spaceAmp]);
         }
 
         diskSegmentSeries.data.push([ts, diskSegments]);
@@ -362,7 +375,9 @@ function App() {
 
       cpuUsage.push(cpuSeries);
       memoryUsage.push(memorySeries);
+
       diskSpaceUsage.push(diskSpaceUsageSeries);
+      spaceAmp.push(spaceAmpSeries);
 
       diskSegments.push(diskSegmentSeries);
       bloomFilters.push(bloomFilterSizeSeries);
@@ -393,7 +408,9 @@ function App() {
       produce((state) => {
         state.cpu = cpuUsage;
         state.memory = memoryUsage;
+
         state.diskSpace = diskSpaceUsage;
+        state.spaceAmp = spaceAmp;
 
         state.diskSegments = diskSegments;
         state.bloomFilterSize = bloomFilters;
@@ -613,7 +630,41 @@ function App() {
               );
             })()}
           </div>
-          <div>TODO: calculate space amp</div>
+          <div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
+            {(() => {
+              const series = () =>
+                state.spaceAmp.map((series) => {
+                  return {
+                    name: series.displayName,
+                    data: series.data.map(([ts_milli, value]) => ({
+                      x: ts_milli / 1_000,
+                      y: value,
+                    })),
+                    color: series.colour,
+                  } satisfies ApexAxisChartSeries[0];
+                });
+
+              return (
+                <SolidApexCharts
+                  type="line"
+                  width="100%"
+                  options={{
+                    title: {
+                      text: "space amplification",
+                      style: {
+                        color: "white",
+                      },
+                    },
+                    ...commonChartOptions({
+                      yFormatter: (pct) => `${pct}x`,
+                      dashed: 0,
+                    }),
+                  }}
+                  series={series()}
+                />
+              );
+            })()}
+          </div>
           <div class="p-2 bg-stone-100 dark:bg-stone-900 rounded">
             {(() => {
               const series = () =>

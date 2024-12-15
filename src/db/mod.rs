@@ -248,6 +248,8 @@ impl DatabaseWrapper {
                 let conn = Connection::open(path.as_ref().join("sqlite.db")).unwrap();
 
                 conn.pragma_update(None, "journal_mode", "WAL").unwrap();
+                conn.pragma_update(None, "cache_size", format!("-{}", args.cache_size / 1024))
+                    .unwrap();
 
                 if args.fsync {
                     conn.pragma_update(None, "synchronous", "FULL").unwrap();
