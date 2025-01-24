@@ -104,21 +104,25 @@ fn main() {
                 BlockCache, PartitionCreateOptions,
             };
 
-            let compaction_strategy: Arc<dyn Strategy + Send + Sync> = match args.lsm_compaction {
-                rust_storage_bench::LsmCompaction::Leveled => Arc::new(Levelled::default()),
-                rust_storage_bench::LsmCompaction::Tiered => Arc::new(SizeTiered::default()),
+            let compaction_strategy = match args.lsm_compaction {
+                rust_storage_bench::LsmCompaction::Leveled => {
+                    Strategy::Leveled(Levelled::default())
+                }
+                rust_storage_bench::LsmCompaction::Tiered => {
+                    Strategy::SizeTiered(SizeTiered::default())
+                }
             };
 
             let config = fjall::Config::new(&data_dir)
                 .fsync_ms(if args.fsync { None } else { Some(1_000) })
                 .block_cache(BlockCache::with_capacity_bytes(args.cache_size.into()).into());
 
-            let create_opts =
-                PartitionCreateOptions::default().block_size(args.lsm_block_size.into());
+            let create_opts = PartitionCreateOptions::default()
+                .block_size(args.lsm_block_size.into())
+                .compaction_strategy(compaction_strategy);
 
             let keyspace = config.open().unwrap();
             let db = keyspace.open_partition("data", create_opts).unwrap();
-            db.set_compaction_strategy(compaction_strategy);
 
             GenericDatabase::Fjall { keyspace, db }
         }

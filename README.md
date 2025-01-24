@@ -25,7 +25,7 @@ Non-Rust (bindings):
 
 ```
 cargo build -r
-alias bencher='cargo run --bin daemon -r --'
+alias bencher='cargo run --bin worker -r --'
 
 bencher --out task_e_fjall_lcs.jsonl --workload task-e --backend fjall --minutes 5 --key-size 8 --value-size 256 --items 1000 --cache-size 1000000
 ```

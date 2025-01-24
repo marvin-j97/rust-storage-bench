@@ -110,7 +110,7 @@ impl DatabaseWrapper {
                 db.insert(key, value).unwrap();
 
                 if durable {
-                    keyspace.persist(fjall::FlushMode::SyncAll).unwrap();
+                    keyspace.persist(fjall::PersistMode::SyncAll).unwrap();
                 }
 
                 self.write_latency.fetch_add(
