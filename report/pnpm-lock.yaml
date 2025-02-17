@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@solid-primitives/map':
+        specifier: 0.6.0
+        version: 0.6.0(solid-js@1.8.20)
       '@unocss/reset':
         specifier: 0.63.0
         version: 0.63.0
@@ -600,6 +603,21 @@ packages:
 
   '@sinclair/typebox@0.27.8':
     resolution: {integrity: sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA==}
+
+  '@solid-primitives/map@0.6.0':
+    resolution: {integrity: sha512-h8uCJNxUTvzNK/aTW9vJCd/PQeBkUL8i7AyLPvTFqMgcMnJ1I5GzAi5JODzxpxQwffxoqJyQtOE1vBqFzDv0Vw==}
+    peerDependencies:
+      solid-js: ^1.6.12
+
+  '@solid-primitives/trigger@1.2.0':
+    resolution: {integrity: sha512-sW4/3cDXSjYQampn8CIFZ11BlxgNf2li8r2fXnb3b3YWE6RdZZCl8PhvpPF38Gzl0CnryrbTPJWM7OIkseCDgQ==}
+    peerDependencies:
+      solid-js: ^1.6.12
+
+  '@solid-primitives/utils@6.3.0':
+    resolution: {integrity: sha512-e7hTlJ1Ywh2+g/Qug+n4L1mpfxsikoIS4/sHE2EK9WatQt8UJqop/vE6bsLnXlU1xuhb/jo94Ah5Y27rd4wP7A==}
+    peerDependencies:
+      solid-js: ^1.6.12
 
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
@@ -1840,6 +1858,20 @@ snapshots:
     optional: true
 
   '@sinclair/typebox@0.27.8': {}
+
+  '@solid-primitives/map@0.6.0(solid-js@1.8.20)':
+    dependencies:
+      '@solid-primitives/trigger': 1.2.0(solid-js@1.8.20)
+      solid-js: 1.8.20
+
+  '@solid-primitives/trigger@1.2.0(solid-js@1.8.20)':
+    dependencies:
+      '@solid-primitives/utils': 6.3.0(solid-js@1.8.20)
+      solid-js: 1.8.20
+
+  '@solid-primitives/utils@6.3.0(solid-js@1.8.20)':
+    dependencies:
+      solid-js: 1.8.20
 
   '@types/babel__core@7.20.5':
     dependencies:

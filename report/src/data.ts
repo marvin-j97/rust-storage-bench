@@ -1,0 +1,236 @@
+import { ReactiveMap } from "@solid-primitives/map";
+import { createSignal, onMount } from "solid-js";
+import { createStore, produce } from "solid-js/store";
+
+import devData from "../log.jsonl?raw";
+import devData2 from "../log2.jsonl?raw";
+import devData3 from "../log3.jsonl?raw";
+
+export type Setup = {
+  displayName: string;
+  args: any;
+};
+
+export type GroupedSeries = {
+  name: string;
+  color: string;
+  data: number[];
+};
+
+export type TimeSeries = {
+  displayName: string;
+  colour: string;
+  data: [number, number][];
+};
+
+const COLORS = [
+  "#a78bfa",
+  "#38bdf8",
+  "#4ade80",
+  "#fbbf24",
+  "#4455FF",
+  "#f472b6",
+  "#ee5555",
+];
+
+type ColumnKey =
+  | "time_ms"
+  | "cpu"
+  | "mem_kib"
+  | "disk_space_kib"
+  | "disk_writes_kib"
+  | "disk_reads_kib"
+  | "disk_segment_count"
+  | "journal_count"
+  | "bloom_filter_size"
+  | "block_index_size"
+  | "cache_size"
+  | "tree_height"
+  | "running_compactions"
+  | "time_compacting_us"
+  | "l0_segment_avg_lifetime_ms"
+  | "write_ops"
+  | "point_read_ops"
+  | "range_ops"
+  | "delete_ops"
+  | "write_latency"
+  | "point_read_latency"
+  | "range_latency"
+  | "delete_latency"
+  | "write_rate"
+  | "point_read_rate"
+  | "range_rate"
+  | "delete_rate"
+  | "write_potential"
+  | "point_read_potential"
+  | "range_potential"
+  | "delete_potential"
+  | "write_amp"
+  | "space_amp"
+  | "read_amp";
+
+export function useMetricsData() {
+  const [setups, setSetups] = createSignal<Setup[]>([]);
+
+  const reactiveTimeseries = new ReactiveMap<ColumnKey, TimeSeries[]>();
+
+  const [percentiles, setPercentiles] = createStore({
+    writePercentiles: [] as GroupedSeries[],
+    pointReadPercentiles: [] as GroupedSeries[],
+  });
+
+  onMount(() => {
+    // NOTE: Patch HTML with dev data
+    if (import.meta.env.DEV) {
+      console.log("hello dev");
+
+      const dataContainer = document.querySelector("#data-container")!;
+
+      if (
+        [...dataContainer.childNodes.values()].every((x) => x.nodeType !== 1)
+      ) {
+        dataContainer.innerHTML += `
+				<script type="data" compressed="false">
+					${devData}
+				</script>
+        <script type="data" compressed="false">
+					${devData2}
+				</script>
+        <script type="data" compressed="false">
+					${devData3}
+				</script>
+        `;
+      }
+    }
+
+    const setups: Setup[] = [];
+
+    const els = document.querySelectorAll("script[type=data]");
+
+    const backendTimeseries: Record<string, TimeSeries[]> = {};
+
+    // NOTE: Load data
+    for (let i = 0; i < els.length; i++) {
+      const item = els[i];
+
+      const txt = item.textContent!.trim();
+      const lines = txt.split("\n");
+      const _system = JSON.parse(lines[0]);
+      const args = JSON.parse(lines[1]);
+
+      setups.push({
+        displayName: args.display_name,
+        args,
+      });
+
+      {
+        const writeHistogram = lines.at(-2)!;
+        const parsed = JSON.parse(writeHistogram) as {
+          histogram: true;
+          mean: number;
+          p50: number;
+          p90: number;
+          p95: number;
+          p99: number;
+        };
+
+        if (parsed.histogram) {
+          const { mean, p50, p90, p95, p99 } = parsed;
+
+          setPercentiles(
+            produce((x) => {
+              x.writePercentiles.push({
+                data: [mean, p50, p90, p95, p99],
+                color: COLORS[i],
+                name: args.display_name,
+              });
+            }),
+          );
+        }
+      }
+
+      {
+        const pointReadHistogram = lines.at(-1)!;
+        const parsed = JSON.parse(pointReadHistogram) as {
+          histogram: true;
+          mean: number;
+          p50: number;
+          p90: number;
+          p95: number;
+          p99: number;
+        };
+
+        if (parsed.histogram) {
+          const { mean, p50, p90, p95, p99 } = parsed;
+
+          setPercentiles(
+            produce((x) => {
+              x.pointReadPercentiles.push({
+                data: [mean, p50, p90, p95, p99],
+                color: COLORS[i],
+                name: args.display_name,
+              });
+            }),
+          );
+        }
+      }
+
+      const columnNames = (JSON.parse(lines[2]) as string[]).filter(
+        (x) => x !== "time_ms",
+      );
+
+      for (const name of columnNames) {
+        reactiveTimeseries.set(name as ColumnKey, []);
+      }
+
+      const timeseries: Partial<Record<ColumnKey, TimeSeries>> = {};
+
+      for (const line of lines.slice(3, -3)) {
+        const metrics = JSON.parse(line) as number[];
+
+        for (let j = 0; j < columnNames.length; j++) {
+          const name = columnNames[j] as ColumnKey;
+
+          const [ts] = metrics;
+
+          if (!timeseries[name]) {
+            timeseries[name] = {
+              data: [],
+              displayName: args.display_name,
+              colour: COLORS[i],
+            };
+          }
+          timeseries[name].data.push([ts, metrics[j]]);
+        }
+      }
+
+      for (const columnKey in timeseries) {
+        const series = timeseries[columnKey as ColumnKey]!;
+        const prev = backendTimeseries[columnKey];
+
+        if (prev) {
+          backendTimeseries[columnKey].push(series);
+        } else {
+          backendTimeseries[columnKey] = [series];
+        }
+      }
+    }
+
+    for (const columnKey in backendTimeseries) {
+      reactiveTimeseries.set(
+        columnKey as ColumnKey,
+        backendTimeseries[columnKey],
+      );
+    }
+
+    // TODO: file input if there are no embedded metrics file
+
+    setSetups(setups);
+  });
+
+  return {
+    setups,
+    reactiveTimeseries,
+    percentiles,
+  };
+}

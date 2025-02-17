@@ -10,6 +10,7 @@
     "fmt": "biome format --write src"
   },
   "dependencies": {
+    "@solid-primitives/map": "0.6.0",
     "@unocss/reset": "0.63.0",
     "defu": "6.1.4",
     "millify": "6.1.0",
