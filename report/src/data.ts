@@ -175,9 +175,7 @@ export function useMetricsData() {
 				}
 			}
 
-			const columnNames = (JSON.parse(lines[2]) as string[]).filter(
-				(x) => x !== "time_ms",
-			);
+			const columnNames = (JSON.parse(lines[2]) as string[]);
 
 			for (const name of columnNames) {
 				reactiveTimeseries.set(name as ColumnKey, []);
@@ -188,7 +186,8 @@ export function useMetricsData() {
 			for (const line of lines.slice(3, -3)) {
 				const metrics = JSON.parse(line) as number[];
 
-				for (let j = 0; j < columnNames.length; j++) {
+				// IMPORTANT: Skip first column because it is time_ms
+				for (let j = 1; j < columnNames.length; j++) {
 					const name = columnNames[j] as ColumnKey;
 
 					const [ts] = metrics;
