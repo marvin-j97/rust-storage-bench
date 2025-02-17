@@ -7,52 +7,50 @@ edition = "2021"
 debug = true
 
 [features]
-default = ["jemalloc"]
-# localfjall = ["dep:local_fjall"]
-rocksdb = ["dep:rocksdb"]
+default = ["jemalloc", "rocksdb", "localfjall", "heed", "sqlite"]
 heed = ["dep:heed"]
 jemalloc = ["dep:jemallocator"]
+localfjall = ["dep:local_fjall"]
 mimalloc = ["dep:mimalloc"]
-# all = ["heed", "rocksdb"]
+rocksdb = ["dep:rocksdb"]
+sqlite = ["dep:rusqlite"]
+tcmalloc = ["dep:tcmalloc"]
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 jemallocator = { version = "0.5.4", optional = true }
 
 [dependencies]
-rusqlite = { version = "0.32.1", features = ["bundled"], optional = true }
+chrono = "0.4.38"
+clap = { version = "4.4.10", features = ["derive"] }
+env_logger = "0.10.1"
+fake = { version = "2.9.2", features = ["derive", "uuid"] }
+fjall = { version = "2.6.3" }
+fs_extra = "1.3.0"
+hdrhistogram = "7.5.4"
+heed = { version = "0.20.5", optional = true }
+local_fjall = { package = "fjall", path = "../fjall", optional = true }
+log = { version = "0.4.20", features = ["release_max_level_trace"] }
 mimalloc = { version = "0.1.43", default-features = false, features = [
 ], optional = true }
-clap = { version = "4.4.10", features = ["derive"] }
-sled = { version = "0.34.7", features = [] }
-# local_fjall = { package = "fjall", path = "../fjall", optional = true }
-fjall = { version = "2.4.2" }
 rand = "0.8.5"
-sysinfo = { version = "0.30.1", features = ["serde"] }
+redb = "2.3.0"
+rusqlite = { version = "0.32.1", features = ["bundled"], optional = true }
+scru128 = "3.0.2"
 serde = { version = "1.0.193", features = ["derive", "rc"] }
 serde_json = "1.0.108"
-fs_extra = "1.3.0"
-env_logger = "0.10.1"
-log = { version = "0.4.20", features = ["release_max_level_trace"] }
-chrono = "0.4.38"
-redb = "2.3.0"
-zipf = "7.0.1"
-heed = { version = "0.20.5", optional = true }
+sled = { version = "0.34.7", features = [] }
+sysinfo = { version = "0.30.1", features = ["serde"] }
+rmp-serde = "1.3.0"
 rocksdb = { version = "0.22.0", optional = true, default-features = false, features = [
     "lz4",
 ] }
-scru128 = "3.0.2"
-fake = { version = "2.9.2", features = ["derive", "uuid"] }
-rmp-serde = "1.3.0"
+tcmalloc = { version = "0.3.0", features = ["bundled"], optional = true }
 uuid = { version = "1.8.0", features = ["serde", "v4"] }
-hdrhistogram = "7.5.4"
+zipf = "7.0.1"
 
 # bloodstone = { package = "sled", version = "1.0.0-alpha.124" }
 # nebari = "0.5.5"
 # persy = { version = "1.5.0", features = ["background_ops"] }
 # jammdb = "0.11.0"
-# cuid = "1.3.2"
-# rmp-serde = "1.3.0"
-# uuid = { version = "1.8.0", features = ["serde", "v4"] }
 # random-string = "1.1.0"
 # blake2 = "0.10.6"
-# mimalloc = "0.1.43"
