@@ -25,15 +25,9 @@ Then run benchmarks and create HTML report:
 
 ```bash
 alias bench="cargo run -r --"
-<<<<<<< HEAD
 bench run --backend fjall --seconds 60 --value-size 100 --data-dir=.data --workload random --out stats.jsonl
 bench run --backend redb --seconds 60 --value-size 100 --data-dir=.data --workload random --out stats2.jsonl
 bench run --backend sled --seconds 60 --value-size 100 --data-dir=.data --workload random --out stats3.jsonl
-=======
-systemd-run --scope -p MemoryLimit=2G bench run --backend fjall --seconds 60 --value-size 100 --data-dir=.data --workload random --out stats.jsonl
-systemd-run --scope -p MemoryLimit=2G bench run --backend redb --seconds 60 --value-size 100 --data-dir=.data --workload random --out stats2.jsonl
-systemd-run --scope -p MemoryLimit=2G bench run --backend sled --seconds 60 --value-size 100 --data-dir=.data --workload random --out stats3.jsonl
->>>>>>> origin/v1
 bench report --out report.html stats.jsonl stats2.jsonl stats3.jsonl
 open report.html
 ```
