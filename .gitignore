@@ -22,3 +22,9 @@ old
 *.tsbuildinfo
 /*.jsonl
 /*.html
+
+/ycsb_old
+/ssd_compare_write
+/fj23
+/fj25
+/*M_random
