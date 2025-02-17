@@ -47,10 +47,10 @@ impl std::fmt::Display for Backend {
                 Self::Sqlite => "rusqlite 0.32.1",
 
                 Self::Sled => "sled 0.34.7",
-                Self::Fjall => "fjall 2.4.2",
+                Self::Fjall => "fjall 2.6.3",
 
                 #[cfg(feature = "localfjall")]
-                Self::LocalFjall => "fjall 2.5.0",
+                Self::LocalFjall => "fjall nightly",
 
                 Self::Redb => "redb 2.3.0",
 

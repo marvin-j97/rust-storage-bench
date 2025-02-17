@@ -14,19 +14,16 @@ use workload::run_workload;
 
 #[cfg(feature = "jemalloc")]
 #[cfg(not(target_env = "msvc"))]
-use jemallocator::Jemalloc;
-
-#[cfg(feature = "jemalloc")]
-#[cfg(not(target_env = "msvc"))]
 #[global_allocator]
-static GLOBAL: Jemalloc = Jemalloc;
-
-#[cfg(feature = "mimalloc")]
-use mimalloc::MiMalloc;
+static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 #[cfg(feature = "mimalloc")]
 #[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
+static GLOBAL: MiMalloc = mimalloc::MiMalloc;
+
+#[cfg(feature = "tcmalloc")]
+#[global_allocator]
+static GLOBAL: TCMalloc = tcmalloc::TCMalloc;
 
 /// Gets the unix timestamp as a duration
 pub fn unix_timestamp() -> std::time::Duration {
@@ -45,14 +42,14 @@ pub fn main() -> std::io::Result<()> {
         .filter_module("rust_storage_bench", log::LevelFilter::Debug)
         .init();
 
-    println!("rust-storage-bench {}", env!("CARGO_PKG_VERSION"));
+    log::info!("rust-storage-bench {}", env!("CARGO_PKG_VERSION"));
     {
         use chrono::{DateTime, Utc};
         use std::time::SystemTime;
 
         let now = SystemTime::now();
         let now: DateTime<Utc> = now.into();
-        println!("Datetime: {now}");
+        log::debug!("Datetime: {now}");
     }
 
     match Args::parse().command {
@@ -146,7 +143,7 @@ pub fn main() -> std::io::Result<()> {
                     "allocator": allocator,
                 });
 
-                println!("System: {}", serde_json::to_string_pretty(&json).unwrap());
+                log::debug!("System: {}", serde_json::to_string_pretty(&json).unwrap());
 
                 let json = serde_json::to_string(&json).unwrap();
                 writeln!(&mut file_writer, "{json}").unwrap();
@@ -154,7 +151,7 @@ pub fn main() -> std::io::Result<()> {
 
             // Write the args
             {
-                println!("Args: {}", serde_json::to_string_pretty(&args).unwrap());
+                log::debug!("Args: {}", serde_json::to_string_pretty(&args).unwrap());
 
                 let json = serde_json::to_string(&args).unwrap();
                 writeln!(&mut file_writer, "{json}").unwrap();
@@ -171,10 +168,14 @@ pub fn main() -> std::io::Result<()> {
                     "disk_reads_kib",
                     //
                     "disk_segment_count",
+                    "journal_count",
                     "bloom_filter_size",
                     "block_index_size",
                     "cache_size",
                     "tree_height",
+                    "running_compactions",
+                    "time_compacting_us",
+                    "l0_segment_avg_lifetime_ms",
                     //
                     "write_ops",
                     "point_read_ops",
