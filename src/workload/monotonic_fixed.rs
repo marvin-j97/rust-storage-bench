@@ -8,7 +8,7 @@ use std::sync::Arc;
 use zipf::ZipfDistribution;
 
 pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBool>) {
-    println!("Ingesting data");
+    log::debug!("Ingesting data");
     let item_count = args.item_count as u128;
 
     let mut buf = vec![0; args.value_size as usize];
@@ -21,8 +21,13 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
 
     db.ingest(iter);
 
+    if args.warmup_cache {
+        log::debug!("Warming up cache");
+        assert_eq!(db.len(), args.item_count);
+    }
+
     std::thread::spawn({
-        println!("Starting reader");
+        log::debug!("Starting reader");
         let db = db.clone();
         let random = args.random;
 

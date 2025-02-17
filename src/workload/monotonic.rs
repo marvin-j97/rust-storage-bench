@@ -14,7 +14,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
     let mut buf = vec![0; args.value_size as usize];
 
     if item_count > 0 {
-        println!("Pre-writing {item_count} items");
+        log::debug!("Pre-writing {item_count} items");
         let mut rng = rand::thread_rng();
 
         let iter = (0..(item_count as u128)).map(|x| {
@@ -26,7 +26,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
     }
 
     std::thread::spawn({
-        println!("Starting writer");
+        log::debug!("Starting writer");
         let db = db.clone();
         let written_count = written_count.clone();
 
@@ -44,7 +44,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
     });
 
     std::thread::spawn({
-        println!("Starting reader");
+        log::debug!("Starting reader");
         let db = db.clone();
         let written_count = written_count.clone();
         let random = args.random;

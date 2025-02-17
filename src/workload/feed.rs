@@ -18,11 +18,17 @@ pub struct UserProfile {
     #[dummy(faker = "Name()")]
     display_name: String,
 
+    #[dummy(faker = "Paragraph(1..2)")]
+    description: String,
+
     #[dummy(faker = "Name()")]
     handle: String,
 
     #[dummy(faker = "Boolean(50)")]
     is_premium: bool,
+
+    #[dummy(faker = "0..1_000_000")]
+    follower_count: usize,
 }
 
 #[derive(Debug, Dummy, Deserialize, Serialize)]
@@ -47,7 +53,7 @@ const VIRTUAL_USERS: usize = 10_000;
 const INITIAL_POSTS_PER_USER: usize = 1_000;
 
 pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBool>) {
-    println!("Pre-writing items");
+    log::debug!("Pre-writing items");
 
     let users = (0..VIRTUAL_USERS).map(|user_idx| {
         let user_id = format!("u{user_idx:0>7}");
@@ -91,13 +97,12 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
                 for _loop_idx in 0.. {
                     let choice: f32 = rng.gen_range(0.0..1.0);
 
-                    if choice > 0.9 {
-                        // Which user?
-                        let zipf =
-                            ZipfDistribution::new((VIRTUAL_USERS - 1) as usize, 1.0).unwrap();
-                        let idx = zipf.sample(&mut rng);
-                        let user_id = format!("u{idx:0>7}");
+                    // Which user?
+                    let zipf = ZipfDistribution::new((VIRTUAL_USERS - 1) as usize, 1.0).unwrap();
+                    let idx = zipf.sample(&mut rng);
+                    let user_id = format!("u{idx:0>7}");
 
+                    if choice > 0.9 {
                         // Insert post
                         let post_id = scru128::new_string();
                         let post_key = format!("{user_id}#f#{post_id}");
@@ -106,12 +111,6 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
 
                         db.insert(post_key.as_bytes(), &buf, args.fsync);
                     } else {
-                        // Which user?
-                        let zipf =
-                            ZipfDistribution::new((VIRTUAL_USERS - 1) as usize, 1.0).unwrap();
-                        let idx = zipf.sample(&mut rng);
-                        let user_id = format!("u{idx:0>7}");
-
                         // Get profile
                         let user_profile_key = format!("{user_id}#p");
                         db.get(user_profile_key.as_bytes()).unwrap();

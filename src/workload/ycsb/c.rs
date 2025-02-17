@@ -12,7 +12,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
     assert!(item_count > 0);
 
     {
-        println!("Pre-writing {item_count} items");
+        log::debug!("Pre-writing {item_count} items");
         let mut rng = rand::thread_rng();
         let mut buf = vec![0; args.value_size as usize];
 
@@ -24,29 +24,32 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
         db.ingest(iter);
     }
 
-    let worker = std::thread::spawn({
-        println!("Starting reader");
-        let db = db.clone();
-        let random = args.random;
+    let worker = std::thread::Builder::new()
+        .name("workload".to_owned())
+        .spawn({
+            log::debug!("Starting reader");
+            let db = db.clone();
+            let random = args.random;
 
-        move || {
-            use rand::prelude::Distribution;
+            move || {
+                use rand::prelude::Distribution;
 
-            let mut rng = rand::thread_rng();
+                let mut rng = rand::thread_rng();
 
-            loop {
-                let x: u128 = if random {
-                    rng.gen_range(0..item_count as u128)
-                } else {
-                    let zipf = ZipfDistribution::new((item_count as usize) - 1, 1.0).unwrap();
+                loop {
+                    let x: u128 = if random {
+                        rng.gen_range(0..item_count as u128)
+                    } else {
+                        let zipf = ZipfDistribution::new((item_count as usize) - 1, 1.0).unwrap();
 
-                    zipf.sample(&mut rng) as u128
-                };
+                        zipf.sample(&mut rng) as u128
+                    };
 
-                db.get(&x.to_be_bytes()).unwrap();
+                    db.get(&x.to_be_bytes()).unwrap();
+                }
             }
-        }
-    });
+        })
+        .unwrap();
 
     start_killer(args.seconds, finish_signal);
 

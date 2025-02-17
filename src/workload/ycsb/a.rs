@@ -13,7 +13,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
     assert!(item_count > 0);
 
     {
-        println!("Pre-writing {item_count} items");
+        log::debug!("Pre-writing {item_count} items");
         let mut rng = rand::thread_rng();
         let mut buf = vec![0; args.value_size as usize];
 
@@ -26,7 +26,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
     }
 
     let worker = std::thread::spawn({
-        println!("Starting reader");
+        log::debug!("Starting reader");
         let db = db.clone();
         let random = args.random;
         let mut buf = vec![0; args.value_size as usize];
