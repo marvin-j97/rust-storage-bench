@@ -2,13 +2,13 @@ import { ApexOptions } from "apexcharts";
 
 const DEFAULT_Y_FORMATTER = (x: number) => (~~x).toString();
 
-export const COMMON_CHART_OPTS = (
-	opts = {
-		yFormatter: DEFAULT_Y_FORMATTER,
-		dashed: 0,
-	},
-) =>
-	({
+type Options = {
+	yFormatter?: typeof DEFAULT_Y_FORMATTER;
+	dashed?: number;
+};
+
+export function COMMON_CHART_OPTS(opts: Options) {
+	return ({
 		stroke: {
 			colors: ["#aaffff"],
 			width: 2,
@@ -72,7 +72,8 @@ export const COMMON_CHART_OPTS = (
 				style: {
 					colors: "white",
 				},
-				formatter: opts.yFormatter,
+				formatter: opts.yFormatter ?? DEFAULT_Y_FORMATTER,
 			},
 		},
 	}) satisfies ApexOptions;
+}

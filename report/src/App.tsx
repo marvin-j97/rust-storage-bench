@@ -1,14 +1,60 @@
 import millify from "millify";
-import { createSignal, For, Show } from "solid-js";
+import { createSignal, For, JSXElement, Show } from "solid-js";
 import prettyBytes from "pretty-bytes";
 
 import { SolidApexCharts } from "./SolidApex";
-import { formatNano, formatThousands } from "./util";
-import { useMetricsData } from "./data";
+import { formatNano } from "./util";
+import { TimeSeries, useMetricsData } from "./data";
 import { COMMON_CHART_OPTS } from "./chart";
+
+type Props = {
+	title: string;
+	timeseries?: TimeSeries[];
+	formatter?: (val: number, opts?: any) => string;
+}
+
+function LineChart(props: Props): JSXElement {
+	return <div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
+		{(() => {
+			const series = () =>
+				(props.timeseries ?? []).map((series) => {
+					return {
+						name: series.displayName,
+						data: series.data.map(([ts_milli, value]) => ({
+							x: ts_milli / 1_000,
+							y: value,
+						})),
+						color: series.colour,
+					} satisfies ApexAxisChartSeries[0];
+				});
+
+			return (
+				<SolidApexCharts
+					type="line"
+					width="100%"
+					options={{
+						title: {
+							text: props.title,
+							style: {
+								color: "white",
+							},
+						},
+						...COMMON_CHART_OPTS({
+							yFormatter: props.formatter,
+							dashed: 0,
+						}),
+					}}
+					series={series()}
+				/>
+			);
+		})()}
+	</div>;
+}
 
 function App() {
 	const [showLsmStats, toggleLsmStats] = createSignal(true);
+	const [showBtreeStats, toggleBtreeStats] = createSignal(true);
+
 	const { percentiles, reactiveTimeseries, setups } = useMetricsData();
 
 	return (
@@ -23,545 +69,84 @@ function App() {
 				<h2 class="text-lg mb-3">Results</h2>
 				{/* graphs */}
 				<div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
-					<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-						{(() => {
-							const series = () =>
-								reactiveTimeseries.get("cpu")!.map((series) => {
-									return {
-										name: series.displayName,
-										data: series.data.map(([ts_milli, value]) => ({
-											x: ts_milli / 1_000,
-											y: value,
-										})),
-										color: series.colour,
-									} satisfies ApexAxisChartSeries[0];
-								});
+					{/* LINE CHARTS */}
+					<LineChart
+						title="CPU usage"
+						timeseries={reactiveTimeseries.get("cpu")}
+						formatter={(pct) => `${pct}%`}
+					/>
+					<LineChart
+						title="Memory usage"
+						timeseries={reactiveTimeseries.get("mem_kib")}
+						formatter={kib => prettyBytes(kib * 1_024)}
+					/>
+					<LineChart
+						title="Disk space usage"
+						timeseries={reactiveTimeseries.get("disk_space_kib")}
+						formatter={kib => prettyBytes(kib * 1_024)}
+					/>
+					<LineChart
+						title="Space amplification"
+						timeseries={reactiveTimeseries.get("space_amp")}
+						formatter={(pct) => `${pct}x`}
+					/>
+					<LineChart
+						title="Write latency"
+						timeseries={reactiveTimeseries.get("write_latency")}
+						formatter={formatNano}
+					/>
+					<LineChart
+						title="Writes per second"
+						timeseries={reactiveTimeseries.get("write_rate")}
+						formatter={millify}
+					/>
+					<LineChart
+						title="Disk write I/O"
+						timeseries={reactiveTimeseries.get("disk_writes_kib")}
+						formatter={kib => prettyBytes(kib * 1_024)}
+					/>
+					<LineChart
+						title="Write amplification"
+						timeseries={reactiveTimeseries.get("write_amp")}
+						formatter={(pct) => `${pct}x`}
+					/>
+					<LineChart
+						title="Point read latency"
+						timeseries={reactiveTimeseries.get("point_read_latency")}
+						formatter={formatNano}
+					/>
+					<LineChart
+						title="Point reads per second"
+						timeseries={reactiveTimeseries.get("point_read_rate")}
+						formatter={millify}
+					/>
+					<LineChart
+						title="Range latency"
+						timeseries={reactiveTimeseries.get("range_latency")}
+						formatter={formatNano}
+					/>
+					<LineChart
+						title="Ranges per second"
+						timeseries={reactiveTimeseries.get("range_rate")}
+						formatter={millify}
+					/>
+					<LineChart
+						title="Write ops (cumulative)"
+						timeseries={reactiveTimeseries.get("write_potential")}
+						formatter={millify}
+					/>
+					<LineChart
+						title="Point read ops (cumulative)"
+						timeseries={reactiveTimeseries.get("point_read_potential")}
+						formatter={millify}
+					/>
+					<LineChart
+						title="Range ops (cumulative)"
+						timeseries={reactiveTimeseries.get("range_potential")}
+						formatter={millify}
+					/>
 
-							return (
-								<SolidApexCharts
-									type="line"
-									width="100%"
-									options={{
-										title: {
-											text: "CPU usage",
-											style: {
-												color: "white",
-											},
-										},
-										...COMMON_CHART_OPTS({
-											yFormatter: (pct) => `${pct}%`,
-											dashed: 0,
-										}),
-									}}
-									series={series()}
-								/>
-							);
-						})()}
-					</div>
-					<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-						{(() => {
-							const series = () =>
-								reactiveTimeseries.get("mem_kib")!.map((series) => {
-									return {
-										name: series.displayName,
-										data: series.data.map(([ts_milli, value]) => ({
-											x: ts_milli / 1_000,
-											y: value,
-										})),
-										color: series.colour,
-									} satisfies ApexAxisChartSeries[0];
-								});
-
-							return (
-								<SolidApexCharts
-									type="line"
-									width="100%"
-									options={{
-										title: {
-											text: "memory usage",
-											style: {
-												color: "white",
-											},
-										},
-										...COMMON_CHART_OPTS({
-											yFormatter: (bytes) =>
-												`${formatThousands(bytes / 1_024)} MiB`,
-											dashed: 0,
-										}),
-									}}
-									series={series()}
-								/>
-							);
-						})()}
-					</div>
-					<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-						{(() => {
-							const series = () =>
-								reactiveTimeseries.get("disk_space_kib")!.map((series) => {
-									return {
-										name: series.displayName,
-										data: series.data.map(([ts_milli, value]) => ({
-											x: ts_milli / 1_000,
-											y: value * 1_024, // convert back to bytes
-										})),
-										color: series.colour,
-									} satisfies ApexAxisChartSeries[0];
-								});
-
-							return (
-								<SolidApexCharts
-									type="line"
-									width="100%"
-									options={{
-										title: {
-											text: "disk space used",
-											style: {
-												color: "white",
-											},
-										},
-										...COMMON_CHART_OPTS({
-											yFormatter: prettyBytes,
-											dashed: 0,
-										}),
-									}}
-									series={series()}
-								/>
-							);
-						})()}
-					</div>
-					<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-						{(() => {
-							const series = () =>
-								reactiveTimeseries.get("space_amp")!.map((series) => {
-									return {
-										name: series.displayName,
-										data: series.data.map(([ts_milli, value]) => ({
-											x: ts_milli / 1_000,
-											y: value,
-										})),
-										color: series.colour,
-									} satisfies ApexAxisChartSeries[0];
-								});
-
-							return (
-								<SolidApexCharts
-									type="line"
-									width="100%"
-									options={{
-										title: {
-											text: "space amplification",
-											style: {
-												color: "white",
-											},
-										},
-										...COMMON_CHART_OPTS({
-											yFormatter: (pct) => `${pct}x`,
-											dashed: 0,
-										}),
-									}}
-									series={series()}
-								/>
-							);
-						})()}
-					</div>
-					<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-						{(() => {
-							const series = () =>
-								reactiveTimeseries.get("write_latency")!.map((series) => {
-									return {
-										name: series.displayName,
-										data: series.data.map(([ts_milli, value]) => ({
-											x: ts_milli / 1_000,
-											y: value,
-										})),
-										color: series.colour,
-									} satisfies ApexAxisChartSeries[0];
-								});
-
-							return (
-								<SolidApexCharts
-									type="line"
-									width="100%"
-									options={{
-										title: {
-											text: "write latency",
-											style: {
-												color: "white",
-											},
-										},
-										...COMMON_CHART_OPTS({
-											yFormatter: formatNano,
-											dashed: 0,
-										}),
-									}}
-									series={series()}
-								/>
-							);
-						})()}
-					</div>
-					<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-						{(() => {
-							const series = () =>
-								reactiveTimeseries.get("write_rate")!.map((series) => {
-									return {
-										name: series.displayName,
-										data: series.data.map(([ts_milli, value]) => ({
-											x: ts_milli / 1_000,
-											y: value,
-										})),
-										color: series.colour,
-									} satisfies ApexAxisChartSeries[0];
-								});
-
-							return (
-								<SolidApexCharts
-									type="line"
-									width="100%"
-									options={{
-										title: {
-											text: "writes per second",
-											style: {
-												color: "white",
-											},
-										},
-										...COMMON_CHART_OPTS({
-											yFormatter: millify,
-											dashed: 0,
-										}),
-									}}
-									series={series()}
-								/>
-							);
-						})()}
-					</div>
-					<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-						{(() => {
-							const series = () =>
-								reactiveTimeseries.get("disk_writes_kib")!.map((series) => {
-									return {
-										name: series.displayName,
-										data: series.data.map(([ts_milli, value]) => ({
-											x: ts_milli / 1_000,
-											y: value,
-										})),
-										color: series.colour,
-									} satisfies ApexAxisChartSeries[0];
-								});
-
-							return (
-								<SolidApexCharts
-									type="line"
-									width="100%"
-									options={{
-										title: {
-											text: "disk write I/O",
-											style: {
-												color: "white",
-											},
-										},
-										...COMMON_CHART_OPTS({
-											yFormatter: (bytes) =>
-												`${formatThousands(bytes / 1_024 / 1_024)} GB`,
-											dashed: 0,
-										}),
-									}}
-									series={series()}
-								/>
-							);
-						})()}
-					</div>
-					<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-						{(() => {
-							const series = () =>
-								reactiveTimeseries.get("write_amp")!.map((series) => {
-									return {
-										name: series.displayName,
-										data: series.data.map(([ts_milli, value]) => ({
-											x: ts_milli / 1_000,
-											y: value,
-										})),
-										color: series.colour,
-									} satisfies ApexAxisChartSeries[0];
-								});
-
-							return (
-								<SolidApexCharts
-									type="line"
-									width="100%"
-									options={{
-										title: {
-											text: "write amplification",
-											style: {
-												color: "white",
-											},
-										},
-										...COMMON_CHART_OPTS({
-											yFormatter: (pct) => `${pct}x`,
-											dashed: 0,
-										}),
-									}}
-									series={series()}
-								/>
-							);
-						})()}
-					</div>
-					<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-						{(() => {
-							const series = () =>
-								reactiveTimeseries.get("point_read_latency")!.map((series) => {
-									return {
-										name: series.displayName,
-										data: series.data.map(([ts_milli, value]) => ({
-											x: ts_milli / 1_000,
-											y: value,
-										})),
-										color: series.colour,
-									} satisfies ApexAxisChartSeries[0];
-								});
-
-							return (
-								<SolidApexCharts
-									type="line"
-									width="100%"
-									options={{
-										title: {
-											text: "point read latency",
-											style: {
-												color: "white",
-											},
-										},
-										...COMMON_CHART_OPTS({
-											yFormatter: formatNano,
-											dashed: 0,
-										}),
-									}}
-									series={series()}
-								/>
-							);
-						})()}
-					</div>
-					<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-						{(() => {
-							const series = () =>
-								reactiveTimeseries.get("point_read_rate")!.map((series) => {
-									return {
-										name: series.displayName,
-										data: series.data.map(([ts_milli, value]) => ({
-											x: ts_milli / 1_000,
-											y: value,
-										})),
-										color: series.colour,
-									} satisfies ApexAxisChartSeries[0];
-								});
-
-							// TODO: store refresh granularity (ms) in system object
-
-							return (
-								<SolidApexCharts
-									type="line"
-									width="100%"
-									options={{
-										title: {
-											text: "point reads per second",
-											style: {
-												color: "white",
-											},
-										},
-										...COMMON_CHART_OPTS({
-											yFormatter: millify,
-											dashed: 0,
-										}),
-									}}
-									series={series()}
-								/>
-							);
-						})()}
-					</div>
-					<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-						{(() => {
-							const series = () =>
-								reactiveTimeseries.get("range_latency")!.map((series) => {
-									return {
-										name: series.displayName,
-										data: series.data.map(([ts_milli, value]) => ({
-											x: ts_milli / 1_000,
-											y: value,
-										})),
-										color: series.colour,
-									} satisfies ApexAxisChartSeries[0];
-								});
-
-							return (
-								<SolidApexCharts
-									type="line"
-									width="100%"
-									options={{
-										title: {
-											text: "range latency",
-											style: {
-												color: "white",
-											},
-										},
-										...COMMON_CHART_OPTS({
-											yFormatter: formatNano,
-											dashed: 0,
-										}),
-									}}
-									series={series()}
-								/>
-							);
-						})()}
-					</div>
-					<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-						{(() => {
-							const series = () =>
-								reactiveTimeseries.get("range_rate")!.map((series) => {
-									return {
-										name: series.displayName,
-										data: series.data.map(([ts_milli, value]) => ({
-											x: ts_milli / 1_000,
-											y: value,
-										})),
-										color: series.colour,
-									} satisfies ApexAxisChartSeries[0];
-								});
-
-							// TODO: store refresh granularity (ms) in system object
-
-							return (
-								<SolidApexCharts
-									type="line"
-									width="100%"
-									options={{
-										title: {
-											text: "ranges per second",
-											style: {
-												color: "white",
-											},
-										},
-										...COMMON_CHART_OPTS({
-											yFormatter: millify,
-											dashed: 0,
-										}),
-									}}
-									series={series()}
-								/>
-							);
-						})()}
-					</div>
-					<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-						{(() => {
-							const series = () =>
-								reactiveTimeseries.get("write_potential")!.map((series) => {
-									return {
-										name: series.displayName,
-										data: series.data.map(([ts_milli, value]) => ({
-											x: ts_milli / 1_000,
-											y: value,
-										})),
-										color: series.colour,
-									} satisfies ApexAxisChartSeries[0];
-								});
-
-							// TODO: store refresh granularity (ms) in system object
-
-							return (
-								<SolidApexCharts
-									type="line"
-									width="100%"
-									options={{
-										title: {
-											text: "write ops (cumulative)",
-											style: {
-												color: "white",
-											},
-										},
-										...COMMON_CHART_OPTS({
-											yFormatter: millify,
-											dashed: 0,
-										}),
-									}}
-									series={series()}
-								/>
-							);
-						})()}
-					</div>
-					<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-						{(() => {
-							const series = () =>
-								reactiveTimeseries
-									.get("point_read_potential")!
-									.map((series) => {
-										return {
-											name: series.displayName,
-											data: series.data.map(([ts_milli, value]) => ({
-												x: ts_milli / 1_000,
-												y: value,
-											})),
-											color: series.colour,
-										} satisfies ApexAxisChartSeries[0];
-									});
-
-							// TODO: store refresh granularity (ms) in system object
-
-							return (
-								<SolidApexCharts
-									type="line"
-									width="100%"
-									options={{
-										title: {
-											text: "read ops (cumulative)",
-											style: {
-												color: "white",
-											},
-										},
-										...COMMON_CHART_OPTS({
-											yFormatter: millify,
-											dashed: 0,
-										}),
-									}}
-									series={series()}
-								/>
-							);
-						})()}
-					</div>
-					<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-						{(() => {
-							const series = () =>
-								reactiveTimeseries.get("range_potential")!.map((series) => {
-									return {
-										name: series.displayName,
-										data: series.data.map(([ts_milli, value]) => ({
-											x: ts_milli / 1_000,
-											y: value,
-										})),
-										color: series.colour,
-									} satisfies ApexAxisChartSeries[0];
-								});
-
-							// TODO: store refresh granularity (ms) in system object
-
-							return (
-								<SolidApexCharts
-									type="line"
-									width="100%"
-									options={{
-										title: {
-											text: "range ops (cumulative)",
-											style: {
-												color: "white",
-											},
-										},
-										...COMMON_CHART_OPTS({
-											yFormatter: millify,
-											dashed: 0,
-										}),
-									}}
-									series={series()}
-								/>
-							);
-						})()}
-					</div>
+					{/* PERCENTILES */}
 					<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
 						{(() => {
 							return (
@@ -647,212 +232,49 @@ function App() {
 				</div>
 
 				<div class="mt-3 flex flex-col gap-3">
-					<div class="ml-2" onClick={() => toggleLsmStats((x) => !x)}>
+					<div class="ml-2 cursor-pointer" onClick={() => toggleLsmStats((x) => !x)}>
 						LSM-specific metrics
 					</div>
 					<Show when={showLsmStats()}>
+						<div class="rounded-lg p-3 mx-3 dark:text-yellow-100 dark:bg-yellow-950">
+							Only work for Fjall currently
+						</div>
 						<div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
-							<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-								{(() => {
-									const series = () =>
-										reactiveTimeseries
-											.get("bloom_filter_size")!
-											.map((series) => {
-												return {
-													name: series.displayName,
-													data: series.data.map(([ts_milli, value]) => ({
-														x: ts_milli / 1_000,
-														y: value,
-													})),
-													color: series.colour,
-												} satisfies ApexAxisChartSeries[0];
-											});
-
-									// TODO: store refresh granularity (ms) in system object
-
-									return (
-										<SolidApexCharts
-											type="line"
-											width="100%"
-											options={{
-												title: {
-													text: "Bloom filter size",
-													style: {
-														color: "white",
-													},
-												},
-												...COMMON_CHART_OPTS({
-													yFormatter: prettyBytes,
-													dashed: 0,
-												}),
-											}}
-											series={series()}
-										/>
-									);
-								})()}
-							</div>
-							<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-								{(() => {
-									const series = () =>
-										reactiveTimeseries
-											.get("disk_segment_count")!
-											.map((series) => {
-												return {
-													name: series.displayName,
-													data: series.data.map(([ts_milli, value]) => ({
-														x: ts_milli / 1_000,
-														y: value,
-													})),
-													color: series.colour,
-												} satisfies ApexAxisChartSeries[0];
-											});
-
-									// TODO: store refresh granularity (ms) in system object
-
-									return (
-										<SolidApexCharts
-											type="line"
-											width="100%"
-											options={{
-												title: {
-													text: "# disk segments",
-													style: {
-														color: "white",
-													},
-												},
-												...COMMON_CHART_OPTS({
-													yFormatter: (x) => x.toString(),
-													dashed: 0,
-												}),
-											}}
-											series={series()}
-										/>
-									);
-								})()}
-							</div>
-							<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-								{(() => {
-									const series = () =>
-										reactiveTimeseries
-											.get("l0_segment_avg_lifetime_ms")!
-											.map((series) => {
-												return {
-													name: series.displayName,
-													data: series.data.map(([ts_milli, value]) => ({
-														x: ts_milli / 1_000,
-														y: Math.min(value, /* 30sec */ 30_000),
-													})),
-													color: series.colour,
-												} satisfies ApexAxisChartSeries[0];
-											});
-
-									// TODO: store refresh granularity (ms) in system object
-
-									return (
-										<SolidApexCharts
-											type="line"
-											width="100%"
-											options={{
-												title: {
-													text: "average L0 segment lifetime",
-													style: {
-														color: "white",
-													},
-												},
-												...COMMON_CHART_OPTS({
-													yFormatter: (x) => `${x} ms`,
-													dashed: 0,
-												}),
-											}}
-											series={series()}
-										/>
-									);
-								})()}
-							</div>
-							<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-								{(() => {
-									const series = () =>
-										reactiveTimeseries
-											.get("running_compactions")!
-											.map((series) => {
-												return {
-													name: series.displayName,
-													data: series.data.map(([ts_milli, value]) => ({
-														x: ts_milli / 1_000,
-														y: value,
-													})),
-													color: series.colour,
-												} satisfies ApexAxisChartSeries[0];
-											});
-
-									// TODO: store refresh granularity (ms) in system object
-
-									return (
-										<SolidApexCharts
-											type="line"
-											width="100%"
-											options={{
-												title: {
-													text: "# active compactions",
-													style: {
-														color: "white",
-													},
-												},
-												...COMMON_CHART_OPTS({
-													yFormatter: (x) => x.toString(),
-													dashed: 0,
-												}),
-											}}
-											series={series()}
-										/>
-									);
-								})()}
-							</div>
+							<LineChart
+								title="Bloom filter size"
+								timeseries={reactiveTimeseries.get("bloom_filter_size")}
+								formatter={prettyBytes}
+							/>
+							<LineChart
+								title="# disk segments"
+								timeseries={reactiveTimeseries.get("disk_segment_count")}
+							/>
+							<LineChart
+								title="Average L0 segment lifetime"
+								timeseries={reactiveTimeseries.get("l0_segment_avg_lifetime_ms")}
+								formatter={(x) => `${x} ms`}
+							/>
+							<LineChart
+								title="# active compactions"
+								timeseries={reactiveTimeseries.get("running_compactions")}
+							/>
 						</div>
 					</Show>
 				</div>
 
 				<div class="mt-3 flex flex-col gap-3">
-					<div class="ml-2">B-tree-specific metrics</div>
-					<div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
-						<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-							{(() => {
-								const series = () =>
-									reactiveTimeseries.get("tree_height")!.map((series) => {
-										return {
-											name: series.displayName,
-											data: series.data.map(([ts_milli, value]) => ({
-												x: ts_milli / 1_000,
-												y: value,
-											})),
-											color: series.colour,
-										} satisfies ApexAxisChartSeries[0];
-									});
-
-								// TODO: store refresh granularity (ms) in system object
-
-								return (
-									<SolidApexCharts
-										type="line"
-										width="100%"
-										options={{
-											title: {
-												text: "Tree depth",
-												style: {
-													color: "white",
-												},
-											},
-											...COMMON_CHART_OPTS({
-												yFormatter: (x) => x.toString(),
-												dashed: 0,
-											}),
-										}}
-										series={series()}
-									/>
-								);
-							})()}
+					<div class="ml-2 cursor-pointer" onClick={() => toggleBtreeStats((x) => !x)}>B-tree-specific metrics</div>
+					<Show when={showBtreeStats()}>
+						<div class="rounded-lg p-3 mx-3 dark:text-yellow-100 dark:bg-yellow-950">
+							Only work for Heed and ReDB currently
 						</div>
-					</div>
+						<div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
+							<LineChart
+								title="Tree height"
+								timeseries={reactiveTimeseries.get("tree_height")}
+							/>
+						</div>
+					</Show>
 				</div>
 			</div>
 
