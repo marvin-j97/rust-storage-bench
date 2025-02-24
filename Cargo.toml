@@ -7,7 +7,7 @@ edition = "2021"
 debug = false
 
 [features]
-default = ["jemalloc", "rocksdb", "localfjall", "heed", "sqlite"]
+default = ["jemalloc"]
 heed = ["dep:heed"]
 jemalloc = ["dep:jemallocator"]
 localfjall = ["dep:local_fjall"]

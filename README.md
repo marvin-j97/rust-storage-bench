@@ -37,3 +37,27 @@ Run YCSB-like benchmarks:
 ```bash
 systemd-run --scope -p MemoryLimit=2G nu ycsb.nu
 ```
+
+## Testing other storage engines
+
+Other non-Rust storage engines can be compiled in using:
+
+```bash
+cargo build -r --features rocksdb,heed,sqlite
+```
+
+## Choosing memory allocator
+
+By default `jemalloc` is used.
+You can choose to compile another memory allocator:
+
+```bash
+cargo build -r --no-default-features --features mimalloc
+cargo build -r --no-default-features --features tcmalloc
+```
+
+or use the system allocator instead:
+
+```bash
+cargo build -r --no-default-features
+```
