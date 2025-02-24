@@ -44,6 +44,7 @@ impl std::fmt::Display for Backend {
             f,
             "{}",
             match self {
+                #[cfg(feature = "sqlite")]
                 Self::Sqlite => "rusqlite 0.32.1",
 
                 Self::Sled => "sled 0.34.7",

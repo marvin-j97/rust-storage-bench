@@ -106,6 +106,7 @@ impl DatabaseWrapper {
         let start = Instant::now();
 
         let v = match &self.inner {
+            #[cfg(feature = "sqlite")]
             GenericDatabase::Sqlite(_db) => {
                 unimplemented!();
             }
