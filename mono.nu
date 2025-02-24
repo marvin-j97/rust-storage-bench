@@ -2,16 +2,17 @@
 
 let prefix = "mono";
 let data_dir = ".data";
-let seconds = 2 * 60;
-let cache_mib = 8 * 1_024 * 1_024;
-let value_size = 64;
+let seconds = 1 * 60;
+let cache_mib = 64 * 1_024 * 1_024;
+let value_size = 100 * 1_024;
+let item_count = 0;
 
 alias bench = cargo run -r --
 
-for db in ["sqlite", "local-fjall"] {
+for db in ["local-fjall", "fjall"] {
     let out = $"($prefix)_($db).jsonl";
     print $out;
-    RUST_BACKTRACE=full RUST_LOG=warn bench run --seconds $seconds --out $out --workload monotonic --value-size $value_size --backend $db --data-dir $data_dir --item-count 0 --cache-size $cache_mib
+    RUST_BACKTRACE=full RUST_LOG=warn bench run --seconds $seconds --out $out --workload monotonic --value-size $value_size --backend $db --data-dir $data_dir --item-count $item_count --cache-size $cache_mib
     sleep 500ms
 }
 

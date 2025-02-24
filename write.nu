@@ -1,18 +1,18 @@
 #!/bin/nu
 
-let prefix = "writeonly";
+let prefix = "randomwrite";
 let data_dir = ".data";
-let seconds = 1 * 60;
-let cache_mib = 100 * 1_024 * 1_024;
-let value_size = 450;
+let seconds = 10 * 60;
+let cache_mib = 1_000 * 1_024 * 1_024;
+let value_size = 96;
 
 alias bench = cargo run -r --
 
-for db in ["fjall", "redb", "sled"] {
+for db in ["rocksdb", "heed", "fjall"] {
     let out = $"($prefix)_($db).jsonl";
     print $out;
-    RUST_BACKTRACE=full bench run --seconds $seconds --out $out --workload random-write --value-size $value_size --backend $db --data-dir $data_dir --item-count 1 --cache-size $cache_mib
-    sleep 1sec
+    RUST_BACKTRACE=full RUST_LOG=warn bench run --seconds $seconds --out $out --workload random-write --value-size $value_size --backend $db --data-dir $data_dir --item-count 100 --cache-size $cache_mib
+    sleep 500ms
 }
 
 # Generate report for the workload

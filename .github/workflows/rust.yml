@@ -41,4 +41,4 @@ jobs:
       - name: Clippy
         run: cargo clippy
       - name: Build permutations
-        run: cargo build
+        run: cargo build --no-default-features

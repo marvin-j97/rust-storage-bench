@@ -17,7 +17,7 @@ use std::{
 };
 
 fn start_killer(sec: u16, signal: Arc<AtomicBool>) {
-    println!("Started killer");
+    log::debug!("Started killer");
     std::thread::sleep(Duration::from_secs(sec as u64));
     signal.store(true, Ordering::Relaxed);
 }
@@ -40,6 +40,9 @@ pub enum Workload {
 
     /// Writes monotonic items, then point reads them
     MonotonicFixed,
+
+    /// Time series (increasing integer key, small value); write-only
+    MonotonicWrite,
 
     /// (The company formerly known as Twitter)-style feed
     ///
@@ -67,16 +70,19 @@ pub enum Workload {
     /// Time series (increasing integer key, small value), read latest 1'000 data points
     TimeseriesLatest,
 
-    /// Time series (increasing integer key, small value), write-only
-    MonotonicWrite,
-
-    /// Uses siphash as key which makes writes very random, write-only
+    /// Uses siphash as key which makes writes very random; write-only
     RandomWrite,
-    /* FullScan, */
+
+    /// Uses siphash as key which makes writes very random, reads
+    /// a pre-selected subset of keys randomly
+    Random,
+
+    /// Queue using a single producer and single consumer
+    Queue,
 }
 
 pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<AtomicBool>) {
-    println!("Starting workload {:?}", args.workload);
+    log::info!("Starting workload {:?}", args.workload);
 
     let fsync = args.fsync;
 
@@ -183,7 +189,7 @@ pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<A
         }
         Workload::TimeseriesFirst => {
             std::thread::spawn({
-                println!("Starting writer");
+                log::debug!("Starting writer");
                 let db = db.clone();
 
                 move || {
@@ -195,7 +201,7 @@ pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<A
             });
 
             std::thread::spawn({
-                println!("Starting reader");
+                log::debug!("Starting reader");
                 let db = db.clone();
 
                 move || loop {
@@ -209,7 +215,7 @@ pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<A
             let written_count = Arc::new(AtomicU64::new(0));
 
             std::thread::spawn({
-                println!("Starting writer");
+                log::debug!("Starting writer");
                 let db = db.clone();
                 let written_count = written_count.clone();
 
@@ -223,7 +229,7 @@ pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<A
             });
 
             std::thread::spawn({
-                println!("Starting reader");
+                log::debug!("Starting reader");
                 let db = db.clone();
                 let written_count = written_count.clone();
 
@@ -239,11 +245,66 @@ pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<A
 
             start_killer(args.seconds, finish_signal);
         }
+        Workload::Queue => {
+            std::thread::spawn({
+                log::debug!("Starting writer");
+                let db = db.clone();
+                let mut buf = vec![0; args.value_size as usize];
+
+                move || {
+                    let mut rng = rand::thread_rng();
+
+                    for seqno in 0u128.. {
+                        rng.fill_bytes(&mut buf);
+                        db.insert(&seqno.to_be_bytes(), &buf, fsync);
+                    }
+                }
+            });
+
+            let fsync = args.fsync;
+
+            std::thread::spawn({
+                log::debug!("Starting reader");
+                let db = db.clone();
+
+                move || {
+                    use std::ops::Bound::{Excluded, Included};
+
+                    let mut last_key;
+
+                    loop {
+                        if let Some((key, _)) = db.first() {
+                            db.remove_unique(&key, fsync);
+                            last_key = Some(key);
+                            break;
+                        }
+                    }
+
+                    for _ in 0.. {
+                        let mut key_bytes = [0; 16];
+                        key_bytes.copy_from_slice(last_key.as_deref().unwrap());
+
+                        // NOTE: Make the range very tight
+                        let upper_key = u128::from_be_bytes(key_bytes) + 1;
+                        let upper_key: &[u8] = &upper_key.to_be_bytes();
+
+                        let range = (Excluded(last_key.as_deref().unwrap()), Included(upper_key));
+
+                        if let Some((key, _)) = db.range_first(range) {
+                            db.remove_unique(&key, fsync);
+                            last_key = Some(key);
+                        }
+                    }
+                }
+            });
+
+            start_killer(args.seconds, finish_signal);
+        }
         Workload::MonotonicWrite => {
             let mut buf = vec![0; args.value_size as usize];
 
             std::thread::spawn({
-                println!("Starting writer");
+                log::debug!("Starting writer");
                 let db = db.clone();
 
                 move || {
@@ -261,7 +322,7 @@ pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<A
         }
         Workload::RandomWrite => {
             std::thread::spawn({
-                println!("Starting writer");
+                log::debug!("Starting writer");
                 let db = db.clone();
                 let value_size = args.value_size as usize;
 
@@ -278,6 +339,60 @@ pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<A
 
                         db.insert(&key, &buf, fsync);
                     }
+                }
+            });
+
+            start_killer(args.seconds, finish_signal);
+        }
+        Workload::Random => {
+            let value_size = args.value_size as usize;
+            let mut buf = vec![0; value_size];
+
+            {
+                for i in 0..args.item_count {
+                    let key = &{
+                        let mut hash = std::hash::DefaultHasher::default();
+                        hash.write_usize(i);
+                        hash.finish().to_be_bytes()
+                    };
+
+                    db.insert(key, &buf, fsync)
+                }
+            }
+
+            std::thread::spawn({
+                log::debug!("Starting writer");
+                let db = db.clone();
+
+                move || {
+                    let mut rng = rand::thread_rng();
+
+                    for x in 0u128.. {
+                        let mut hash = std::hash::DefaultHasher::default();
+                        hash.write_u128(x);
+                        let key = hash.finish().to_be_bytes();
+
+                        rng.fill_bytes(&mut buf);
+
+                        db.insert(&key, &buf, fsync);
+                    }
+                }
+            });
+
+            std::thread::spawn({
+                log::debug!("Starting reader");
+                let db = db.clone();
+                let mut i = args.item_count;
+
+                move || loop {
+                    let key = &{
+                        let mut hash = std::hash::DefaultHasher::default();
+                        hash.write_usize(i);
+                        hash.finish().to_be_bytes()
+                    };
+                    i += 1;
+
+                    db.get(key);
                 }
             });
 
