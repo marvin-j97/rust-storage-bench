@@ -131,7 +131,7 @@ pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<A
         }
         Workload::FixedUpdate => {
             let seconds = 30;
-            let iterations = 40_000_000 / args.item_count;
+            let iterations = 100_000_000 / args.item_count;
 
             println!("Doing {iterations} iterations");
 
@@ -170,7 +170,9 @@ pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<A
                                 }
                             }
 
+                            // TODO: support Zipfian reads
                             let x = rng.gen_range(0..written_count);
+
                             let key = x.to_be_bytes();
                             let prev = db.get(&key).unwrap();
                             let prev = prev.into_iter().map(|x| !x).collect::<Vec<_>>();

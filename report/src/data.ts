@@ -2,6 +2,8 @@ import { ReactiveMap } from "@solid-primitives/map";
 import { createSignal, onMount } from "solid-js";
 import { createStore, produce } from "solid-js/store";
 
+import { chooseColor, isLsm } from "./util";
+
 import devData from "../log.jsonl?raw";
 import devData2 from "../log2.jsonl?raw";
 import devData3 from "../log3.jsonl?raw";
@@ -22,16 +24,6 @@ export type TimeSeries = {
 	colour: string;
 	data: [number, number][];
 };
-
-const COLORS = [
-	"#a78bfa",
-	"#38bdf8",
-	"#4ade80",
-	"#fbbf24",
-	"#4455FF",
-	"#f472b6",
-	"#ee5555",
-];
 
 type ColumnKey =
 	| "time_ms"
@@ -68,6 +60,20 @@ type ColumnKey =
 	| "write_amp"
 	| "space_amp"
 	| "read_amp";
+
+const LSM_ONLY_PARAMETERS = new Set([
+	"l0_segment_avg_lifetime_ms",
+	"bloom_filter_size",
+	"block_index_size",
+	"running_compactions",
+	"time_compacting_us",
+	"disk_segment_count",
+]);
+
+const BTREE_ONLY_PARAMETERS = new Set([
+	"tree_height",
+]);
+
 
 export function useMetricsData() {
 	const [setups, setSetups] = createSignal<Setup[]>([]);
@@ -118,6 +124,8 @@ export function useMetricsData() {
 			const _system = JSON.parse(lines[0]);
 			const args = JSON.parse(lines[1]);
 
+			const color = chooseColor(args.backend);
+
 			setups.push({
 				displayName: args.display_name,
 				args,
@@ -141,8 +149,8 @@ export function useMetricsData() {
 						produce((x) => {
 							x.writePercentiles.push({
 								data: [mean, p50, p90, p95, p99],
-								color: COLORS[i],
 								name: args.display_name,
+								color,
 							});
 						}),
 					);
@@ -167,8 +175,8 @@ export function useMetricsData() {
 						produce((x) => {
 							x.pointReadPercentiles.push({
 								data: [mean, p50, p90, p95, p99],
-								color: COLORS[i],
 								name: args.display_name,
+								color,
 							});
 						}),
 					);
@@ -190,13 +198,20 @@ export function useMetricsData() {
 				for (let j = 1; j < columnNames.length; j++) {
 					const name = columnNames[j] as ColumnKey;
 
+					if (!isLsm(args.backend) && LSM_ONLY_PARAMETERS.has(name)) {
+						continue;
+					}
+					if (isLsm(args.backend) && BTREE_ONLY_PARAMETERS.has(name)) {
+						continue;
+					}
+
 					const [ts] = metrics;
 
 					if (!timeseries[name]) {
 						timeseries[name] = {
 							data: [],
 							displayName: args.display_name,
-							colour: COLORS[i],
+							colour: color,
 						};
 					}
 					timeseries[name].data.push([ts, metrics[j]]);
