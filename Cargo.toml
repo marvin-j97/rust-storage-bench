@@ -10,7 +10,7 @@ debug = false
 default = ["jemalloc"]
 heed = ["dep:heed"]
 jemalloc = ["dep:jemallocator"]
-localfjall = ["dep:local_fjall"]
+localfjall = []
 mimalloc = ["dep:mimalloc"]
 rocksdb = ["dep:rocksdb"]
 sqlite = ["dep:rusqlite"]
@@ -28,7 +28,7 @@ fjall = { version = "2.6.5" }
 fs_extra = "1.3.0"
 hdrhistogram = "7.5.4"
 heed = { version = "0.20.5", optional = true }
-local_fjall = { package = "fjall", path = "../fjall", optional = true }
+# local_fjall = { package = "fjall", path = "../fjall", optional = true }
 log = { version = "0.4.20", features = ["release_max_level_trace"] }
 mimalloc = { version = "0.1.43", default-features = false, features = [
 ], optional = true }
