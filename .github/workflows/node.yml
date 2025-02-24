@@ -12,6 +12,9 @@ on:
 
 jobs:
   test:
+    defaults:
+      run:
+        working-directory: report
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -29,9 +32,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: pnpm
+          cache-dependency-path: ./report
       - run: pnpm i --frozen-lockfile
-        working-directory: report
       # - run: pnpm lint
-      #   working-directory: report
       - run: pnpm build
-        working-directory: report
