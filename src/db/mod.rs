@@ -79,6 +79,8 @@ impl DatabaseWrapper {
                     .unwrap()
                     .map(|(k, v)| (k.to_vec(), v.to_vec()))
             }
+
+            #[cfg(feature = "localfjall")]
             GenericDatabase::LocalFjall { db, keyspace } => {
                 let read_tx = keyspace.read_tx();
                 let mut iter = read_tx.range::<&[u8], _>(db, range);
@@ -647,10 +649,13 @@ impl DatabaseWrapper {
                 .first_key_value()
                 .unwrap()
                 .map(|(k, v)| (k.to_vec(), v.to_vec())),
+
+            #[cfg(feature = "localfjall")]
             GenericDatabase::LocalFjall { db, .. } => db
                 .first_key_value()
                 .unwrap()
                 .map(|(k, v)| (k.to_vec(), v.to_vec())),
+
             GenericDatabase::Sled(db) => db.first().unwrap().map(|(k, v)| (k.to_vec(), v.to_vec())),
             GenericDatabase::Redb(db) => {
                 use redb::ReadableTable;
@@ -691,10 +696,13 @@ impl DatabaseWrapper {
                 let item = db.last_key_value().unwrap();
                 item.map(|(_, v)| v.len())
             }
+
+            #[cfg(feature = "localfjall")]
             GenericDatabase::LocalFjall { db, .. } => {
                 let item = db.last_key_value().unwrap();
                 item.map(|(_, v)| v.len())
             }
+
             GenericDatabase::Sled(db) => {
                 let item = db.last().unwrap();
                 item.map(|(_, v)| v.len())
@@ -729,7 +737,10 @@ impl DatabaseWrapper {
     pub fn len(&self) -> usize {
         match &self.inner {
             GenericDatabase::Fjall { db, .. } => db.inner().len().unwrap(),
+
+            #[cfg(feature = "localfjall")]
             GenericDatabase::LocalFjall { db, .. } => db.inner().len().unwrap(),
+
             _ => unimplemented!(),
         }
     }
