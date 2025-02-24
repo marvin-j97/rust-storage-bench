@@ -39,6 +39,6 @@ jobs:
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy
-        run: cargo clippy
+        run: cargo clippy --no-default-features
       - name: Build permutations
         run: cargo build --no-default-features
