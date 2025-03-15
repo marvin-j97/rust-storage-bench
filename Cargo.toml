@@ -9,6 +9,7 @@ debug = false
 [features]
 default = ["jemalloc"]
 heed = ["dep:heed"]
+canopydb = ["dep:canopydb"]
 jemalloc = ["dep:jemallocator"]
 localfjall = []
 mimalloc = ["dep:mimalloc"]
@@ -20,6 +21,7 @@ tcmalloc = ["dep:tcmalloc"]
 jemallocator = { version = "0.5.4", optional = true }
 
 [dependencies]
+canopydb = { version = "0.2", optional = true }
 chrono = "0.4.38"
 clap = { version = "4.4.10", features = ["derive"] }
 env_logger = "0.10.1"

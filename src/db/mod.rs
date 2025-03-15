@@ -23,6 +23,8 @@ pub enum GenericDatabase {
     },
     Sled(sled::Db),
     Redb(Arc<redb::Database>),
+    #[cfg(feature = "canopydb")]
+    Canopydb(Arc<canopydb::Database>),
 
     #[cfg(feature = "heed")]
     Heed {
@@ -90,6 +92,18 @@ impl DatabaseWrapper {
                     .unwrap()
                     .map(|(k, v)| (k.to_vec(), v.to_vec()))
             }
+            #[cfg(feature = "canopydb")]
+            GenericDatabase::Canopydb(db) => {
+                let tx = db.begin_read().unwrap();
+                let tree = tx.get_tree(b"default").unwrap().unwrap();
+
+                let mut iter = tree.range::<&[u8]>(range).unwrap();
+
+                iter.next()
+                    .transpose()
+                    .unwrap()
+                    .map(|(k, v)| (k.to_vec(), v.to_vec()))
+            }
             _ => unimplemented!(),
         };
 
@@ -148,27 +162,12 @@ impl DatabaseWrapper {
 
                 let table = tx.open_table(TABLE).unwrap();
 
-                pub fn get_upper_bound(prefix: &[u8]) -> Vec<u8> {
-                    let mut end = prefix.to_vec();
-                    let len = end.len();
-
-                    for (idx, byte) in end.iter_mut().rev().enumerate() {
-                        let idx = len - 1 - idx;
-
-                        if *byte < 255 {
-                            *byte += 1;
-                            end.truncate(idx + 1);
-                            return end;
-                        }
-                    }
-
-                    vec![]
-                }
-
                 let upper_bound = get_upper_bound(prefix);
-                let upper_bound = &*upper_bound;
-
-                let iter = table.range(prefix..upper_bound).unwrap();
+                let iter = if let Some(upper_bound) = upper_bound {
+                    table.range(prefix..&upper_bound[..]).unwrap()
+                } else {
+                    table.range(prefix..).unwrap()
+                };
 
                 if rev {
                     iter.rev()
@@ -229,6 +228,24 @@ impl DatabaseWrapper {
                     },
                 ));
                 iter.take(take).map(|kv| kv.unwrap()).count()
+            }
+            #[cfg(feature = "canopydb")]
+            GenericDatabase::Canopydb(db) => {
+                let tx = db.begin_read().unwrap();
+                let tree = tx.get_tree(b"default").unwrap().unwrap();
+
+                let prefix_end = get_upper_bound(prefix);
+                let range = if let Some(prefix_end) = prefix_end {
+                    tree.range(prefix..&prefix_end[..]).unwrap()
+                } else {
+                    tree.range(prefix..).unwrap()
+                };
+
+                if rev {
+                    range.rev().take(take).map(|kv| kv.unwrap()).count()
+                } else {
+                    range.take(take).map(|kv| kv.unwrap()).count()
+                }
             }
         };
 
@@ -608,6 +625,20 @@ impl DatabaseWrapper {
 
                 GenericDatabase::LocalFjall { keyspace, db }
             }
+            #[cfg(feature = "canopydb")]
+            Backend::Canopydb => {
+                std::fs::create_dir_all(&path).unwrap();
+
+                let mut env_opts = canopydb::EnvOptions::new(&path);
+                env_opts.page_cache_size = args.cache_size as usize;
+                let env = canopydb::Environment::with_options(env_opts).unwrap();
+                let db = env.get_or_create_database("default").unwrap();
+                let tx = db.begin_write().unwrap();
+                tx.get_or_create_tree(b"default").unwrap();
+                tx.commit().unwrap();
+
+                GenericDatabase::Canopydb(Arc::new(db))
+            }
         };
 
         DatabaseWrapper {
@@ -667,13 +698,7 @@ impl DatabaseWrapper {
                     .unwrap()
                     .map(|(k, v)| (k.value().to_vec(), v.value().to_vec()))
             }
-            /* GenericDatabase::Bloodstone(db) => {
-                let item = db.get(key).unwrap();
-                item.map(|x| x.to_vec())
-            } */
-            _ => {
-                unimplemented!()
-            }
+            _ => self.range_first((Bound::Unbounded, Bound::Unbounded)),
         };
 
         self.range_latency.fetch_add(
@@ -689,7 +714,7 @@ impl DatabaseWrapper {
 
     /// NOTE: Purposefully only returns the length to avoid heap allocation
     pub fn last_len(&self) -> Option<usize> {
-        let start = Instant::now();
+        let start: Instant = Instant::now();
 
         let item = match &self.inner {
             GenericDatabase::Fjall { db, .. } => {
@@ -714,12 +739,17 @@ impl DatabaseWrapper {
                 let table = read_txn.open_table(TABLE).unwrap();
                 table.last().unwrap().map(|(_, v)| v.value().len())
             }
-            /* GenericDatabase::Bloodstone(db) => {
-                let item = db.get(key).unwrap();
-                item.map(|x| x.to_vec())
-            } */
-            _ => {
-                unimplemented!()
+            #[cfg(feature = "canopydb")]
+            GenericDatabase::Canopydb(db) => {
+                let tx = db.begin_read().unwrap();
+                let tree = tx.get_tree(b"default").unwrap().unwrap();
+
+                tree.iter()
+                    .unwrap()
+                    .next_back()
+                    .transpose()
+                    .unwrap()
+                    .map(|(_, v)| v.len())
             }
         };
 
@@ -834,6 +864,15 @@ impl DatabaseWrapper {
                 report_latency();
                 value.map(ToOwned::to_owned)
             }
+            #[cfg(feature = "canopydb")]
+            GenericDatabase::Canopydb(db) => {
+                let tx = db.begin_read().unwrap();
+                let tree = tx.get_tree(b"default").unwrap().unwrap();
+
+                let value = tree.get(key).unwrap();
+                report_latency();
+                value.map(|x| x.to_vec())
+            }
         };
 
         item
@@ -926,6 +965,21 @@ impl DatabaseWrapper {
                 }
                 write_txn.commit().unwrap();
             }
+            #[cfg(feature = "canopydb")]
+            GenericDatabase::Canopydb(db) => {
+                let write_txn = db.begin_write().unwrap();
+                {
+                    let mut tree = write_txn.get_tree(b"default").unwrap().unwrap();
+
+                    for (key, value) in items {
+                        tree.insert(&key, &value).unwrap();
+
+                        count += 1;
+                        bytes_written += key.len() + value.len();
+                    }
+                }
+                write_txn.commit().unwrap();
+            }
         }
 
         self.write_latency.fetch_add(
@@ -1011,6 +1065,15 @@ impl DatabaseWrapper {
             GenericDatabase::RocksDb(db) => {
                 db.put(key, value).unwrap();
                 db.flush_wal(durable).unwrap();
+            }
+            #[cfg(feature = "canopydb")]
+            GenericDatabase::Canopydb(db) => {
+                let write_txn = db.begin_write().unwrap();
+                {
+                    let mut tree = write_txn.get_tree(b"default").unwrap().unwrap();
+                    tree.insert(key, value).unwrap();
+                }
+                write_txn.commit().unwrap();
             }
         }
 
@@ -1125,6 +1188,15 @@ impl DatabaseWrapper {
                 db.delete(key).unwrap();
                 db.flush_wal(durable).unwrap();
             }
+            #[cfg(feature = "canopydb")]
+            GenericDatabase::Canopydb(db) => {
+                let write_txn = db.begin_write().unwrap();
+                {
+                    let mut tree = write_txn.get_tree(b"default").unwrap().unwrap();
+                    tree.delete(key).unwrap();
+                }
+                write_txn.commit().unwrap();
+            }
         }
 
         // TODO: latency
@@ -1145,4 +1217,21 @@ impl DatabaseWrapper {
         //     })
         //     .ok();
     }
+}
+
+/// Returns the upper bound of a prefix, or None
+/// if the range must be scanned from prefix until the end.
+pub fn get_upper_bound(prefix: &[u8]) -> Option<Vec<u8>> {
+    let mut end = prefix.to_vec();
+    let len = end.len();
+
+    for (idx, byte) in end.iter_mut().rev().enumerate() {
+        if *byte < 255 {
+            *byte += 1;
+            end.truncate(len - idx);
+            return Some(end);
+        }
+    }
+
+    None
 }

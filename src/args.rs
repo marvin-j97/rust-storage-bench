@@ -56,7 +56,7 @@ pub struct RunOptions {
     #[arg(long, alias = "granularity", default_value_t = 500)]
     pub granularity_ms: u16,
 
-    #[arg(long, default_value_t = 16_000_000)]
+    #[arg(long, default_value_t = 512_000_000)] // 512 MB
     pub cache_size: u64,
 
     /// Use durable writes
