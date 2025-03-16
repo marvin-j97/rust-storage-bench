@@ -16,13 +16,17 @@ pub enum GenericDatabase {
         keyspace: fjall::TxKeyspace,
         db: fjall::TxPartition,
     },
+
     #[cfg(feature = "localfjall")]
     LocalFjall {
         keyspace: local_fjall::TxKeyspace,
         db: local_fjall::TxPartition,
     },
+
     Sled(sled::Db),
+
     Redb(Arc<redb::Database>),
+
     #[cfg(feature = "canopydb")]
     Canopydb(Arc<canopydb::Database>),
 
@@ -747,6 +751,7 @@ impl DatabaseWrapper {
                 let item = db.last().unwrap();
                 item.map(|(_, v)| v.len())
             }
+
             GenericDatabase::Redb(db) => {
                 use redb::ReadableTable;
 
@@ -754,6 +759,7 @@ impl DatabaseWrapper {
                 let table = read_txn.open_table(TABLE).unwrap();
                 table.last().unwrap().map(|(_, v)| v.value().len())
             }
+
             #[cfg(feature = "canopydb")]
             GenericDatabase::Canopydb(db) => {
                 let tx = db.begin_read().unwrap();
@@ -766,6 +772,8 @@ impl DatabaseWrapper {
                     .unwrap()
                     .map(|(_, v)| v.len())
             }
+
+            _ => unimplemented!(),
         };
 
         self.range_latency.fetch_add(

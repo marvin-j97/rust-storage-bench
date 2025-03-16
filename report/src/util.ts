@@ -36,7 +36,10 @@ export function chooseColor(backend: string): string {
 	if (backend.includes("sqlite")) {
 		return "#00ffdd";
 	}
-	return "#f472b6"
+	if (backend.includes("canopy")) {
+		return "#f472b6";
+	}
+	return "#99aabb"
 }
 
 export function isLsm(backend: string): boolean {
