@@ -243,6 +243,19 @@ impl DatabaseWrapper {
         v
     }
 
+    pub fn fragmented_bytes(&self) -> usize {
+        match &self.inner {
+            GenericDatabase::Redb(db) => {
+                use redb::ReadableTableMetadata;
+
+                let tx = db.begin_read().unwrap();
+                let table = tx.open_table(TABLE).unwrap();
+                table.stats().unwrap().fragmented_bytes() as usize
+            }
+            _ => 0,
+        }
+    }
+
     pub fn tree_height(&self) -> usize {
         match &self.inner {
             // TODO: fjall: non-vacant levels
