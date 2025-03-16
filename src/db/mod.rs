@@ -266,13 +266,14 @@ impl DatabaseWrapper {
 
     pub fn fragmented_bytes(&self) -> usize {
         match &self.inner {
-            GenericDatabase::Redb(db) => {
+            // TODO: expensive?!
+            /* GenericDatabase::Redb(db) => {
                 use redb::ReadableTableMetadata;
 
                 let tx = db.begin_read().unwrap();
                 let table = tx.open_table(TABLE).unwrap();
                 table.stats().unwrap().fragmented_bytes() as usize
-            }
+            } */
             _ => 0,
         }
     }
