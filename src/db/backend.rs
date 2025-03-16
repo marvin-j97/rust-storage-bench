@@ -30,7 +30,9 @@ pub enum Backend {
 
     #[cfg(feature = "sqlite")]
     Sqlite,
+
     #[cfg(feature = "canopydb")]
+    #[serde(rename = "canopydb")]
     Canopydb,
     //
     /*     #[serde(rename = "bloodstone")]
