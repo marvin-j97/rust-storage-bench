@@ -33,7 +33,7 @@ pub enum GenericDatabase {
     },
 
     #[cfg(feature = "rocksdb")]
-    RocksDb(Arc<rocksdb::DB>),
+    RocksDb(Arc<rocksdb::OptimisticTransactionDB>),
 
     #[cfg(feature = "sqlite")]
     Sqlite(Arc<Mutex<rusqlite::Connection>>),
@@ -260,6 +260,19 @@ impl DatabaseWrapper {
         v
     }
 
+    pub fn fragmented_bytes(&self) -> usize {
+        match &self.inner {
+            GenericDatabase::Redb(db) => {
+                use redb::ReadableTableMetadata;
+
+                let tx = db.begin_read().unwrap();
+                let table = tx.open_table(TABLE).unwrap();
+                table.stats().unwrap().fragmented_bytes() as usize
+            }
+            _ => 0,
+        }
+    }
+
     pub fn tree_height(&self) -> usize {
         match &self.inner {
             // TODO: fjall: non-vacant levels
@@ -426,14 +439,16 @@ impl DatabaseWrapper {
 
                 let mut opts = rocksdb::Options::default();
                 opts.create_if_missing(true);
-                // opts.set_enable_blob_files(args.lsm_kv_separation);
+                opts.set_enable_blob_files(args.value_size >= 1_024);
                 opts.set_compression_type(rocksdb::DBCompressionType::Lz4);
                 opts.set_manual_wal_flush(true);
                 opts.set_max_background_jobs(8);
                 opts.set_level_zero_file_num_compaction_trigger(4);
 
                 let mut bopts = BlockBasedOptions::default();
-                bopts.set_block_cache(&rocksdb::Cache::new_lru_cache(args.cache_size as usize));
+
+                let my_cache = rocksdb::Cache::new_lru_cache(args.cache_size as usize);
+                bopts.set_block_cache(&my_cache);
                 bopts.set_bloom_filter(10.0, false);
                 bopts.set_block_size(4 * 1_024);
                 bopts.set_index_type(rocksdb::BlockBasedIndexType::TwoLevelIndexSearch);
@@ -441,10 +456,10 @@ impl DatabaseWrapper {
 
                 opts.set_block_based_table_factory(&bopts);
                 opts.set_blob_compression_type(rocksdb::DBCompressionType::Lz4);
+                opts.set_blob_cache(&my_cache);
+                opts.set_min_blob_size(1_024);
 
-                // TODO: how to set blob cache???
-
-                let db = rocksdb::DB::open(&opts, &path).unwrap();
+                let db = rocksdb::OptimisticTransactionDB::open(&opts, &path).unwrap();
                 GenericDatabase::RocksDb(Arc::new(db))
             }
 

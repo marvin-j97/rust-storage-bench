@@ -48,17 +48,25 @@ impl std::fmt::Display for Backend {
             match self {
                 #[cfg(feature = "sqlite")]
                 Self::Sqlite => "rusqlite 0.32.1",
+              
                 Self::Sled => "sled 0.34.7",
-                Self::Fjall => "fjall 2.6.3",
+              
+                Self::Fjall => "fjall 2.6.7",
+              
                 #[cfg(feature = "localfjall")]
                 Self::LocalFjall => "fjall nightly",
+              
                 Self::Redb => "redb 2.4.0",
+              
                 #[cfg(feature = "heed")]
                 Self::Heed => "heed 0.20.5",
+              
                 #[cfg(feature = "rocksdb")]
                 Self::RocksDb => "rocksdb 0.22.0",
+              
                 #[cfg(feature = "canopydb")]
                 Self::Canopydb => "canopydb 0.2.0",
+              
                 // Self::Bloodstone => "sled 1.0.0-alpha.122",
                 // Self::Persy => "persy 1.5.0",
             }

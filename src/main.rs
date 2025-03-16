@@ -19,11 +19,11 @@ static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 #[cfg(feature = "mimalloc")]
 #[global_allocator]
-static GLOBAL: MiMalloc = mimalloc::MiMalloc;
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[cfg(feature = "tcmalloc")]
 #[global_allocator]
-static GLOBAL: TCMalloc = tcmalloc::TCMalloc;
+static GLOBAL: tcmalloc::TCMalloc = tcmalloc::TCMalloc;
 
 /// Gets the unix timestamp as a duration
 pub fn unix_timestamp() -> std::time::Duration {
@@ -167,12 +167,13 @@ pub fn main() -> std::io::Result<()> {
                     "disk_writes_kib",
                     "disk_reads_kib",
                     //
-                    "disk_segment_count",
+                    "disk_segment_count", // TODO: replace with level_sizes: [L0, L1, L2, L3, L4, L5, L6]
                     "journal_count",
                     "bloom_filter_size",
                     "block_index_size",
                     "cache_size",
                     "tree_height",
+                    "fragmented_bytes",
                     "running_compactions",
                     "time_compacting_us",
                     "l0_segment_avg_lifetime_ms",

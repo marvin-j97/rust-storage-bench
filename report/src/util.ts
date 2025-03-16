@@ -8,7 +8,10 @@ export function formatNano(nanos: number): string {
 	if (nanos < 1_000) {
 		return `${formatThousands(nanos)}ns`;
 	}
-	return `${(nanos / 1_000).toFixed(1)}µs`;
+	if (nanos < 1_000_000) {
+		return `${(nanos / 1_000).toFixed(1)}µs`;
+	}
+	return `${(nanos / 1_000 / 1_000).toFixed(1)}ms`;
 }
 
 export function chooseColor(backend: string): string {

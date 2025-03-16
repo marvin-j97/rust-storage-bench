@@ -151,6 +151,7 @@ pub fn start_monitor(
                     0, // TODO:
                     0, // TODO:
                     db.tree_height(),
+                    db.fragmented_bytes(),
                     db.active_compactions(),
                     db.time_compacting(),
                     l0_avg_segment_lifetime_ms,
