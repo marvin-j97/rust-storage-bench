@@ -168,6 +168,7 @@ pub fn main() -> std::io::Result<()> {
                     "disk_reads_kib",
                     //
                     "disk_segment_count", // TODO: replace with level_sizes: [L0, L1, L2, L3, L4, L5, L6]
+                    "blob_file_count",
                     "journal_count",
                     "bloom_filter_size",
                     "block_index_size",

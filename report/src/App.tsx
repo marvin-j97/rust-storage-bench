@@ -222,6 +222,10 @@ function App() {
 								timeseries={reactiveTimeseries.get("disk_segment_count")}
 							/>
 							<LineChart
+								title="# blob files"
+								timeseries={reactiveTimeseries.get("blob_file_count")}
+							/>
+							<LineChart
 								title="Average L0 segment lifetime"
 								timeseries={reactiveTimeseries.get("l0_segment_avg_lifetime_ms")}
 								formatter={(x) => `${x} ms`}
@@ -253,8 +257,9 @@ function App() {
 						</div>
 						<div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
 							<LineChart
-								title="Fragmentation"
+								title="Fragmented bytes"
 								timeseries={reactiveTimeseries.get("fragmented_bytes")}
+								formatter={prettyBytes}
 							/>
 						</div>
 					</Show>

@@ -380,6 +380,23 @@ impl DatabaseWrapper {
         }
     }
 
+    pub fn blob_file_count(&self) -> usize {
+        match &self.inner {
+            GenericDatabase::Fjall { db, .. } => {
+                use fjall::AbstractTree;
+
+                db.inner().tree.blob_file_count()
+            }
+            #[cfg(feature = "localfjall")]
+            GenericDatabase::LocalFjall { db, .. } => {
+                use local_fjall::AbstractTree;
+
+                db.inner().tree.blob_file_count()
+            }
+            _ => 0,
+        }
+    }
+
     pub fn disk_segment_count(&self) -> usize {
         match &self.inner {
             GenericDatabase::Fjall { db, .. } => {

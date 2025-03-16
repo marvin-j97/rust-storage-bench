@@ -33,6 +33,7 @@ type ColumnKey =
 	| "disk_writes_kib"
 	| "disk_reads_kib"
 	| "disk_segment_count"
+	| "blob_file_count"
 	| "journal_count"
 	| "bloom_filter_size"
 	| "block_index_size"
