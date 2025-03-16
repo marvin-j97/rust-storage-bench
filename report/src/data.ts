@@ -38,6 +38,7 @@ type ColumnKey =
 	| "block_index_size"
 	| "cache_size"
 	| "tree_height"
+	| "fragmented_bytes"
 	| "running_compactions"
 	| "time_compacting_us"
 	| "l0_segment_avg_lifetime_ms"
@@ -72,6 +73,7 @@ const LSM_ONLY_PARAMETERS = new Set([
 
 const BTREE_ONLY_PARAMETERS = new Set([
 	"tree_height",
+	"fragmented_bytes",
 ]);
 
 
