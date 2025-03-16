@@ -1,55 +1,12 @@
 import millify from "millify";
-import { createSignal, For, JSXElement, Show } from "solid-js";
 import prettyBytes from "pretty-bytes";
+import { createSignal, For, Show } from "solid-js";
 
+import { COMMON_CHART_OPTS } from "./chart";
+import { useMetricsData } from "./data";
 import { SolidApexCharts } from "./SolidApex";
 import { formatNano } from "./util";
-import { TimeSeries, useMetricsData } from "./data";
-import { COMMON_CHART_OPTS } from "./chart";
-
-type Props = {
-	title: string;
-	timeseries?: TimeSeries[];
-	formatter?: (val: number, opts?: any) => string;
-}
-
-function LineChart(props: Props): JSXElement {
-	return <div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-		{(() => {
-			const series = () =>
-				(props.timeseries ?? []).map((series) => {
-					return {
-						name: series.displayName,
-						data: series.data.map(([ts_milli, value]) => ({
-							x: ts_milli / 1_000,
-							y: value,
-						})),
-						color: series.colour,
-					} satisfies ApexAxisChartSeries[0];
-				});
-
-			return (
-				<SolidApexCharts
-					type="line"
-					width="100%"
-					options={{
-						title: {
-							text: props.title,
-							style: {
-								color: "white",
-							},
-						},
-						...COMMON_CHART_OPTS({
-							yFormatter: props.formatter,
-							dashed: 0,
-						}),
-					}}
-					series={series()}
-				/>
-			);
-		})()}
-	</div>;
-}
+import LineChart from "./LineChart";
 
 function App() {
 	const [showLsmStats, toggleLsmStats] = createSignal(true);
@@ -84,11 +41,13 @@ function App() {
 						title="Disk space usage"
 						timeseries={reactiveTimeseries.get("disk_space_kib")}
 						formatter={kib => prettyBytes(kib * 1_024)}
+						filterZeroValues
 					/>
 					<LineChart
 						title="Space amplification"
 						timeseries={reactiveTimeseries.get("space_amp")}
 						formatter={(pct) => `${pct}x`}
+						filterZeroValues
 					/>
 					<LineChart
 						title="Write latency"
@@ -132,105 +91,118 @@ function App() {
 					/>
 					<LineChart
 						title="Write ops (cumulative)"
-						timeseries={reactiveTimeseries.get("write_potential")}
+						timeseries={reactiveTimeseries.get("write_ops")}
 						formatter={millify}
 					/>
 					<LineChart
 						title="Point read ops (cumulative)"
-						timeseries={reactiveTimeseries.get("point_read_potential")}
+						timeseries={reactiveTimeseries.get("point_read_ops")}
 						formatter={millify}
 					/>
 					<LineChart
 						title="Range ops (cumulative)"
-						timeseries={reactiveTimeseries.get("range_potential")}
+						timeseries={reactiveTimeseries.get("range_ops")}
 						formatter={millify}
 					/>
-
-					{/* PERCENTILES */}
-					<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-						{(() => {
-							return (
-								<SolidApexCharts
-									type="bar"
-									width="100%"
-									options={{
-										title: {
-											text: "write percentiles",
-											style: {
-												color: "white",
-											},
-										},
-										...COMMON_CHART_OPTS({
-											yFormatter: formatNano,
-											dashed: 0,
-										}),
-										xaxis: {
-											categories: ["Mean", "P50", "P90", "P95", "P99"],
-											labels: {
-												style: {
-													colors: ["white", "white", "white", "white", "white"],
-												},
-											},
-										},
-										dataLabels: {
-											enabled: true,
-											formatter: formatNano,
-											dropShadow: {
-												enabled: true,
-											},
-										},
-										stroke: {
-											show: false,
-										},
-									}}
-									series={percentiles.writePercentiles}
-								/>
-							);
-						})()}
-					</div>
-					<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-						{(() => {
-							return (
-								<SolidApexCharts
-									type="bar"
-									width="100%"
-									options={{
-										title: {
-											text: "point read percentiles",
-											style: {
-												color: "white",
-											},
-										},
-										...COMMON_CHART_OPTS({
-											yFormatter: formatNano,
-											dashed: 0,
-										}),
-										xaxis: {
-											categories: ["Mean", "P50", "P90", "P95", "P99"],
-											labels: {
-												style: {
-													colors: ["white", "white", "white", "white", "white"],
-												},
-											},
-										},
-										dataLabels: {
-											enabled: true,
-											formatter: formatNano,
-											dropShadow: {
-												enabled: true,
-											},
-										},
-										stroke: {
-											show: false,
-										},
-									}}
-									series={percentiles.pointReadPercentiles}
-								/>
-							);
-						})()}
-					</div>
+					<LineChart
+						title="Delete ops (cumulative)"
+						timeseries={reactiveTimeseries.get("delete_ops")}
+						formatter={millify}
+					/>
 				</div>
 
+				{/* percentiles */}
+				<div class="mt-3 flex flex-col gap-3">
+					<div class="ml-2 cursor-pointer">
+						Percentiles
+					</div>
+					<div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
+						<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
+							{(() => {
+								return (
+									<SolidApexCharts
+										type="bar"
+										width="100%"
+										options={{
+											title: {
+												text: "write percentiles",
+												style: {
+													color: "white",
+												},
+											},
+											...COMMON_CHART_OPTS({
+												yFormatter: formatNano,
+												dashed: 0,
+											}),
+											xaxis: {
+												categories: ["Mean", "P50", "P90", "P95", "P99"],
+												labels: {
+													style: {
+														colors: ["white", "white", "white", "white", "white"],
+													},
+												},
+											},
+											dataLabels: {
+												enabled: true,
+												formatter: formatNano,
+												dropShadow: {
+													enabled: true,
+												},
+											},
+											stroke: {
+												show: false,
+											},
+										}}
+										series={percentiles.writePercentiles}
+									/>
+								);
+							})()}
+						</div>
+						<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
+							{(() => {
+								return (
+									<SolidApexCharts
+										type="bar"
+										width="100%"
+										options={{
+											title: {
+												text: "point read percentiles",
+												style: {
+													color: "white",
+												},
+											},
+											...COMMON_CHART_OPTS({
+												yFormatter: formatNano,
+												dashed: 0,
+											}),
+											xaxis: {
+												categories: ["Mean", "P50", "P90", "P95", "P99"],
+												labels: {
+													style: {
+														colors: ["white", "white", "white", "white", "white"],
+													},
+												},
+											},
+											dataLabels: {
+												enabled: true,
+												formatter: formatNano,
+												dropShadow: {
+													enabled: true,
+												},
+											},
+											stroke: {
+												show: false,
+											},
+										}}
+										series={percentiles.pointReadPercentiles}
+									/>
+								);
+							})()}
+						</div>
+					</div>
+				</div>
+				
+				{/* lsm stats */}
 				<div class="mt-3 flex flex-col gap-3">
 					<div class="ml-2 cursor-pointer" onClick={() => toggleLsmStats((x) => !x)}>
 						LSM-specific metrics
@@ -262,6 +234,7 @@ function App() {
 					</Show>
 				</div>
 
+				{/* b-tree stats */}
 				<div class="mt-3 flex flex-col gap-3">
 					<div class="ml-2 cursor-pointer" onClick={() => toggleBtreeStats((x) => !x)}>B-tree-specific metrics</div>
 					<Show when={showBtreeStats()}>
@@ -272,6 +245,16 @@ function App() {
 							<LineChart
 								title="Tree height"
 								timeseries={reactiveTimeseries.get("tree_height")}
+							/>
+						</div>
+
+						<div class="rounded-lg p-3 mx-3 dark:text-yellow-100 dark:bg-yellow-950">
+							Only work for ReDB currently
+						</div>
+						<div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
+							<LineChart
+								title="Fragmentation"
+								timeseries={reactiveTimeseries.get("fragmented_bytes")}
 							/>
 						</div>
 					</Show>
