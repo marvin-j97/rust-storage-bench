@@ -509,6 +509,7 @@ impl DatabaseWrapper {
 
                 GenericDatabase::Heed { db, env }
             }
+
             Backend::Sled => GenericDatabase::Sled(
                 sled::Config::new()
                     .path(path)
@@ -516,6 +517,7 @@ impl DatabaseWrapper {
                     .open()
                     .unwrap(),
             ),
+
             Backend::Redb => {
                 std::fs::create_dir_all(&path).unwrap();
 
@@ -532,6 +534,7 @@ impl DatabaseWrapper {
 
                 GenericDatabase::Redb(Arc::new(db))
             }
+
             Backend::Fjall => {
                 let mut config = fjall::Config::new(path)
                     .compaction_workers(7)
@@ -595,6 +598,7 @@ impl DatabaseWrapper {
 
                 GenericDatabase::Fjall { keyspace, db }
             }
+
             #[cfg(feature = "localfjall")]
             Backend::LocalFjall => {
                 let mut config = local_fjall::Config::new(path)
@@ -662,12 +666,16 @@ impl DatabaseWrapper {
 
                 GenericDatabase::LocalFjall { keyspace, db }
             }
+
             #[cfg(feature = "canopydb")]
             Backend::Canopydb => {
                 std::fs::create_dir_all(&path).unwrap();
 
                 let mut env_opts = canopydb::EnvOptions::new(&path);
                 env_opts.page_cache_size = args.cache_size as usize;
+                env_opts.disable_fsync = !args.fsync;
+                env_opts.wal_background_sync_interval = None;
+
                 let env = canopydb::Environment::with_options(env_opts).unwrap();
                 let db = env.get_or_create_database("default").unwrap();
                 let tx = db.begin_write().unwrap();
@@ -1114,7 +1122,7 @@ impl DatabaseWrapper {
                     let mut tree = write_txn.get_tree(b"default").unwrap().unwrap();
                     tree.insert(key, value).unwrap();
                 }
-                write_txn.commit().unwrap();
+                write_txn.commit_with(true).unwrap();
             }
         }
 
