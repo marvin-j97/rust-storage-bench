@@ -67,7 +67,7 @@ impl std::fmt::Display for Backend {
                 Self::RocksDb => "rocksdb 0.22.0",
 
                 #[cfg(feature = "canopydb")]
-                Self::Canopydb => "canopydb 0.2.0",
+                Self::Canopydb => "canopydb 0.2.1",
                 // Self::Bloodstone => "sled 1.0.0-alpha.122",
                 // Self::Persy => "persy 1.5.0",
             }
