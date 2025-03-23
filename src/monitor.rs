@@ -151,10 +151,12 @@ pub fn start_monitor(
                     db.bloom_filter_size(),
                     0, // TODO:
                     0, // TODO:
+                    db.write_buffer_size(),
                     db.tree_height(),
                     db.fragmented_bytes(),
                     db.active_compactions(),
                     db.time_compacting(),
+                    db.l0_runs(),
                     l0_avg_segment_lifetime_ms,
                     //
                     write_ops,

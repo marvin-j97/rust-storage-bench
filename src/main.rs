@@ -173,10 +173,12 @@ pub fn main() -> std::io::Result<()> {
                     "bloom_filter_size",
                     "block_index_size",
                     "cache_size",
+                    "write_buffer_size",
                     "tree_height",
                     "fragmented_bytes",
                     "running_compactions",
                     "time_compacting_us",
+                    "l0_runs",
                     "l0_segment_avg_lifetime_ms",
                     //
                     "write_ops",

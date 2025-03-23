@@ -218,12 +218,21 @@ function App() {
 								formatter={prettyBytes}
 							/>
 							<LineChart
+								title="Write buffer size"
+								timeseries={reactiveTimeseries.get("write_buffer_size")}
+								formatter={prettyBytes}
+							/>
+							<LineChart
 								title="# disk segments"
 								timeseries={reactiveTimeseries.get("disk_segment_count")}
 							/>
 							<LineChart
 								title="# blob files"
 								timeseries={reactiveTimeseries.get("blob_file_count")}
+							/>
+							<LineChart
+								title="L0 runs"
+								timeseries={reactiveTimeseries.get("l0_runs")}
 							/>
 							<LineChart
 								title="Average L0 segment lifetime"

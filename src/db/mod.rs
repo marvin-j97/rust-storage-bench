@@ -289,11 +289,23 @@ impl DatabaseWrapper {
                 let table = tx.open_table(TABLE).unwrap();
                 table.stats().unwrap().tree_height() as usize
             }
+
             #[cfg(feature = "heed")]
             GenericDatabase::Heed { db, env } => {
                 let tx = env.read_txn().unwrap();
                 db.stat(&tx).unwrap().depth as usize
             }
+            _ => 0,
+        }
+    }
+
+    pub fn write_buffer_size(&self) -> u64 {
+        match &self.inner {
+            GenericDatabase::Fjall { keyspace, .. } => keyspace.write_buffer_size(),
+
+            #[cfg(feature = "localfjall")]
+            GenericDatabase::LocalFjall { keyspace, .. } => keyspace.write_buffer_size(),
+
             _ => 0,
         }
     }
@@ -305,12 +317,33 @@ impl DatabaseWrapper {
 
                 db.inner().tree.bloom_filter_size()
             }
+
             #[cfg(feature = "localfjall")]
             GenericDatabase::LocalFjall { db, .. } => {
                 use local_fjall::AbstractTree;
 
                 db.inner().tree.bloom_filter_size()
             }
+
+            _ => 0,
+        }
+    }
+
+    pub fn l0_runs(&self) -> usize {
+        match &self.inner {
+            GenericDatabase::Fjall { db, .. } => {
+                use fjall::AbstractTree;
+
+                db.inner().tree.l0_run_count()
+            }
+
+            #[cfg(feature = "localfjall")]
+            GenericDatabase::LocalFjall { db, .. } => {
+                use local_fjall::AbstractTree;
+
+                db.inner().tree.l0_run_count()
+            }
+
             _ => 0,
         }
     }
