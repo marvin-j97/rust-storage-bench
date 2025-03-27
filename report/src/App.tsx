@@ -243,6 +243,15 @@ function App() {
 								title="# active compactions"
 								timeseries={reactiveTimeseries.get("running_compactions")}
 							/>
+							<LineChart
+								title="Journal count"
+								timeseries={reactiveTimeseries.get("journal_count")}
+							/>
+							<LineChart
+								title="Journal size"
+								timeseries={reactiveTimeseries.get("journal_size")}
+								formatter={prettyBytes}
+							/>
 						</div>
 					</Show>
 				</div>

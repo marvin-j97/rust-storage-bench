@@ -35,6 +35,7 @@ type ColumnKey =
 	| "disk_segment_count"
 	| "blob_file_count"
 	| "journal_count"
+	| "journal_size"
 	| "bloom_filter_size"
 	| "block_index_size"
 	| "cache_size"

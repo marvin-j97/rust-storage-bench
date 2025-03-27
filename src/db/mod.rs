@@ -438,6 +438,7 @@ impl DatabaseWrapper {
 
                 db.inner().tree.segment_count()
             }
+
             #[cfg(feature = "localfjall")]
             GenericDatabase::LocalFjall { db, .. } => {
                 use local_fjall::AbstractTree;
@@ -448,9 +449,20 @@ impl DatabaseWrapper {
         }
     }
 
+    pub fn journal_size(&self) -> u64 {
+        match &self.inner {
+            GenericDatabase::Fjall { keyspace, .. } => keyspace.inner().journal_disk_space(),
+
+            #[cfg(feature = "localfjall")]
+            GenericDatabase::LocalFjall { keyspace, .. } => keyspace.inner().journal_disk_space(),
+            _ => 0,
+        }
+    }
+
     pub fn journal_count(&self) -> usize {
         match &self.inner {
             GenericDatabase::Fjall { keyspace, .. } => keyspace.journal_count(),
+
             #[cfg(feature = "localfjall")]
             GenericDatabase::LocalFjall { keyspace, .. } => keyspace.journal_count(),
             _ => 0,

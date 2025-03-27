@@ -148,6 +148,7 @@ pub fn start_monitor(
                     db.disk_segment_count(),
                     db.blob_file_count(),
                     db.journal_count(),
+                    db.journal_size(),
                     db.bloom_filter_size(),
                     0, // TODO:
                     0, // TODO:
