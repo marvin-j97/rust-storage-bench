@@ -581,28 +581,11 @@ impl DatabaseWrapper {
             }
 
             Backend::Fjall => {
-                let mut config = fjall::Config::new(path)
+                let config = fjall::Config::new(path)
+                    .cache_size(args.cache_size)
                     .compaction_workers(7)
                     .max_write_buffer_size(256 * 1_024 * 1_024)
                     .manual_journal_persist(true);
-
-                // TODO: fjall will unify caches... soon
-                config = if args.value_size
-                    >= fjall::KvSeparationOptions::default().separation_threshold
-                {
-                    config
-                        .block_cache(
-                            fjall::BlockCache::with_capacity_bytes(args.cache_size / 100 * 5)
-                                .into(),
-                        )
-                        .blob_cache(
-                            fjall::BlobCache::with_capacity_bytes(args.cache_size / 100 * 95)
-                                .into(),
-                        )
-                } else {
-                    config
-                        .block_cache(fjall::BlockCache::with_capacity_bytes(args.cache_size).into())
-                };
 
                 let keyspace = config.open_transactional().unwrap();
 
@@ -646,29 +629,11 @@ impl DatabaseWrapper {
 
             #[cfg(feature = "localfjall")]
             Backend::LocalFjall => {
-                let mut config = local_fjall::Config::new(path)
+                let config = local_fjall::Config::new(path)
+                    .cache_size(args.cache_size)
                     .compaction_workers(7)
                     .max_write_buffer_size(256 * 1_024 * 1_024)
                     .manual_journal_persist(true);
-
-                // TODO: fjall will unify caches... soon
-                config = if args.value_size
-                    >= local_fjall::KvSeparationOptions::default().separation_threshold
-                {
-                    config
-                        .block_cache(
-                            local_fjall::BlockCache::with_capacity_bytes(args.cache_size / 100 * 5)
-                                .into(),
-                        )
-                        .blob_cache(
-                            local_fjall::BlobCache::with_capacity_bytes(args.cache_size / 100 * 95)
-                                .into(),
-                        )
-                } else {
-                    config.block_cache(
-                        local_fjall::BlockCache::with_capacity_bytes(args.cache_size).into(),
-                    )
-                };
 
                 let keyspace = config.open_transactional().unwrap();
 
@@ -994,34 +959,22 @@ impl DatabaseWrapper {
                 }
                 db.flush_wal(true).unwrap();
             }
-            GenericDatabase::Fjall { keyspace, db } => {
-                for (key, value) in items {
-                    db.insert(&key, &value).unwrap();
-
-                    count += 1;
-                    bytes_written += key.len() + value.len();
-                }
-                keyspace.persist(fjall::PersistMode::SyncAll).unwrap();
+            GenericDatabase::Fjall { db, .. } => {
+                db.inner()
+                    .ingest(items.map(|(k, v)| {
+                        count += 1;
+                        (k, v)
+                    }))
+                    .unwrap();
             }
             #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { keyspace, db } => {
-                for (key, value) in items {
-                    db.insert(&key, &value).unwrap();
-
-                    count += 1;
-                    bytes_written += key.len() + value.len();
-                }
-                keyspace.persist(local_fjall::PersistMode::SyncAll).unwrap();
-
-                /* use local_fjall::AbstractTree;
-
+            GenericDatabase::LocalFjall { db, .. } => {
                 db.inner()
-                    .tree
-                    .bulk_ingest(items.map(|(k, v)| {
+                    .ingest(items.map(|(k, v)| {
                         count += 1;
-                        (k.into(), v.into())
+                        (k, v)
                     }))
-                    .unwrap(); */
+                    .unwrap();
             }
             GenericDatabase::Sled(db) => {
                 for (key, value) in items {
