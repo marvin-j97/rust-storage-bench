@@ -89,6 +89,7 @@ export function useMetricsData() {
 	const [percentiles, setPercentiles] = createStore({
 		writePercentiles: [] as GroupedSeries[],
 		pointReadPercentiles: [] as GroupedSeries[],
+		rangeReadPercentiles: [] as GroupedSeries[],
 	});
 
 	onMount(() => {
@@ -138,7 +139,7 @@ export function useMetricsData() {
 			});
 
 			{
-				const writeHistogram = lines.at(-2)!;
+				const writeHistogram = lines.at(-3)!;
 				const parsed = JSON.parse(writeHistogram) as {
 					histogram: true;
 					mean: number;
@@ -164,7 +165,7 @@ export function useMetricsData() {
 			}
 
 			{
-				const pointReadHistogram = lines.at(-1)!;
+				const pointReadHistogram = lines.at(-2)!;
 				const parsed = JSON.parse(pointReadHistogram) as {
 					histogram: true;
 					mean: number;
@@ -180,6 +181,32 @@ export function useMetricsData() {
 					setPercentiles(
 						produce((x) => {
 							x.pointReadPercentiles.push({
+								data: [mean, p50, p90, p95, p99],
+								name: args.display_name,
+								color,
+							});
+						}),
+					);
+				}
+			}
+		
+			{
+				const rangeReadHistogram = lines.at(-1)!;
+				const parsed = JSON.parse(rangeReadHistogram) as {
+					histogram: true;
+					mean: number;
+					p50: number;
+					p90: number;
+					p95: number;
+					p99: number;
+				};
+
+				if (parsed.histogram) {
+					const { mean, p50, p90, p95, p99 } = parsed;
+
+					setPercentiles(
+						produce((x) => {
+							x.rangeReadPercentiles.push({
 								data: [mean, p50, p90, p95, p99],
 								name: args.display_name,
 								color,
