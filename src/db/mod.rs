@@ -809,6 +809,8 @@ impl DatabaseWrapper {
                     .unwrap()
                     .map(|(_, v)| v.len())
             }
+
+            _ => unimplemented!(),
         };
 
         self.report_scan(start);
