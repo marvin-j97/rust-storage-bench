@@ -611,8 +611,7 @@ impl DatabaseWrapper {
 
                 let db = keyspace.open_partition("data", create_opts).unwrap();
 
-                // TODO: https://github.com/fjall-rs/fjall/issues/129
-                if let fjall::AnyTree::Blob(_) = &db.inner().tree {
+                if db.inner().is_kv_separated() {
                     use fjall::GarbageCollection;
                     let blobs = db.clone();
 
@@ -661,8 +660,7 @@ impl DatabaseWrapper {
 
                 let db = keyspace.open_partition("data", create_opts).unwrap();
 
-                // TODO: https://github.com/fjall-rs/fjall/issues/129
-                if let local_fjall::AnyTree::Blob(_) = &db.inner().tree {
+                if db.inner().is_kv_separated() {
                     use local_fjall::GarbageCollection;
                     let blobs = db.clone();
 
@@ -963,6 +961,7 @@ impl DatabaseWrapper {
                 db.inner()
                     .ingest(items.map(|(k, v)| {
                         count += 1;
+                        bytes_written += k.len() + v.len();
                         (k, v)
                     }))
                     .unwrap();
@@ -972,6 +971,7 @@ impl DatabaseWrapper {
                 db.inner()
                     .ingest(items.map(|(k, v)| {
                         count += 1;
+                        bytes_written += k.len() + v.len();
                         (k, v)
                     }))
                     .unwrap();
@@ -1004,7 +1004,8 @@ impl DatabaseWrapper {
                 let mut write_txn = env.write_txn().unwrap();
                 {
                     for (key, value) in items {
-                        db.put(&mut write_txn, &key, &value).unwrap();
+                        db.put_with_flags(&mut write_txn, heed::PutFlags::APPEND, &key, &value)
+                            .unwrap();
 
                         count += 1;
                         bytes_written += key.len() + value.len();
