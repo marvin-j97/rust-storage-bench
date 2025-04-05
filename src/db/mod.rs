@@ -61,6 +61,7 @@ pub struct DatabaseWrapper {
 
     pub write_latency_histogram: Arc<Mutex<Histogram<u64>>>,
     pub point_read_latency_histogram: Arc<Mutex<Histogram<u64>>>,
+    pub range_latency_histogram: Arc<Mutex<Histogram<u64>>>,
 }
 
 impl std::ops::Deref for DatabaseWrapper {
@@ -72,6 +73,25 @@ impl std::ops::Deref for DatabaseWrapper {
 }
 
 impl DatabaseWrapper {
+    fn report_scan(&self, start: Instant) {
+        let latency = start.elapsed().as_nanos() as u64;
+
+        self.range_latency
+            .fetch_add(latency, std::sync::atomic::Ordering::Relaxed);
+
+        self.range_ops
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+        self.range_latency_histogram
+            .lock()
+            .unwrap()
+            .record(latency / 10)
+            .inspect_err(|_| {
+                log::warn!("Scan latency value too large for histogram");
+            })
+            .ok();
+    }
+
     pub fn range_first(&self, range: (Bound<&[u8]>, Bound<&[u8]>)) -> Option<(Vec<u8>, Vec<u8>)> {
         let start = Instant::now();
 
@@ -111,13 +131,7 @@ impl DatabaseWrapper {
             _ => unimplemented!(),
         };
 
-        self.range_latency.fetch_add(
-            start.elapsed().as_nanos() as u64,
-            std::sync::atomic::Ordering::Relaxed,
-        );
-
-        self.range_ops
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.report_scan(start);
 
         v
     }
@@ -238,12 +252,7 @@ impl DatabaseWrapper {
                 let tx = db.begin_read().unwrap();
                 let tree = tx.get_tree(b"default").unwrap().unwrap();
 
-                let prefix_end = get_upper_bound(prefix);
-                let range = if let Some(prefix_end) = prefix_end {
-                    tree.range(prefix..&prefix_end[..]).unwrap()
-                } else {
-                    tree.range(prefix..).unwrap()
-                };
+                let range = tree.prefix(&prefix).unwrap();
 
                 if rev {
                     range.rev().take(take).map(|kv| kv.unwrap()).count()
@@ -253,13 +262,7 @@ impl DatabaseWrapper {
             }
         };
 
-        self.range_latency.fetch_add(
-            start.elapsed().as_nanos() as u64,
-            std::sync::atomic::Ordering::Relaxed,
-        );
-
-        self.range_ops
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.report_scan(start);
 
         v
     }
@@ -294,6 +297,12 @@ impl DatabaseWrapper {
             GenericDatabase::Heed { db, env } => {
                 let tx = env.read_txn().unwrap();
                 db.stat(&tx).unwrap().depth as usize
+            }
+            #[cfg(feature = "canopydb")]
+            GenericDatabase::Canopydb(db) => {
+                let tx = db.begin_read().unwrap();
+                let tree = tx.get_tree(b"default").unwrap().unwrap();
+                tree.height()
             }
             _ => 0,
         }
@@ -681,7 +690,6 @@ impl DatabaseWrapper {
 
                 let mut env_opts = canopydb::EnvOptions::new(&path);
                 env_opts.page_cache_size = args.cache_size as usize;
-                env_opts.disable_fsync = !args.fsync;
                 env_opts.wal_background_sync_interval = None;
 
                 let env = canopydb::Environment::with_options(env_opts).unwrap();
@@ -709,6 +717,7 @@ impl DatabaseWrapper {
 
             write_latency_histogram: Arc::new(Mutex::new(Histogram::new(5).unwrap())),
             point_read_latency_histogram: Arc::new(Mutex::new(Histogram::new(5).unwrap())),
+            range_latency_histogram: Arc::new(Mutex::new(Histogram::new(5).unwrap())),
             /*
             delete_ops: Default::default(),
             deleted_bytes: Default::default(),
@@ -754,20 +763,14 @@ impl DatabaseWrapper {
             _ => self.range_first((Bound::Unbounded, Bound::Unbounded)),
         };
 
-        self.range_latency.fetch_add(
-            start.elapsed().as_nanos() as u64,
-            std::sync::atomic::Ordering::Relaxed,
-        );
-
-        self.range_ops
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.report_scan(start);
 
         item
     }
 
     /// NOTE: Purposefully only returns the length to avoid heap allocation
     pub fn last_len(&self) -> Option<usize> {
-        let start: Instant = Instant::now();
+        let start = Instant::now();
 
         let item = match &self.inner {
             GenericDatabase::Fjall { db, .. } => {
@@ -806,18 +809,9 @@ impl DatabaseWrapper {
                     .unwrap()
                     .map(|(_, v)| v.len())
             }
-
-            _ => unimplemented!(),
         };
 
-        self.range_latency.fetch_add(
-            start.elapsed().as_nanos() as u64,
-            std::sync::atomic::Ordering::Relaxed,
-        );
-
-        self.range_ops
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-
+        self.report_scan(start);
         item
     }
 
@@ -1172,7 +1166,7 @@ impl DatabaseWrapper {
     }
 
     pub fn remove(&self, key: &[u8], durable: bool) {
-        let start = Instant::now();
+        let _start = Instant::now();
 
         match &self.inner {
             #[cfg(feature = "sqlite")]
