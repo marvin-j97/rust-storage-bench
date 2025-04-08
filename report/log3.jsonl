@@ -197,3 +197,4 @@
 {"fin":true}
 {"histogram":true,"mean":3884,"p50":3430,"p90":6000,"p95":7590,"p99":19910,"type":"write","unit":"ns"}
 {"histogram":true,"mean":1973,"p50":1600,"p90":3330,"p95":4320,"p99":15300,"type":"point_read","unit":"ns"}
+{"histogram":true,"mean":0,"p50":5,"p90":5,"p95":5,"p99":5,"type":"range_read","unit":"ns"}

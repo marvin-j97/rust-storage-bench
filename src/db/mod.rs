@@ -547,7 +547,7 @@ impl DatabaseWrapper {
 
                 let env = unsafe {
                     heed::EnvOpenOptions::new()
-                        .map_size(64_000_000_000)
+                        .map_size(128_000_000_000)
                         .flags(if args.fsync {
                             EnvFlags::NO_READ_AHEAD
                         } else {

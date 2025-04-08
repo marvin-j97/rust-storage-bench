@@ -189,7 +189,7 @@ export function useMetricsData() {
 					);
 				}
 			}
-		
+
 			{
 				const rangeReadHistogram = lines.at(-1)!;
 				const parsed = JSON.parse(rangeReadHistogram) as {
@@ -224,7 +224,7 @@ export function useMetricsData() {
 
 			const timeseries: Partial<Record<ColumnKey, TimeSeries>> = {};
 
-			for (const line of lines.slice(3, -3)) {
+			for (const line of lines.slice(3, -4)) {
 				const metrics = JSON.parse(line) as number[];
 
 				// IMPORTANT: Skip first column because it is time_ms

@@ -243,6 +243,7 @@ pub fn start_monitor(
                 )
                 .unwrap();
             }
+
             {
                 // NOTE: We store values in deci-nano-seconds
                 let histogram = db.range_latency_histogram.lock().unwrap();
