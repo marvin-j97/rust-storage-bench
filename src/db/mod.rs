@@ -806,6 +806,9 @@ impl DatabaseWrapper {
                 let env = unsafe {
                     heed::EnvOpenOptions::new()
                         .map_size(128_000_000_000)
+                        // TODO: make LMDB NO_SYNC a separate option
+                        // as this isn't equivalent to fsync=false for the
+                        // other databases which treat it like "no sync commit"
                         .flags(if args.fsync {
                             EnvFlags::NO_READ_AHEAD
                         } else {
