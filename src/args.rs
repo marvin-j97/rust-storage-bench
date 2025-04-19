@@ -1,5 +1,5 @@
-use crate::db::Backend;
 use crate::workload::Workload;
+use crate::{corpus::Corpus, db::Backend};
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -35,6 +35,9 @@ impl std::fmt::Display for LsmCompaction {
 #[derive(Parser, Clone, Debug, Serialize)]
 #[clap(rename_all = "kebab_case")]
 pub struct RunOptions {
+    #[arg(long, value_enum, default_value_t = Corpus::Random)]
+    pub corpus: Corpus,
+
     #[arg(long, value_enum)]
     pub backend: Backend,
 
