@@ -1,7 +1,7 @@
 use crate::{args::RunOptions, db::DatabaseWrapper, unix_timestamp};
 use std::{
     fs::File,
-    io::Write,
+    io::{BufWriter, Write},
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -13,7 +13,7 @@ use std::{
 use sysinfo::{Pid, ProcessRefreshKind, System};
 
 pub fn start_monitor(
-    mut file_writer: File,
+    file_writer: File,
     data_dir: PathBuf,
     mut sys: System,
     db: DatabaseWrapper,
@@ -23,6 +23,7 @@ pub fn start_monitor(
     let mut prev_write_ops = 0;
     let mut prev_point_read_ops = 0;
     let mut prev_range_ops = 0;
+    let mut file_writer = BufWriter::new(file_writer);
 
     log::debug!("Starting monitor");
 
@@ -36,7 +37,7 @@ pub fn start_monitor(
         .spawn(move || {
             // "How often does this run per second?"
             let frequency =
-                (Duration::from_secs(1).as_millis() as f32) / (args.granularity_ms as f32);
+                (Duration::from_secs(1).as_millis() as f64) / (args.granularity_ms as f64);
 
             let mut potential_write_ops = 0;
             let mut potential_point_read_ops = 0;
@@ -53,9 +54,9 @@ pub fn start_monitor(
 
                 let time_ms = start_instant.elapsed().as_millis();
                 let cpu = child.cpu_usage();
-                let mem = (child.memory() as f32 / 1_024.0) as u64;
+                let mem_kib = (child.memory() as f64 / 1_024.0) as u64;
 
-                if mem >= 16 * 1_024 * 1_024 {
+                if mem_kib >= 16 * 1_024 * 1_024 {
                     log::error!("OOM KILLER!! Exceeded 16GB of memory");
                     std::process::exit(666);
                 }
@@ -68,10 +69,17 @@ pub fn start_monitor(
                     std::process::exit(0);
                 }
 
+                let workload_real_bytes = db.workload_real_bytes.load(Ordering::Relaxed);
                 let disk = child.disk_usage();
 
+                let read_user_bytes = db.range_read_bytes.load(Ordering::Relaxed)
+                    + db.point_read_bytes.load(Ordering::Relaxed);
                 let written_user_bytes = db.written_bytes.load(Ordering::Relaxed);
-                let write_amp = (disk.total_written_bytes as f64) / (written_user_bytes as f64);
+                let write_amp = if written_user_bytes == 0 {
+                    0.0
+                } else {
+                    (disk.total_written_bytes as f64) / (written_user_bytes as f64)
+                };
 
                 let disk_writes_kib = disk.total_written_bytes / 1_024;
                 let disk_reads_kib = disk.total_read_bytes / 1_024;
@@ -87,11 +95,11 @@ pub fn start_monitor(
                 let write_ops_since = write_ops - prev_write_ops;
                 let avg_write_latency = accumulated_write_latency / write_ops_since.max(1);
                 let write_rate_per_second = if avg_write_latency > 0 {
-                    Duration::from_secs(1).as_nanos() / avg_write_latency as u128
+                    Duration::from_secs(1).as_nanos() as u64 / avg_write_latency
                 } else {
                     0
                 };
-                potential_write_ops += (write_rate_per_second as f32 / frequency) as u64;
+                potential_write_ops += (write_rate_per_second as f64 / frequency) as u64;
 
                 let accumulated_point_read_latency = db
                     .point_read_latency
@@ -99,11 +107,10 @@ pub fn start_monitor(
                 let point_read_ops_since = point_read_ops - prev_point_read_ops;
                 let avg_point_read_latency =
                     accumulated_point_read_latency / point_read_ops_since.max(1);
-                let point_read_rate_per_second = Duration::from_secs(1)
-                    .as_nanos()
-                    .checked_div(avg_point_read_latency as u128)
+                let point_read_rate_per_second = (Duration::from_secs(1).as_nanos() as u64)
+                    .checked_div(avg_point_read_latency)
                     .unwrap_or_default();
-                potential_point_read_ops += (point_read_rate_per_second as f32 / frequency) as u64;
+                potential_point_read_ops += (point_read_rate_per_second as f64 / frequency) as u64;
 
                 let accumulated_range_latency = db
                     .range_latency
@@ -111,18 +118,22 @@ pub fn start_monitor(
                 let range_ops_since = range_ops - prev_range_ops;
                 let avg_range_latency = accumulated_range_latency / range_ops_since.max(1);
                 let range_rate_per_second = if avg_range_latency > 0 {
-                    Duration::from_secs(1).as_nanos() / avg_range_latency as u128
+                    Duration::from_secs(1).as_nanos() as u64 / avg_range_latency
                 } else {
                     0
                 };
-                potential_range_ops += (range_rate_per_second as f32 / frequency) as u64;
+                potential_range_ops += (range_rate_per_second as f64 / frequency) as u64;
 
-                // TODO: space amp is broken for update workloads because written_user_bytes increases
-                // TODO: but an update doesn't actually add more data to the database (logically)
-                let space_amp = if disk_space_kib == 0 {
+                let space_amp = if workload_real_bytes == 0 {
                     0.0
                 } else {
-                    ((disk_space_kib * 1_024) as f64) / (written_user_bytes as f64)
+                    ((disk_space_kib * 1_024) as f64) / (workload_real_bytes as f64)
+                };
+
+                let read_amp = if read_user_bytes == 0 {
+                    0.0
+                } else {
+                    (disk.total_read_bytes as f64) / (read_user_bytes as f64)
                 };
 
                 let l0_avg_segment_lifetime_ms = {
@@ -139,7 +150,7 @@ pub fn start_monitor(
                 let json = serde_json::json!([
                     time_ms,
                     format!("{:.2}", cpu).parse::<f64>().unwrap(),
-                    mem,
+                    mem_kib,
                     //
                     disk_space_kib,
                     disk_writes_kib,
@@ -186,7 +197,9 @@ pub fn start_monitor(
                     format!("{:.2}", space_amp)
                         .parse::<f64>()
                         .unwrap_or_default(),
-                    1.0, // TODO: read amp
+                    format!("{:.2}", read_amp)
+                        .parse::<f64>()
+                        .unwrap_or_default(),
                 ]);
 
                 writeln!(&mut file_writer, "{json}").unwrap();
@@ -205,7 +218,6 @@ pub fn start_monitor(
             writeln!(&mut file_writer, "{}", serde_json::json!({ "fin": true })).unwrap();
 
             {
-                // NOTE: We store values in deci-nano-seconds
                 let histogram = db.write_latency_histogram.lock().unwrap();
                 writeln!(
                     &mut file_writer,
@@ -214,18 +226,17 @@ pub fn start_monitor(
                         "histogram": true,
                         "type": "write",
                         "unit": "ns",
-                        "mean": (histogram.mean() * 10.0) as u64,
-                        "p50": histogram.value_at_quantile(0.50) * 10,
-                        "p90": histogram.value_at_quantile(0.90) * 10,
-                        "p95": histogram.value_at_quantile(0.95) * 10,
-                        "p99": histogram.value_at_quantile(0.99) * 10,
+                        "mean": histogram.sum().unwrap_or(0.0) / histogram.count() as f64,
+                        "p50": histogram.quantile(0.50).unwrap().unwrap_or_default(),
+                        "p90": histogram.quantile(0.90).unwrap().unwrap_or_default(),
+                        "p95": histogram.quantile(0.95).unwrap().unwrap_or_default(),
+                        "p99": histogram.quantile(0.99).unwrap().unwrap_or_default(),
                     })
                 )
                 .unwrap();
             }
 
             {
-                // NOTE: We store values in deci-nano-seconds
                 let histogram = db.point_read_latency_histogram.lock().unwrap();
                 writeln!(
                     &mut file_writer,
@@ -234,18 +245,17 @@ pub fn start_monitor(
                         "histogram": true,
                         "type": "point_read",
                         "unit": "ns",
-                        "mean": (histogram.mean() * 10.0) as u64,
-                        "p50": histogram.value_at_quantile(0.50) * 10,
-                        "p90": histogram.value_at_quantile(0.90) * 10,
-                        "p95": histogram.value_at_quantile(0.95) * 10,
-                        "p99": histogram.value_at_quantile(0.99) * 10,
+                        "mean": histogram.sum().unwrap_or(0.0) / histogram.count() as f64,
+                        "p50": histogram.quantile(0.50).unwrap().unwrap_or_default(),
+                        "p90": histogram.quantile(0.90).unwrap().unwrap_or_default(),
+                        "p95": histogram.quantile(0.95).unwrap().unwrap_or_default(),
+                        "p99": histogram.quantile(0.99).unwrap().unwrap_or_default(),
                     })
                 )
                 .unwrap();
             }
 
             {
-                // NOTE: We store values in deci-nano-seconds
                 let histogram = db.range_latency_histogram.lock().unwrap();
                 writeln!(
                     &mut file_writer,
@@ -254,17 +264,17 @@ pub fn start_monitor(
                         "histogram": true,
                         "type": "range_read",
                         "unit": "ns",
-                        "mean": (histogram.mean() * 10.0) as u64,
-                        "p50": histogram.value_at_quantile(0.50) * 10,
-                        "p90": histogram.value_at_quantile(0.90) * 10,
-                        "p95": histogram.value_at_quantile(0.95) * 10,
-                        "p99": histogram.value_at_quantile(0.99) * 10,
+                        "mean": histogram.sum().unwrap_or(0.0) / histogram.count() as f64,
+                        "p50": histogram.quantile(0.50).unwrap().unwrap_or_default(),
+                        "p90": histogram.quantile(0.90).unwrap().unwrap_or_default(),
+                        "p95": histogram.quantile(0.95).unwrap().unwrap_or_default(),
+                        "p99": histogram.quantile(0.99).unwrap().unwrap_or_default(),
                     })
                 )
                 .unwrap();
             }
 
-            file_writer.sync_all().unwrap();
+            file_writer.into_inner().unwrap().sync_all().unwrap();
 
             std::process::exit(0);
         })

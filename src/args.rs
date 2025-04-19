@@ -66,13 +66,23 @@ pub struct RunOptions {
     #[arg(long, default_value_t = 1_000_000)]
     pub item_count: usize,
 
+    /// Number of threads to use. Not applicable to all workloads
+    #[arg(long, default_value_t = 1)]
+    pub threads: usize,
+
     #[arg(long)]
     pub value_size: u32,
 
-    // TODO: zipf exponent
-    /// Whether to use random or Zipfian read distribution
+    #[arg(long, default_value_t = 0.9)]
+    pub zipf_exponent: f64,
+
+    /// Whether to use random or monotonic keys. Not applicable to all workloads
     #[arg(long, default_value_t = false)]
-    pub random: bool,
+    pub write_random: bool,
+
+    /// Whether to use random or Zipfian read distribution. Not applicable to all workloads
+    #[arg(long, default_value_t = false)]
+    pub read_random: bool,
 
     #[arg(long, default_value_t = false)]
     pub warmup_cache: bool,
@@ -80,17 +90,8 @@ pub struct RunOptions {
     /// Compaction for LSM-trees
     #[arg(long, value_enum, default_value_t = LsmCompaction::Leveled)]
     pub lsm_compaction: LsmCompaction,
-    // #[arg(long, default_value_t = 1)]
-    // pub threads: u8,
-
-    // #[arg(long, default_value_t = 0)]
-    // pub items: u32,
-
     // #[arg(long)]
     // pub key_size: u8,
-
-    // #[arg(long)]
-    // pub value_size: u32,
 
     // /// Use KV-separation
     // #[arg(long, alias = "lsm_kv_sep", default_value_t = false)]
@@ -108,9 +109,6 @@ pub struct RunOptions {
     // /// This is hopefully a temporary workaround
     // #[arg(long, default_value_t = false)]
     // pub sled_flush: bool,
-
-    // #[arg(long, default_value_t = false)]
-    // pub fsync: bool,
 }
 
 #[derive(Parser, Clone, Debug, Serialize)]

@@ -8,6 +8,7 @@ use zipf::ZipfDistribution;
 
 pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBool>) {
     let fsync = args.fsync;
+    let exponent = args.zipf_exponent;
     let item_count = args.item_count as u64;
 
     assert!(item_count > 0);
@@ -28,13 +29,14 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
     let worker = std::thread::spawn({
         log::debug!("Starting reader");
         let db = db.clone();
-        let random = args.random;
+        let random = args.read_random;
         let mut buf = vec![0; args.value_size as usize];
 
         move || {
             use rand::prelude::Distribution;
 
             let mut rng = rand::thread_rng();
+            let zipf = ZipfDistribution::new(item_count as usize, exponent).unwrap();
 
             loop {
                 match rng.gen_range(0.0..1.0) {
@@ -42,10 +44,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
                         let x: u128 = if random {
                             rng.gen_range(0..item_count as u128)
                         } else {
-                            let zipf =
-                                ZipfDistribution::new((item_count as usize) - 1, 1.0).unwrap();
-
-                            zipf.sample(&mut rng) as u128
+                            (zipf.sample(&mut rng) - 1) as u128
                         };
 
                         db.get(&x.to_be_bytes()).unwrap();
@@ -54,14 +53,11 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
                         let x: u128 = if random {
                             rng.gen_range(0..item_count as u128)
                         } else {
-                            let zipf =
-                                ZipfDistribution::new((item_count as usize) - 1, 1.0).unwrap();
-
-                            zipf.sample(&mut rng) as u128
+                            (zipf.sample(&mut rng) - 1) as u128
                         };
 
                         rng.fill_bytes(&mut buf);
-                        db.insert(&x.to_be_bytes(), &buf, fsync);
+                        db.insert(&x.to_be_bytes(), &buf, fsync, false);
                     }
                 }
             }

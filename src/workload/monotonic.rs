@@ -1,10 +1,10 @@
 use super::start_killer;
 use crate::args::RunOptions;
 use crate::db::DatabaseWrapper;
+use crate::workload::choose_zipf;
 use rand::{Rng, RngCore};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
-use zipf::ZipfDistribution;
 
 pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBool>) {
     let fsync = args.fsync;
@@ -36,8 +36,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
             for x in (item_count as u128).. {
                 let key = x.to_be_bytes();
                 rng.fill_bytes(&mut buf);
-                db.insert(&key, &buf, fsync);
-
+                db.insert(&key, &buf, fsync, true);
                 written_count.fetch_add(1, Ordering::Relaxed);
             }
         }
@@ -47,26 +46,21 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
         log::debug!("Starting reader");
         let db = db.clone();
         let written_count = written_count.clone();
-        let random = args.random;
+        let random = args.read_random;
+        let exponent = args.zipf_exponent;
 
         move || {
             let mut rng = rand::thread_rng();
-
             loop {
-                let item_count = written_count.load(Ordering::Relaxed) as u128;
-
-                if item_count > 1 {
-                    use rand::prelude::Distribution;
-
-                    let x: u128 = if random {
-                        rng.gen_range(0..item_count)
+                let written_count = written_count.load(Ordering::Relaxed);
+                if written_count > 1 {
+                    let x = if random {
+                        rng.gen_range(0..written_count)
                     } else {
-                        let zipf = ZipfDistribution::new((item_count as usize) - 1, 1.0).unwrap();
-
-                        zipf.sample(&mut rng) as u128
+                        choose_zipf(&mut rng, exponent, written_count)
                     };
 
-                    db.get(&x.to_be_bytes()).unwrap();
+                    db.get(&(x as u128).to_be_bytes()).unwrap();
                 }
             }
         }

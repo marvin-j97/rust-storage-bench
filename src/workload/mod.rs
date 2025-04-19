@@ -1,11 +1,12 @@
 mod feed;
 mod monotonic;
 mod monotonic_fixed;
+mod read_write;
 mod ycsb;
 
 use crate::{args::RunOptions, db::DatabaseWrapper};
 use clap::ValueEnum;
-use rand::{Rng, RngCore};
+use rand::{prelude::Distribution, Rng, RngCore};
 use serde::Serialize;
 use std::{
     hash::Hasher,
@@ -15,6 +16,7 @@ use std::{
     },
     time::Duration,
 };
+use zipf::ZipfDistribution;
 
 fn start_killer(sec: u16, signal: Arc<AtomicBool>) {
     log::debug!("Started killer");
@@ -55,6 +57,8 @@ pub enum Workload {
     /// 10% a random virtual user will create a new post
     Feed,
 
+    /// Writes data and then reads and update it for a fixed amount of time
+    /// The write and read distribution can be configured.
     FixedUpdate,
 
     // /// Writes time series data, then point reads it zipfian-ly
@@ -70,15 +74,24 @@ pub enum Workload {
     /// Time series (increasing integer key, small value), read latest 1'000 data points
     TimeseriesLatest,
 
-    /// Uses siphash as key which makes writes very random; write-only
+    /// Random writes; write-only
     RandomWrite,
 
-    /// Uses siphash as key which makes writes very random, reads
-    /// a pre-selected subset of keys randomly
-    Random,
+    /// Read Write workload with 2 independent read and writer threads running in parallel.
+    /// The write and read distribution can be configured.
+    ReadWriteIndependent,
 
-    /// Queue using a single producer and single consumer
+    /// Read Write workload with multiple actor threads.
+    /// The configured number of threads are spawned and enter a loop with equal chances of performing a read or write.
+    /// The write and read distribution can be configured.
+    ReadWrite,
+
+    /// Queue workload with 2 independent producer and consumer threads running in parallel.
+    /// The producer will throttle if the consumer is not consuming fast enough.
     Queue,
+
+    /// Queue workload with 2 independent producer and consumer threads running in parallel.
+    QueueIndependent,
 }
 
 pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<AtomicBool>) {
@@ -132,21 +145,32 @@ pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<A
         Workload::FixedUpdate => {
             let seconds = 30;
             let iterations = 100_000_000 / args.item_count;
+            let exponent = args.zipf_exponent;
 
             println!("Doing {iterations} iterations");
 
             let mut written_count = 0;
             let mut buf = vec![0; args.value_size as usize];
+            let random_key_distribution = args.write_random;
+            let key_mapper = move |k: u64| -> u64 {
+                if random_key_distribution {
+                    k
+                } else {
+                    hash_key(k)
+                }
+            };
+            let read_random = args.read_random;
 
             for _ in 0..iterations {
                 println!("Ingesting {} items", args.item_count);
-                let item_count = args.item_count as u128;
+                let item_count = args.item_count as u64;
 
                 let mut rng = rand::thread_rng();
 
                 let iter = (written_count..(written_count + item_count)).map(|x| {
                     rng.fill_bytes(&mut buf);
-                    (x.to_be_bytes().to_vec(), buf.to_vec())
+                    let x = key_mapper(x);
+                    ((x as u128).to_be_bytes().to_vec(), buf.to_vec())
                 });
 
                 db.ingest(iter);
@@ -162,21 +186,17 @@ pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<A
                     move || {
                         let mut rng = rand::thread_rng();
 
-                        for x in 0.. {
-                            #[allow(clippy::collapsible_if)]
-                            if x % 1_000 == 0 {
-                                if stopped.load(Ordering::Relaxed) {
-                                    return;
-                                }
-                            }
+                        while !stopped.load(Ordering::Relaxed) {
+                            let x = if read_random {
+                                rng.gen_range(0..written_count)
+                            } else {
+                                choose_zipf(&mut rng, exponent, written_count)
+                            };
 
-                            // TODO: support Zipfian reads
-                            let x = rng.gen_range(0..written_count);
-
-                            let key = x.to_be_bytes();
+                            let key = (x as u128).to_be_bytes();
                             let prev = db.get(&key).unwrap();
                             let prev = prev.into_iter().map(|x| !x).collect::<Vec<_>>();
-                            db.insert(&key, &prev, fsync);
+                            db.insert(&key, &prev, fsync, false);
                         }
                     }
                 });
@@ -197,7 +217,7 @@ pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<A
                 move || {
                     for x in 0u128.. {
                         let key = x.to_be_bytes();
-                        db.insert(&key, &key, fsync);
+                        db.insert(&key, &key, fsync, true);
                     }
                 }
             });
@@ -224,7 +244,7 @@ pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<A
                 move || {
                     for x in 0u128.. {
                         let key = x.to_be_bytes();
-                        db.insert(&key, &key, fsync);
+                        db.insert(&key, &key, fsync, true);
                         written_count.fetch_add(1, Ordering::Relaxed);
                     }
                 }
@@ -233,68 +253,78 @@ pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<A
             std::thread::spawn({
                 log::debug!("Starting reader");
                 let db = db.clone();
-                let written_count = written_count.clone();
 
                 move || loop {
-                    let max_key = written_count.load(Ordering::Relaxed).saturating_sub(1);
-
-                    // TODO: implement range read, not last
-                    if max_key > 1 {
-                        db.last_len().unwrap();
-                    }
+                    let written_count = written_count.load(Ordering::Relaxed);
+                    let last_key_bytes = (written_count as u128).to_be_bytes();
+                    let end_exclusive = std::ops::Bound::Excluded(&last_key_bytes[..]);
+                    let len = db.range_len((std::ops::Bound::Unbounded, end_exclusive), true, 1000);
+                    assert_eq!(len, written_count.min(1000) as usize);
                 }
             });
 
             start_killer(args.seconds, finish_signal);
         }
-        Workload::Queue => {
+        Workload::Queue | Workload::QueueIndependent => {
+            let with_backpressure = matches!(args.workload, Workload::Queue);
+            let mutex = Arc::new(std::sync::Mutex::new(()));
+            let condvar = Arc::new(std::sync::Condvar::new());
+            let pending_writes = Arc::new(AtomicU64::new(0));
+            let max_pending = 1_000;
+
             std::thread::spawn({
                 log::debug!("Starting writer");
                 let db = db.clone();
                 let mut buf = vec![0; args.value_size as usize];
+                let condvar = condvar.clone();
+                let pending_writes = pending_writes.clone();
+                let mutex = mutex.clone();
 
                 move || {
                     let mut rng = rand::thread_rng();
-
-                    for seqno in 0u128.. {
+                    // Note how we're starting at 1 instead of 0
+                    for seqno in 1u128.. {
                         rng.fill_bytes(&mut buf);
-                        db.insert(&seqno.to_be_bytes(), &buf, fsync);
+                        db.insert(&seqno.to_be_bytes(), &buf, fsync, true);
+                        if pending_writes.fetch_add(1, Ordering::Relaxed) >= max_pending
+                            && with_backpressure
+                        {
+                            // Wait for the consumer to consume one
+                            let _guard = condvar.wait(mutex.lock().unwrap()).unwrap();
+                        } else {
+                            // Notify the consumer that we wrote one
+                            condvar.notify_one();
+                        }
                     }
                 }
             });
 
-            let fsync = args.fsync;
+            let value_size = args.value_size;
+            let decrement_workload_size = Some((16 + value_size) as u64);
 
             std::thread::spawn({
                 log::debug!("Starting reader");
                 let db = db.clone();
 
                 move || {
-                    use std::ops::Bound::{Excluded, Included};
-
-                    let mut last_key;
-
+                    let mut last_key = 0u128;
                     loop {
-                        if let Some((key, _)) = db.first() {
-                            db.remove_unique(&key, fsync);
-                            last_key = Some(key);
-                            break;
-                        }
-                    }
-
-                    for _ in 0.. {
-                        let mut key_bytes = [0; 16];
-                        key_bytes.copy_from_slice(last_key.as_deref().unwrap());
-
-                        // NOTE: Make the range very tight
-                        let upper_key = u128::from_be_bytes(key_bytes) + 1;
-                        let upper_key: &[u8] = &upper_key.to_be_bytes();
-
-                        let range = (Excluded(last_key.as_deref().unwrap()), Included(upper_key));
-
-                        if let Some((key, _)) = db.range_first(range) {
-                            db.remove_unique(&key, fsync);
-                            last_key = Some(key);
+                        let last_key_bytes = last_key.to_be_bytes();
+                        let start_exclusive = std::ops::Bound::Excluded(&last_key_bytes[..]);
+                        if let Some((key, _)) =
+                            db.range_first((start_exclusive, std::ops::Bound::Unbounded))
+                        {
+                            last_key = u128::from_be_bytes(key[..].try_into().unwrap());
+                            db.remove_unique(&key, fsync, decrement_workload_size);
+                            if pending_writes.fetch_sub(1, Ordering::Relaxed) >= max_pending
+                                && with_backpressure
+                            {
+                                // Notify the writer that we consumed one
+                                condvar.notify_one();
+                            }
+                        } else {
+                            // Wait for the writer to write one
+                            let _guard = condvar.wait(mutex.lock().unwrap()).unwrap();
                         }
                     }
                 }
@@ -315,7 +345,7 @@ pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<A
                     for x in 0u128.. {
                         let key = x.to_be_bytes();
                         rng.fill_bytes(&mut buf);
-                        db.insert(&key, &key, fsync);
+                        db.insert(&key, &key, fsync, true);
                     }
                 }
             });
@@ -332,73 +362,77 @@ pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<A
                     let mut buf = vec![0; value_size];
                     let mut rng = rand::thread_rng();
 
-                    for x in 0u128.. {
-                        let mut hash = std::hash::DefaultHasher::default();
-                        hash.write_u128(x);
-                        let key = hash.finish().to_be_bytes();
-
+                    for x in 0u64.. {
+                        let key = (hash_key(x) as u128).to_be_bytes();
                         rng.fill_bytes(&mut buf);
-
-                        db.insert(&key, &buf, fsync);
+                        db.insert(&key, &buf, fsync, true);
                     }
                 }
             });
 
             start_killer(args.seconds, finish_signal);
         }
-        Workload::Random => {
-            let value_size = args.value_size as usize;
-            let mut buf = vec![0; value_size];
-
-            {
-                for i in 0..args.item_count {
-                    let key = &{
-                        let mut hash = std::hash::DefaultHasher::default();
-                        hash.write_usize(i);
-                        hash.finish().to_be_bytes()
-                    };
-
-                    db.insert(key, &buf, fsync)
-                }
-            }
-
-            std::thread::spawn({
-                log::debug!("Starting writer");
-                let db = db.clone();
-
-                move || {
-                    let mut rng = rand::thread_rng();
-
-                    for x in 0u128.. {
-                        let mut hash = std::hash::DefaultHasher::default();
-                        hash.write_u128(x);
-                        let key = hash.finish().to_be_bytes();
-
-                        rng.fill_bytes(&mut buf);
-
-                        db.insert(&key, &buf, fsync);
-                    }
-                }
-            });
-
-            std::thread::spawn({
-                log::debug!("Starting reader");
-                let db = db.clone();
-                let mut i = args.item_count;
-
-                move || loop {
-                    let key = &{
-                        let mut hash = std::hash::DefaultHasher::default();
-                        hash.write_usize(i);
-                        hash.finish().to_be_bytes()
-                    };
-                    i += 1;
-
-                    db.get(key);
-                }
-            });
-
-            start_killer(args.seconds, finish_signal);
+        Workload::ReadWriteIndependent => {
+            read_write::run_independent(args, &db, finish_signal);
+        }
+        Workload::ReadWrite => {
+            read_write::run(args, &db, finish_signal);
         }
     };
+}
+
+/// Hash a key using the default hasher.
+/// This is used to make incremental keys look random.
+pub fn hash_key(key: impl std::hash::Hash) -> u64 {
+    let mut hasher = std::hash::DefaultHasher::new();
+    key.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// Choose a key using a zipfian distribution biased towards the
+/// end of the range.
+/// The key is chosen from the range [0, written_count), except for
+/// the case when written_count is 0, in which case 0 is returned.
+pub fn choose_zipf(rng: &mut impl Rng, exponent: f64, written_count: u64) -> u64 {
+    if written_count == 0 {
+        return 0;
+    }
+    written_count
+        - ZipfDistribution::new(written_count as usize, exponent)
+            .unwrap()
+            .sample(rng) as u64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::thread_rng;
+
+    #[test]
+    fn test_zipf_1_based() {
+        let mut rng = thread_rng();
+        let exponent = 1.0;
+        let zipf = ZipfDistribution::new(1, exponent).unwrap();
+        for _ in 0..10000 {
+            let x = zipf.sample(&mut rng);
+            assert_eq!(x, 1);
+        }
+    }
+
+    #[test]
+    fn test_choose_zipf() {
+        let mut rng = thread_rng();
+        for exponent in [0.001, 0.1, 1.0, 2.0, 3.0] {
+            for written_count in [0, 1, 1000] {
+                for _ in 0..10000 {
+                    let x = choose_zipf(&mut rng, exponent, written_count);
+                    if written_count == 0 {
+                        assert_eq!(x, 0);
+                    } else {
+                        assert!(x < written_count);
+                    }
+                }
+            }
+        }
+    }
 }
