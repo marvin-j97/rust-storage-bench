@@ -5,6 +5,7 @@ Benchmarking Rust storage engines:
 - fjall Δ ★ (https://github.com/fjall-rs/fjall)
 - redb Ω ★ (https://www.redb.org)
 - sled Ψ (https://sled.rs)
+- canopydb Ω (https://github.com/arthurprs/canopydb)
 
 ---
 
@@ -28,7 +29,8 @@ alias bench="cargo run -r --"
 bench run --backend fjall --seconds 60 --value-size 100 --data-dir=.data --workload random --out stats.jsonl
 bench run --backend redb --seconds 60 --value-size 100 --data-dir=.data --workload random --out stats2.jsonl
 bench run --backend sled --seconds 60 --value-size 100 --data-dir=.data --workload random --out stats3.jsonl
-bench report --out report.html stats.jsonl stats2.jsonl stats3.jsonl
+bench run --backend canopydb --seconds 60 --value-size 100 --data-dir=.data --workload random --out stats4.jsonl
+bench report --out report.html stats.jsonl stats2.jsonl stats3.jsonl stats4.jsonl
 open report.html
 ```
 

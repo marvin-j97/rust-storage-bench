@@ -27,7 +27,6 @@ pub enum GenericDatabase {
 
     Redb(Arc<redb::Database>),
 
-    #[cfg(feature = "canopydb")]
     Canopydb(Arc<canopydb::Database>),
 
     #[cfg(feature = "heed")]
@@ -123,7 +122,6 @@ impl DatabaseWrapper {
                     .unwrap()
                     .map(|(k, v)| (k.to_vec(), v.to_vec()))
             }
-            #[cfg(feature = "canopydb")]
             GenericDatabase::Canopydb(db) => {
                 let tx = db.begin_read().unwrap();
                 let tree = tx.get_tree(b"default").unwrap().unwrap();
@@ -314,7 +312,6 @@ impl DatabaseWrapper {
                     .map_or(Bound::Unbounded, |b| Bound::Excluded(b.as_slice()));
                 return self.range_len((Bound::Included(prefix), upper_bound), rev, take);
             }
-            #[cfg(feature = "canopydb")]
             GenericDatabase::Canopydb(db) => {
                 let tx = db.begin_read().unwrap();
                 let tree = tx.get_tree(b"default").unwrap().unwrap();
@@ -496,7 +493,6 @@ impl DatabaseWrapper {
                 })
                 .count(),
 
-            #[cfg(feature = "canopydb")]
             GenericDatabase::Canopydb(db) => {
                 let tx = db.begin_read().unwrap();
                 let tree = tx.get_tree(b"default").unwrap().unwrap();
@@ -560,7 +556,6 @@ impl DatabaseWrapper {
                 let tx = env.read_txn().unwrap();
                 db.stat(&tx).unwrap().depth as usize
             }
-            #[cfg(feature = "canopydb")]
             GenericDatabase::Canopydb(db) => {
                 let tx = db.begin_read().unwrap();
                 let tree = tx.get_tree(b"default").unwrap().unwrap();
@@ -947,7 +942,6 @@ impl DatabaseWrapper {
                 GenericDatabase::LocalFjall { keyspace, db }
             }
 
-            #[cfg(feature = "canopydb")]
             Backend::Canopydb => {
                 std::fs::create_dir_all(&path).unwrap();
 
@@ -1007,7 +1001,6 @@ impl DatabaseWrapper {
             #[cfg(feature = "localfjall")]
             GenericDatabase::LocalFjall { db, .. } => db.inner().len().unwrap(),
 
-            #[cfg(feature = "canopydb")]
             GenericDatabase::Canopydb(db) => {
                 let tx = db.begin_read().unwrap();
                 let tree = tx.get_tree(b"default").unwrap().unwrap();
@@ -1103,7 +1096,6 @@ impl DatabaseWrapper {
                 report_latency();
                 value.map(ToOwned::to_owned)
             }
-            #[cfg(feature = "canopydb")]
             GenericDatabase::Canopydb(db) => {
                 let tx = db.begin_read().unwrap();
                 let tree = tx.get_tree(b"default").unwrap().unwrap();
@@ -1221,7 +1213,6 @@ impl DatabaseWrapper {
                 }
                 write_txn.commit().unwrap();
             }
-            #[cfg(feature = "canopydb")]
             GenericDatabase::Canopydb(db) => {
                 let write_txn = db.begin_write().unwrap();
                 {
@@ -1311,7 +1302,6 @@ impl DatabaseWrapper {
                 db.put(key, value).unwrap();
                 db.flush_wal(durable).unwrap();
             }
-            #[cfg(feature = "canopydb")]
             GenericDatabase::Canopydb(db) => {
                 let write_txn = db.begin_write().unwrap();
                 {
@@ -1445,7 +1435,6 @@ impl DatabaseWrapper {
                 db.delete(key).unwrap();
                 db.flush_wal(durable).unwrap();
             }
-            #[cfg(feature = "canopydb")]
             GenericDatabase::Canopydb(db) => {
                 let write_txn = db.begin_write().unwrap();
                 {
