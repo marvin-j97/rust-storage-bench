@@ -357,7 +357,7 @@ impl DatabaseWrapper {
         }
     }
 
-    pub fn avg_l0_segment_creation_date_us(&self) -> u64 {
+    pub fn avg_l0_segment_creation_date_us(&self) -> u128 {
         match &self.inner {
             GenericDatabase::Fjall { db, .. } => {
                 let tree = match &db.inner().tree {
@@ -367,12 +367,9 @@ impl DatabaseWrapper {
 
                 let first_level = &tree.levels.read().unwrap();
                 let first_level = &first_level.levels.first().unwrap().segments;
-                let count = first_level.len() as u64;
+                let count = first_level.len() as u128;
 
-                let sum: u64 = first_level
-                    .iter()
-                    .map(|x| x.metadata.created_at as u64)
-                    .sum();
+                let sum: u128 = first_level.iter().map(|x| x.metadata.created_at).sum();
 
                 sum.checked_div(count).unwrap_or_default()
             }
@@ -396,7 +393,7 @@ impl DatabaseWrapper {
 
                 let sum: u64 = first_level
                     .iter()
-                    .map(|x| x.metadata.created_at as u64)
+                    .map(|x| x.metadata.created_at as u128)
                     .sum();
 
                 sum.checked_div(count).unwrap_or_default()
