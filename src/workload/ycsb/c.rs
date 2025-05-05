@@ -29,20 +29,20 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
         .spawn({
             log::debug!("Starting reader");
             let db = db.clone();
-            let random = args.random;
+            let random = args.read_random;
+            let exponent = args.zipf_exponent;
 
             move || {
                 use rand::prelude::Distribution;
 
                 let mut rng = rand::thread_rng();
+                let zipf = ZipfDistribution::new(item_count as usize, exponent).unwrap();
 
                 loop {
                     let x: u128 = if random {
                         rng.gen_range(0..item_count as u128)
                     } else {
-                        let zipf = ZipfDistribution::new((item_count as usize) - 1, 1.0).unwrap();
-
-                        zipf.sample(&mut rng) as u128
+                        (zipf.sample(&mut rng) - 1) as u128
                     };
 
                     db.get(&x.to_be_bytes()).unwrap();

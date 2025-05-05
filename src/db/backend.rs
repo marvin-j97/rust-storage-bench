@@ -31,7 +31,6 @@ pub enum Backend {
     #[cfg(feature = "sqlite")]
     Sqlite,
 
-    #[cfg(feature = "canopydb")]
     #[serde(rename = "canopydb")]
     Canopydb,
     //
@@ -66,8 +65,7 @@ impl std::fmt::Display for Backend {
                 #[cfg(feature = "rocksdb")]
                 Self::RocksDb => "rocksdb 0.22.0",
 
-                #[cfg(feature = "canopydb")]
-                Self::Canopydb => "canopydb 0.2.1",
+                Self::Canopydb => "canopydb 0.2.4",
                 // Self::Bloodstone => "sled 1.0.0-alpha.122",
                 // Self::Persy => "persy 1.5.0",
             }

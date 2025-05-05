@@ -50,28 +50,28 @@ pub struct FeedPost {
 }
 
 const VIRTUAL_USERS: usize = 10_000;
-const INITIAL_POSTS_PER_USER: usize = 1_000;
 
 pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBool>) {
     log::debug!("Pre-writing items");
 
-    let users = (0..VIRTUAL_USERS).map(|user_idx| {
-        let user_id = format!("u{user_idx:0>7}");
-        let user_profile_key = format!("{user_id}#p");
-
-        let profile: UserProfile = Faker.fake();
-        let profile = rmp_serde::to_vec(&profile).unwrap();
-
-        (user_profile_key.as_bytes().to_vec(), profile)
-    });
-
     let mut rng = rand::thread_rng();
     let mut buf = vec![0; args.value_size as usize];
+    let feed_limit = 10;
+    let initial_posts_per_user = (args.item_count / VIRTUAL_USERS).max(feed_limit);
 
     let iter = (0..VIRTUAL_USERS)
-        .flat_map(|x| (0..INITIAL_POSTS_PER_USER).clone().map(move |y| (x, y)))
-        .map(|(user_idx, _post_idx)| {
+        .flat_map(|x| (0..=initial_posts_per_user).clone().map(move |y| (x, y)))
+        .map(|(user_idx, post_idx)| {
             let user_id = format!("u{user_idx:0>7}");
+
+            // Insert profile last to keep insertion order consistent
+            if post_idx == initial_posts_per_user {
+                let user_profile_key: String = format!("{user_id}#p");
+
+                let profile: UserProfile = Faker.fake();
+                let profile = rmp_serde::to_vec(&profile).unwrap();
+                return (user_profile_key.as_bytes().to_vec(), profile);
+            }
 
             // Insert post
             let post_id = scru128::new_string();
@@ -80,12 +80,11 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
             rng.fill_bytes(&mut buf);
 
             (post_key.as_bytes().to_vec(), buf.clone())
-        })
-        .chain(users);
+        });
 
     db.ingest(iter);
 
-    let threads = (0..1)
+    let threads = (0..args.threads)
         .map(|_thread_no| {
             let args = args.clone();
             let db = db.clone();
@@ -93,13 +92,13 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
             std::thread::spawn(move || {
                 let mut rng = rand::thread_rng();
                 let mut buf = vec![0; args.value_size as usize];
+                let zipf = ZipfDistribution::new(VIRTUAL_USERS, args.zipf_exponent).unwrap();
 
                 for _loop_idx in 0.. {
                     let choice: f32 = rng.gen_range(0.0..1.0);
 
                     // Which user?
-                    let zipf = ZipfDistribution::new((VIRTUAL_USERS - 1) as usize, 1.0).unwrap();
-                    let idx = zipf.sample(&mut rng);
+                    let idx = zipf.sample(&mut rng) - 1;
                     let user_id = format!("u{idx:0>7}");
 
                     if choice > 0.9 {
@@ -109,19 +108,18 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
 
                         rng.fill_bytes(&mut buf);
 
-                        db.insert(post_key.as_bytes(), &buf, args.fsync);
+                        db.insert(post_key.as_bytes(), &buf, args.fsync, true);
                     } else {
                         // Get profile
                         let user_profile_key = format!("{user_id}#p");
                         db.get(user_profile_key.as_bytes()).unwrap();
 
-                        // // + latest 10 posts
+                        // + latest initial_posts_per_user posts
                         let feed_prefix = format!("{user_id}#f#");
-                        let limit = 10;
 
                         assert_eq!(
-                            limit,
-                            db.prefix_len(feed_prefix.as_bytes(), true, limit),
+                            feed_limit,
+                            db.prefix_len(feed_prefix.as_bytes(), true, feed_limit),
                             "{feed_prefix} failed"
                         );
                     }

@@ -2,7 +2,7 @@ mod backend;
 
 use crate::args::RunOptions;
 pub use backend::Backend;
-use hdrhistogram::Histogram;
+use sketches_ddsketch::DDSketch;
 use std::{
     ops::Bound,
     path::Path,
@@ -27,7 +27,6 @@ pub enum GenericDatabase {
 
     Redb(Arc<redb::Database>),
 
-    #[cfg(feature = "canopydb")]
     Canopydb(Arc<canopydb::Database>),
 
     #[cfg(feature = "heed")]
@@ -48,6 +47,10 @@ const TABLE: redb::TableDefinition<&[u8], &[u8]> = redb::TableDefinition::new("d
 #[derive(Clone)]
 pub struct DatabaseWrapper {
     pub inner: GenericDatabase,
+    /// Current size of the workload (key + value length) in bytes
+    /// To get an accurate value, updates should be distinguished from inserts
+    /// and deletes must know the size of the deleted value.
+    pub workload_real_bytes: Arc<AtomicU64>,
 
     pub write_ops: Arc<AtomicU64>,
     pub write_latency: Arc<AtomicU64>,
@@ -55,13 +58,17 @@ pub struct DatabaseWrapper {
 
     pub point_read_ops: Arc<AtomicU64>,
     pub point_read_latency: Arc<AtomicU64>,
+    /// Number of bytes read in point reads (key + value length)
+    pub point_read_bytes: Arc<AtomicU64>,
 
     pub range_ops: Arc<AtomicU64>,
     pub range_latency: Arc<AtomicU64>,
+    /// Number of bytes read in range reads (key + value length)
+    pub range_read_bytes: Arc<AtomicU64>,
 
-    pub write_latency_histogram: Arc<Mutex<Histogram<u64>>>,
-    pub point_read_latency_histogram: Arc<Mutex<Histogram<u64>>>,
-    pub range_latency_histogram: Arc<Mutex<Histogram<u64>>>,
+    pub write_latency_histogram: Arc<Mutex<DDSketch>>,
+    pub point_read_latency_histogram: Arc<Mutex<DDSketch>>,
+    pub range_latency_histogram: Arc<Mutex<DDSketch>>,
 }
 
 impl std::ops::Deref for DatabaseWrapper {
@@ -73,8 +80,11 @@ impl std::ops::Deref for DatabaseWrapper {
 }
 
 impl DatabaseWrapper {
-    fn report_scan(&self, start: Instant) {
+    fn report_scan(&self, total_bytes: u64, start: Instant) {
         let latency = start.elapsed().as_nanos() as u64;
+
+        self.range_read_bytes
+            .fetch_add(total_bytes, std::sync::atomic::Ordering::Relaxed);
 
         self.range_latency
             .fetch_add(latency, std::sync::atomic::Ordering::Relaxed);
@@ -85,17 +95,13 @@ impl DatabaseWrapper {
         self.range_latency_histogram
             .lock()
             .unwrap()
-            .record(latency / 10)
-            .inspect_err(|_| {
-                log::warn!("Scan latency value too large for histogram");
-            })
-            .ok();
+            .add(latency as f64);
     }
 
     pub fn range_first(&self, range: (Bound<&[u8]>, Bound<&[u8]>)) -> Option<(Vec<u8>, Vec<u8>)> {
         let start = Instant::now();
 
-        let v = match &self.inner {
+        let v: Option<(Vec<u8>, Vec<u8>)> = match &self.inner {
             GenericDatabase::Fjall { db, keyspace } => {
                 let read_tx = keyspace.read_tx();
                 let mut iter = read_tx.range::<&[u8], _>(db, range);
@@ -116,7 +122,6 @@ impl DatabaseWrapper {
                     .unwrap()
                     .map(|(k, v)| (k.to_vec(), v.to_vec()))
             }
-            #[cfg(feature = "canopydb")]
             GenericDatabase::Canopydb(db) => {
                 let tx = db.begin_read().unwrap();
                 let tree = tx.get_tree(b"default").unwrap().unwrap();
@@ -128,21 +133,81 @@ impl DatabaseWrapper {
                     .unwrap()
                     .map(|(k, v)| (k.to_vec(), v.to_vec()))
             }
-            _ => unimplemented!(),
+            #[cfg(feature = "sqlite")]
+            GenericDatabase::Sqlite(db) => {
+                let (stmt, params) = sqlite_range(range, false);
+                db.lock()
+                    .unwrap()
+                    .prepare_cached(&stmt)
+                    .unwrap()
+                    .query_map(rusqlite::params_from_iter(params), |row| {
+                        let k = row.get_ref(0).unwrap();
+                        let v = row.get_ref(1).unwrap();
+                        use rusqlite::types::ValueRef;
+                        if let (ValueRef::Blob(k), ValueRef::Blob(v)) = (k, v) {
+                            Ok((k.to_vec(), v.to_vec()))
+                        } else {
+                            unreachable!()
+                        }
+                    })
+                    .unwrap()
+                    .next()
+                    .transpose()
+                    .unwrap()
+            }
+            GenericDatabase::Redb(db) => {
+                let tx = db.begin_read().unwrap();
+                let tree = tx.open_table(TABLE).unwrap();
+                let mut iter = tree.range::<&[u8]>(range).unwrap();
+                iter.next()
+                    .transpose()
+                    .unwrap()
+                    .map(|(k, v)| (k.value().to_vec(), v.value().to_vec()))
+            }
+            GenericDatabase::Sled(db) => {
+                let mut iter = db.range::<&[u8], _>(range);
+
+                iter.next()
+                    .transpose()
+                    .unwrap()
+                    .map(|(k, v)| (k.to_vec(), v.to_vec()))
+            }
+            #[cfg(feature = "heed")]
+            GenericDatabase::Heed { db, env } => {
+                let tx = env.read_txn().unwrap();
+                let mut iter = db.range(&tx, &range).unwrap();
+
+                iter.next()
+                    .transpose()
+                    .unwrap()
+                    .map(|(k, v)| (k.to_vec(), v.to_vec()))
+            }
+            #[cfg(feature = "rocksdb")]
+            GenericDatabase::RocksDb(db) => rocksdb_range(range, false, db)
+                .next()
+                .map(|(k, v)| (k.into(), v.into())),
         };
 
-        self.report_scan(start);
+        self.report_scan(
+            v.as_ref().map(|(k, v)| k.len() + v.len()).unwrap_or(0) as u64,
+            start,
+        );
 
         v
     }
 
     pub fn prefix_len(&self, prefix: &[u8], rev: bool, take: usize) -> usize {
         let start = Instant::now();
+        let mut sum_bytes = 0;
 
         let v = match &self.inner {
             #[cfg(feature = "sqlite")]
             GenericDatabase::Sqlite(_db) => {
-                unimplemented!();
+                let upper_bound = get_upper_bound(prefix);
+                let upper_bound = upper_bound
+                    .as_ref()
+                    .map_or(Bound::Unbounded, |b| Bound::Excluded(b.as_slice()));
+                return self.range_len((Bound::Included(prefix), upper_bound), rev, take);
             }
 
             #[cfg(feature = "localfjall")]
@@ -151,9 +216,20 @@ impl DatabaseWrapper {
                 let iter = read_tx.prefix(db, prefix);
 
                 if rev {
-                    iter.rev().take(take).map(|kv| kv.unwrap()).count()
+                    iter.rev()
+                        .take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .count()
                 } else {
-                    iter.take(take).count()
+                    iter.take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .count()
                 }
             }
             GenericDatabase::Fjall { db, keyspace } => {
@@ -161,52 +237,48 @@ impl DatabaseWrapper {
                 let iter = read_tx.prefix(db, prefix);
 
                 if rev {
-                    iter.rev().take(take).map(|kv| kv.unwrap()).count()
+                    iter.rev()
+                        .take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .count()
                 } else {
-                    iter.take(take).count()
+                    iter.take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .count()
                 }
             }
             GenericDatabase::Sled(db) => {
                 let iter = db.scan_prefix(prefix);
 
                 if rev {
-                    iter.rev().take(take).map(|kv| kv.unwrap()).count()
-                } else {
-                    iter.take(take).map(|kv| kv.unwrap()).count()
-                }
-            }
-            GenericDatabase::Redb(db) => {
-                let tx = db.begin_read().unwrap();
-
-                let table = tx.open_table(TABLE).unwrap();
-
-                let upper_bound = get_upper_bound(prefix);
-                let iter = if let Some(upper_bound) = upper_bound {
-                    table.range(prefix..&upper_bound[..]).unwrap()
-                } else {
-                    table.range(prefix..).unwrap()
-                };
-
-                if rev {
                     iter.rev()
-                        .map(|x| {
-                            let (k, v) = x.unwrap();
-                            let k: Vec<u8> = k.value().into();
-                            let v: Vec<u8> = v.value().into();
-                            (k, v)
-                        })
                         .take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
                         .count()
                 } else {
-                    iter.map(|x| {
-                        let (k, v) = x.unwrap();
-                        let k: Vec<u8> = k.value().into();
-                        let v: Vec<u8> = v.value().into();
-                        (k, v)
-                    })
-                    .take(take)
-                    .count()
+                    iter.take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .count()
                 }
+            }
+            GenericDatabase::Redb(_) => {
+                let upper_bound = get_upper_bound(prefix);
+                let upper_bound = upper_bound
+                    .as_ref()
+                    .map_or(Bound::Unbounded, |b| Bound::Excluded(b.as_slice()));
+                return self.range_len((Bound::Included(prefix), upper_bound), rev, take);
             }
 
             #[cfg(feature = "heed")]
@@ -215,39 +287,31 @@ impl DatabaseWrapper {
 
                 if rev {
                     let iter = db.rev_prefix_iter(&tx, prefix).unwrap();
-
                     iter.take(take)
-                        .map(|kv| {
-                            let (k, v) = kv.unwrap();
-                            (k.to_vec(), v.to_vec())
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
                         })
                         .count()
                 } else {
                     let iter = db.prefix_iter(&tx, prefix).unwrap();
-
                     iter.take(take)
-                        .map(|kv| {
-                            let (k, v) = kv.unwrap();
-                            (k.to_vec(), v.to_vec())
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
                         })
                         .count()
                 }
             }
 
             #[cfg(feature = "rocksdb")]
-            GenericDatabase::RocksDb(db) => {
-                let mut iter = db.iterator(rocksdb::IteratorMode::Start);
-                iter.set_mode(rocksdb::IteratorMode::From(
-                    prefix,
-                    if rev {
-                        rocksdb::Direction::Reverse
-                    } else {
-                        rocksdb::Direction::Forward
-                    },
-                ));
-                iter.take(take).map(|kv| kv.unwrap()).count()
+            GenericDatabase::RocksDb(_) => {
+                let upper_bound = get_upper_bound(prefix);
+                let upper_bound = upper_bound
+                    .as_ref()
+                    .map_or(Bound::Unbounded, |b| Bound::Excluded(b.as_slice()));
+                return self.range_len((Bound::Included(prefix), upper_bound), rev, take);
             }
-            #[cfg(feature = "canopydb")]
             GenericDatabase::Canopydb(db) => {
                 let tx = db.begin_read().unwrap();
                 let tree = tx.get_tree(b"default").unwrap().unwrap();
@@ -255,14 +319,208 @@ impl DatabaseWrapper {
                 let range = tree.prefix(&prefix).unwrap();
 
                 if rev {
-                    range.rev().take(take).map(|kv| kv.unwrap()).count()
+                    range
+                        .rev()
+                        .take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .count()
                 } else {
-                    range.take(take).map(|kv| kv.unwrap()).count()
+                    range
+                        .take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .count()
                 }
             }
         };
 
-        self.report_scan(start);
+        self.report_scan(sum_bytes as u64, start);
+
+        v
+    }
+
+    pub fn range_len(&self, range: (Bound<&[u8]>, Bound<&[u8]>), rev: bool, take: usize) -> usize {
+        let start = Instant::now();
+        let mut sum_bytes = 0;
+
+        let v = match &self.inner {
+            #[cfg(feature = "sqlite")]
+            GenericDatabase::Sqlite(db) => {
+                let (stmt, params) = sqlite_range(range, rev);
+                db.lock()
+                    .unwrap()
+                    .prepare_cached(&stmt)
+                    .unwrap()
+                    .query_map(rusqlite::params_from_iter(params), |row| {
+                        let k = row.get_ref(0).unwrap();
+                        let v = row.get_ref(1).unwrap();
+                        use rusqlite::types::ValueRef;
+                        if let (ValueRef::Blob(k), ValueRef::Blob(v)) = (k, v) {
+                            sum_bytes += k.len() + v.len();
+                        } else {
+                            unreachable!()
+                        }
+                        Ok(())
+                    })
+                    .unwrap()
+                    .take(take)
+                    .count()
+            }
+
+            #[cfg(feature = "localfjall")]
+            GenericDatabase::LocalFjall { db, keyspace } => {
+                let read_tx = keyspace.read_tx();
+                let iter = read_tx.range::<&[u8], _>(db, range);
+
+                if rev {
+                    iter.rev()
+                        .take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .count()
+                } else {
+                    iter.take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .count()
+                }
+            }
+            GenericDatabase::Fjall { db, keyspace } => {
+                let read_tx = keyspace.read_tx();
+                let iter = read_tx.range::<&[u8], _>(db, range);
+
+                if rev {
+                    iter.rev()
+                        .take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .count()
+                } else {
+                    iter.take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .count()
+                }
+            }
+            GenericDatabase::Sled(db) => {
+                let iter = db.range::<&[u8], _>(range);
+
+                if rev {
+                    iter.rev()
+                        .take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .count()
+                } else {
+                    iter.take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .count()
+                }
+            }
+            GenericDatabase::Redb(db) => {
+                let tx = db.begin_read().unwrap();
+
+                let table = tx.open_table(TABLE).unwrap();
+
+                let iter = table.range::<&[u8]>(range).unwrap();
+
+                if rev {
+                    iter.rev()
+                        .map(|x| x.unwrap())
+                        .take(take)
+                        .map(|(k, v)| {
+                            sum_bytes += k.value().len() + v.value().len();
+                        })
+                        .count()
+                } else {
+                    iter.map(|x| x.unwrap())
+                        .take(take)
+                        .map(|(k, v)| {
+                            sum_bytes += k.value().len() + v.value().len();
+                        })
+                        .count()
+                }
+            }
+
+            #[cfg(feature = "heed")]
+            GenericDatabase::Heed { db, env } => {
+                let tx = env.read_txn().unwrap();
+
+                if rev {
+                    db.rev_range(&tx, &range)
+                        .unwrap()
+                        .take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .count()
+                } else {
+                    db.range(&tx, &range)
+                        .unwrap()
+                        .take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .count()
+                }
+            }
+
+            #[cfg(feature = "rocksdb")]
+            GenericDatabase::RocksDb(db) => rocksdb_range(range, rev, db)
+                .take(take)
+                .map(|(k, v)| {
+                    sum_bytes += k.len() + v.len();
+                })
+                .count(),
+
+            GenericDatabase::Canopydb(db) => {
+                let tx = db.begin_read().unwrap();
+                let tree = tx.get_tree(b"default").unwrap().unwrap();
+
+                let range = tree.range::<&[u8]>(range).unwrap();
+
+                if rev {
+                    range
+                        .rev()
+                        .take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .count()
+                } else {
+                    range
+                        .take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .count()
+                }
+            }
+        };
+
+        self.report_scan(sum_bytes as u64, start);
 
         v
     }
@@ -298,7 +556,6 @@ impl DatabaseWrapper {
                 let tx = env.read_txn().unwrap();
                 db.stat(&tx).unwrap().depth as usize
             }
-            #[cfg(feature = "canopydb")]
             GenericDatabase::Canopydb(db) => {
                 let tx = db.begin_read().unwrap();
                 let tree = tx.get_tree(b"default").unwrap().unwrap();
@@ -499,8 +756,9 @@ impl DatabaseWrapper {
                     conn.pragma_update(None, "synchronous", "NORMAL").unwrap();
                 }
 
+                // TODO: test WITHOUT ROWID to get a clustered index
                 conn.execute(
-                    "CREATE TABLE data (key BLOB NOT NULL UNIQUE, value BLOB NOT NULL)",
+                    "CREATE TABLE data (key BLOB NOT NULL UNIQUE, value BLOB NOT NULL) STRICT",
                     (),
                 )
                 .unwrap();
@@ -549,6 +807,9 @@ impl DatabaseWrapper {
                 let env = unsafe {
                     heed::EnvOpenOptions::new()
                         .map_size(128_000_000_000)
+                        // TODO: make LMDB NO_SYNC a separate option
+                        // as this isn't equivalent to fsync=false for the
+                        // other databases which treat it like "no sync commit"
                         .flags(if args.fsync {
                             EnvFlags::NO_READ_AHEAD
                         } else {
@@ -685,7 +946,6 @@ impl DatabaseWrapper {
                 GenericDatabase::LocalFjall { keyspace, db }
             }
 
-            #[cfg(feature = "canopydb")]
             Backend::Canopydb => {
                 std::fs::create_dir_all(&path).unwrap();
 
@@ -705,20 +965,23 @@ impl DatabaseWrapper {
 
         DatabaseWrapper {
             inner: db,
+            workload_real_bytes: Default::default(),
 
             write_ops: Default::default(),
             write_latency: Default::default(),
             written_bytes: Default::default(),
 
+            point_read_bytes: Default::default(),
             point_read_ops: Default::default(),
             point_read_latency: Default::default(),
 
+            range_read_bytes: Default::default(),
             range_ops: Default::default(),
             range_latency: Default::default(),
 
-            write_latency_histogram: Arc::new(Mutex::new(Histogram::new(5).unwrap())),
-            point_read_latency_histogram: Arc::new(Mutex::new(Histogram::new(5).unwrap())),
-            range_latency_histogram: Arc::new(Mutex::new(Histogram::new(5).unwrap())),
+            write_latency_histogram: Default::default(),
+            point_read_latency_histogram: Default::default(),
+            range_latency_histogram: Default::default(),
             /*
             delete_ops: Default::default(),
             deleted_bytes: Default::default(),
@@ -735,95 +998,18 @@ impl DatabaseWrapper {
         len
     } */
 
-    pub fn first(&self) -> Option<(Vec<u8>, Vec<u8>)> {
-        let start = Instant::now();
-
-        let item = match &self.inner {
-            GenericDatabase::Fjall { db, .. } => db
-                .first_key_value()
-                .unwrap()
-                .map(|(k, v)| (k.to_vec(), v.to_vec())),
-
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { db, .. } => db
-                .first_key_value()
-                .unwrap()
-                .map(|(k, v)| (k.to_vec(), v.to_vec())),
-
-            GenericDatabase::Sled(db) => db.first().unwrap().map(|(k, v)| (k.to_vec(), v.to_vec())),
-            GenericDatabase::Redb(db) => {
-                use redb::ReadableTable;
-
-                let read_txn = db.begin_read().unwrap();
-                let table = read_txn.open_table(TABLE).unwrap();
-                table
-                    .first()
-                    .unwrap()
-                    .map(|(k, v)| (k.value().to_vec(), v.value().to_vec()))
-            }
-            _ => self.range_first((Bound::Unbounded, Bound::Unbounded)),
-        };
-
-        self.report_scan(start);
-
-        item
-    }
-
-    /// NOTE: Purposefully only returns the length to avoid heap allocation
-    pub fn last_len(&self) -> Option<usize> {
-        let start = Instant::now();
-
-        let item = match &self.inner {
-            GenericDatabase::Fjall { db, .. } => {
-                let item = db.last_key_value().unwrap();
-                item.map(|(_, v)| v.len())
-            }
-
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { db, .. } => {
-                let item = db.last_key_value().unwrap();
-                item.map(|(_, v)| v.len())
-            }
-
-            GenericDatabase::Sled(db) => {
-                let item = db.last().unwrap();
-                item.map(|(_, v)| v.len())
-            }
-
-            GenericDatabase::Redb(db) => {
-                use redb::ReadableTable;
-
-                let read_txn = db.begin_read().unwrap();
-                let table = read_txn.open_table(TABLE).unwrap();
-                table.last().unwrap().map(|(_, v)| v.value().len())
-            }
-
-            #[cfg(feature = "canopydb")]
-            GenericDatabase::Canopydb(db) => {
-                let tx = db.begin_read().unwrap();
-                let tree = tx.get_tree(b"default").unwrap().unwrap();
-
-                tree.iter()
-                    .unwrap()
-                    .next_back()
-                    .transpose()
-                    .unwrap()
-                    .map(|(_, v)| v.len())
-            }
-
-            _ => unimplemented!(),
-        };
-
-        self.report_scan(start);
-        item
-    }
-
     pub fn len(&self) -> usize {
         match &self.inner {
             GenericDatabase::Fjall { db, .. } => db.inner().len().unwrap(),
 
             #[cfg(feature = "localfjall")]
             GenericDatabase::LocalFjall { db, .. } => db.inner().len().unwrap(),
+
+            GenericDatabase::Canopydb(db) => {
+                let tx = db.begin_read().unwrap();
+                let tree = tx.get_tree(b"default").unwrap().unwrap();
+                tree.len() as usize
+            }
 
             _ => unimplemented!(),
         }
@@ -844,11 +1030,7 @@ impl DatabaseWrapper {
             self.point_read_latency_histogram
                 .lock()
                 .unwrap()
-                .record(point_read_latency / 10)
-                .inspect_err(|_| {
-                    log::warn!("Point read latency value too large for histogram");
-                })
-                .ok();
+                .add(point_read_latency as f64);
         };
 
         let item = match &self.inner {
@@ -918,7 +1100,6 @@ impl DatabaseWrapper {
                 report_latency();
                 value.map(ToOwned::to_owned)
             }
-            #[cfg(feature = "canopydb")]
             GenericDatabase::Canopydb(db) => {
                 let tx = db.begin_read().unwrap();
                 let tree = tx.get_tree(b"default").unwrap().unwrap();
@@ -928,37 +1109,70 @@ impl DatabaseWrapper {
                 value.map(|x| x.to_vec())
             }
         };
+        self.point_read_bytes.fetch_add(
+            key.len() as u64 + item.as_ref().map_or(0, |v| v.len() as u64),
+            std::sync::atomic::Ordering::Relaxed,
+        );
 
         item
     }
 
+    /// Ingest a batch of items into the database.
+    /// Assumes that the keys provided are unique and are not in the database, for statistics purposes.
+    /// Some databases (e.g., Fjall) may not support ingesting items out of order.
     pub fn ingest(&self, items: impl Iterator<Item = (Vec<u8>, Vec<u8>)>) {
         let start = Instant::now();
+        let mut count = 0u64;
+        let mut last_start = start;
 
-        let mut count = 0;
-        let mut bytes_written = 0;
+        let mut on_bytes_written = |k: &[u8], v: &[u8]| {
+            count += 1;
+            let total_bytes = (k.len() + v.len()) as u64;
+            let now = Instant::now();
+            let elapsed = now.duration_since(last_start);
+            last_start = now;
+            self.write_latency.fetch_add(
+                elapsed.as_nanos() as u64,
+                std::sync::atomic::Ordering::Relaxed,
+            );
+            self.written_bytes
+                .fetch_add(total_bytes, std::sync::atomic::Ordering::Relaxed);
+            self.workload_real_bytes
+                .fetch_add(total_bytes, std::sync::atomic::Ordering::Relaxed);
+            self.write_ops
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        };
 
         match &self.inner {
             #[cfg(feature = "sqlite")]
-            GenericDatabase::Sqlite(_db) => {
-                unimplemented!();
+            GenericDatabase::Sqlite(db) => {
+                let db = db.lock().unwrap();
+                db.execute("BEGIN IMMEDIATE", []).unwrap();
+                let mut stmt = db
+                    .prepare_cached("INSERT INTO data (key, value) VALUES (?, ?)")
+                    .unwrap();
+
+                for (key, value) in items {
+                    stmt.execute(rusqlite::params![key, value]).unwrap();
+                    on_bytes_written(&key, &value);
+                }
+                db.execute("COMMIT", []).unwrap();
+
+                // NOTE: Durability is controlled by pragma in load()
             }
 
             #[cfg(feature = "rocksdb")]
             GenericDatabase::RocksDb(db) => {
                 for (key, value) in items {
                     db.put(&key, &value).unwrap();
-
-                    count += 1;
-                    bytes_written += key.len() + value.len();
+                    on_bytes_written(&key, &value);
                 }
                 db.flush_wal(true).unwrap();
             }
             GenericDatabase::Fjall { db, .. } => {
                 db.inner()
                     .ingest(items.map(|(k, v)| {
-                        count += 1;
-                        bytes_written += k.len() + v.len();
+                        on_bytes_written(&k, &v);
                         (k, v)
                     }))
                     .unwrap();
@@ -967,8 +1181,7 @@ impl DatabaseWrapper {
             GenericDatabase::LocalFjall { db, .. } => {
                 db.inner()
                     .ingest(items.map(|(k, v)| {
-                        count += 1;
-                        bytes_written += k.len() + v.len();
+                        on_bytes_written(key.len() + value.len());
                         (k, v)
                     }))
                     .unwrap();
@@ -976,9 +1189,7 @@ impl DatabaseWrapper {
             GenericDatabase::Sled(db) => {
                 for (key, value) in items {
                     db.insert(&key, &*value).unwrap();
-
-                    count += 1;
-                    bytes_written += key.len() + value.len();
+                    on_bytes_written(&key, &value);
                 }
                 db.flush().unwrap();
             }
@@ -989,9 +1200,7 @@ impl DatabaseWrapper {
 
                     for (key, value) in items {
                         table.insert(&*key, &*value).unwrap();
-
-                        count += 1;
-                        bytes_written += key.len() + value.len();
+                        on_bytes_written(&key, &value);
                     }
                 }
                 write_txn.commit().unwrap();
@@ -1003,14 +1212,11 @@ impl DatabaseWrapper {
                     for (key, value) in items {
                         db.put_with_flags(&mut write_txn, heed::PutFlags::APPEND, &key, &value)
                             .unwrap();
-
-                        count += 1;
-                        bytes_written += key.len() + value.len();
+                        on_bytes_written(&key, &value);
                     }
                 }
                 write_txn.commit().unwrap();
             }
-            #[cfg(feature = "canopydb")]
             GenericDatabase::Canopydb(db) => {
                 let write_txn = db.begin_write().unwrap();
                 {
@@ -1018,30 +1224,17 @@ impl DatabaseWrapper {
 
                     for (key, value) in items {
                         tree.insert(&key, &value).unwrap();
-
-                        count += 1;
-                        bytes_written += key.len() + value.len();
+                        on_bytes_written(&key, &value);
                     }
                 }
                 write_txn.commit().unwrap();
             }
         }
 
-        self.write_latency.fetch_add(
-            start.elapsed().as_nanos() as u64,
-            std::sync::atomic::Ordering::Relaxed,
-        );
-
-        self.write_ops
-            .fetch_add(count, std::sync::atomic::Ordering::Relaxed);
-
-        self.written_bytes
-            .fetch_add(bytes_written as u64, std::sync::atomic::Ordering::Relaxed);
-
         log::info!("Ingested {count} initial items in {:?}", start.elapsed());
     }
 
-    pub fn insert(&self, key: &[u8], value: &[u8], durable: bool) {
+    pub fn insert(&self, key: &[u8], value: &[u8], durable: bool, increment_workload_size: bool) {
         let start = Instant::now();
 
         match &self.inner {
@@ -1056,6 +1249,7 @@ impl DatabaseWrapper {
             }
 
             GenericDatabase::Fjall { keyspace, db } => {
+                // TODO: add option to write through transactions
                 db.insert(key, value).unwrap();
 
                 keyspace
@@ -1108,10 +1302,10 @@ impl DatabaseWrapper {
             }
             #[cfg(feature = "rocksdb")]
             GenericDatabase::RocksDb(db) => {
+                // TODO: add option to write through transactions
                 db.put(key, value).unwrap();
                 db.flush_wal(durable).unwrap();
             }
-            #[cfg(feature = "canopydb")]
             GenericDatabase::Canopydb(db) => {
                 let write_txn = db.begin_write().unwrap();
                 {
@@ -1138,15 +1332,19 @@ impl DatabaseWrapper {
         self.write_latency_histogram
             .lock()
             .unwrap()
-            .record(written_latency / 10)
-            .inspect_err(|_| {
-                log::warn!("Write latency value too large for histogram");
-            })
-            .ok();
+            .add(written_latency as f64);
+
+        if increment_workload_size {
+            self.workload_real_bytes.fetch_add(
+                (key.len() + value.len()) as u64,
+                std::sync::atomic::Ordering::Relaxed,
+            );
+        }
     }
 
-    // TODO:
-    pub fn remove_unique(&self, key: &[u8], durable: bool) {
+    // TODO: this should probably be a configurable option `use_remove_unique` and then all workloads use
+    // the plain remove function. This way workloads can test both kinds.
+    pub fn remove_unique(&self, key: &[u8], durable: bool, decrement_workload_size: Option<u64>) {
         match &self.inner {
             #[cfg(feature = "localfjall")]
             GenericDatabase::LocalFjall { keyspace, db } => {
@@ -1161,23 +1359,30 @@ impl DatabaseWrapper {
                         local_fjall::PersistMode::Buffer
                     })
                     .unwrap();
+                if let Some(decrement_workload_size) = decrement_workload_size {
+                    self.workload_real_bytes.fetch_sub(
+                        decrement_workload_size,
+                        std::sync::atomic::Ordering::Relaxed,
+                    );
+                }
             }
             _ => {
-                self.remove(key, durable);
+                self.remove(key, durable, decrement_workload_size);
             }
         }
     }
 
-    pub fn remove(&self, key: &[u8], durable: bool) {
+    pub fn remove(&self, key: &[u8], durable: bool, decrement_workload_size: Option<u64>) {
         let _start = Instant::now();
 
         match &self.inner {
             #[cfg(feature = "sqlite")]
-            GenericDatabase::Sqlite(db) => {
+            GenericDatabase::Sqlite(_db) => {
                 unimplemented!()
             }
 
             GenericDatabase::Fjall { keyspace, db } => {
+                // TODO: add option to remove through transactions
                 db.remove(key).unwrap();
 
                 keyspace
@@ -1230,18 +1435,25 @@ impl DatabaseWrapper {
             }
             #[cfg(feature = "rocksdb")]
             GenericDatabase::RocksDb(db) => {
+                // TODO: add option to write through transactions
                 db.delete(key).unwrap();
                 db.flush_wal(durable).unwrap();
             }
-            #[cfg(feature = "canopydb")]
             GenericDatabase::Canopydb(db) => {
                 let write_txn = db.begin_write().unwrap();
                 {
                     let mut tree = write_txn.get_tree(b"default").unwrap().unwrap();
                     tree.delete(key).unwrap();
                 }
-                write_txn.commit().unwrap();
+                write_txn.commit_with(durable).unwrap();
             }
+        }
+
+        if let Some(decrement_workload_size) = decrement_workload_size {
+            self.workload_real_bytes.fetch_sub(
+                decrement_workload_size,
+                std::sync::atomic::Ordering::Relaxed,
+            );
         }
 
         // TODO: latency
@@ -1264,9 +1476,101 @@ impl DatabaseWrapper {
     }
 }
 
+#[cfg(feature = "rocksdb")]
+fn rocksdb_range<'a>(
+    range: (Bound<&'a [u8]>, Bound<&'a [u8]>),
+    rev: bool,
+    db: &'a rocksdb::OptimisticTransactionDB,
+) -> impl Iterator<Item = (Box<[u8]>, Box<[u8]>)> + 'a {
+    let (start, end) = if rev {
+        (range.1, range.0)
+    } else {
+        (range.0, range.1)
+    };
+    let it_mode = match start {
+        Bound::Included(x) | Bound::Excluded(x) => rocksdb::IteratorMode::From(
+            x,
+            if rev {
+                rocksdb::Direction::Reverse
+            } else {
+                rocksdb::Direction::Forward
+            },
+        ),
+        Bound::Unbounded if rev => rocksdb::IteratorMode::End,
+        Bound::Unbounded => rocksdb::IteratorMode::Start,
+    };
+    db.iterator(it_mode)
+        .map(|kv| kv.unwrap())
+        .enumerate()
+        .filter(move |(i, (k, _v))| {
+            if *i != 0 {
+                return true;
+            }
+            // skip the first element if it's an excluded start
+            if let Bound::Excluded(x) = start {
+                if rev {
+                    &k[..] < x
+                } else {
+                    &k[..] > x
+                }
+            } else {
+                true
+            }
+        })
+        .take_while(move |(_, (k, _v))| match end {
+            Bound::Included(x) => {
+                if rev {
+                    &k[..] >= x
+                } else {
+                    &k[..] <= x
+                }
+            }
+            Bound::Excluded(x) => {
+                if rev {
+                    &k[..] > x
+                } else {
+                    &k[..] < x
+                }
+            }
+            Bound::Unbounded => true,
+        })
+        .map(|(_, (k, v))| (k, v))
+}
+
+#[cfg(feature = "sqlite")]
+fn sqlite_range<'a>(
+    range: (Bound<&'a [u8]>, Bound<&'a [u8]>),
+    rev: bool,
+) -> (String, Vec<&'a [u8]>) {
+    let where_clause: &str = match range {
+        (Bound::Included(_), Bound::Included(_)) => "WHERE key >= ?1 AND key <= ?2",
+        (Bound::Included(_), Bound::Excluded(_)) => "WHERE key >= ?1 AND key < ?2",
+        (Bound::Excluded(_), Bound::Included(_)) => "WHERE key > ?1 AND key <= ?2",
+        (Bound::Excluded(_), Bound::Excluded(_)) => "WHERE key > ?1 AND key < ?2",
+        (Bound::Unbounded, Bound::Included(_)) => "WHERE key <= ?1",
+        (Bound::Included(_), Bound::Unbounded) => "WHERE key >= ?1",
+        (Bound::Unbounded, Bound::Excluded(_)) => "WHERE key < ?1",
+        (Bound::Excluded(_), Bound::Unbounded) => "WHERE key > ?1",
+        (Bound::Unbounded, Bound::Unbounded) => "",
+    };
+    let stmt = if rev {
+        format!("SELECT key, value FROM data {where_clause} ORDER BY key DESC")
+    } else {
+        format!("SELECT key, value FROM data {where_clause} ORDER BY key")
+    };
+    let mut params = Vec::with_capacity(2);
+    if let Bound::Included(x) | Bound::Excluded(x) = range.0 {
+        params.push(x);
+    }
+    if let Bound::Included(x) | Bound::Excluded(x) = range.1 {
+        params.push(x);
+    }
+    (stmt, params)
+}
+
 /// Returns the upper bound of a prefix, or None
 /// if the range must be scanned from prefix until the end.
-pub fn get_upper_bound(prefix: &[u8]) -> Option<Vec<u8>> {
+fn get_upper_bound(prefix: &[u8]) -> Option<Vec<u8>> {
     let mut end = prefix.to_vec();
     let len = end.len();
 
