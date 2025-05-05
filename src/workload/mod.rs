@@ -2,6 +2,7 @@
 // mod monotonic;
 // mod monotonic_fixed;
 // mod read_write;
+mod queue;
 mod ycsb;
 
 use crate::{
@@ -106,16 +107,17 @@ pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<Atomi
 
             match ycsb_opts.r#type {
                 A => {
-                    ycsb::a::run(args, &ycsb_opts, &db, finish_signal);
+                    ycsb::a::run(args, ycsb_opts, &db, finish_signal);
                 }
                 B => {
-                    ycsb::b::run(args, &ycsb_opts, &db, finish_signal);
+                    ycsb::b::run(args, ycsb_opts, &db, finish_signal);
                 }
                 C => {
-                    ycsb::c::run(args, &ycsb_opts, &db, finish_signal);
+                    ycsb::c::run(args, ycsb_opts, &db, finish_signal);
                 }
             }
         }
+        Workload::Queue(opts) => queue::run(args, opts, &db, finish_signal),
     }
 
     /* match args.workload {
@@ -279,73 +281,6 @@ pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<Atomi
                     let end_exclusive = std::ops::Bound::Excluded(&last_key_bytes[..]);
                     let len = db.range_len((std::ops::Bound::Unbounded, end_exclusive), true, 1000);
                     assert_eq!(len, written_count.min(1000) as usize);
-                }
-            });
-
-            start_killer(args.seconds, finish_signal);
-        }
-        Workload::Queue | Workload::QueueIndependent => {
-            let with_backpressure = matches!(args.workload, Workload::Queue);
-            let mutex = Arc::new(std::sync::Mutex::new(()));
-            let condvar = Arc::new(std::sync::Condvar::new());
-            let pending_writes = Arc::new(AtomicU64::new(0));
-            let max_pending = 1_000;
-
-            std::thread::spawn({
-                log::debug!("Starting writer");
-                let db = db.clone();
-                let mut buf = vec![0; args.value_size as usize];
-                let condvar = condvar.clone();
-                let pending_writes = pending_writes.clone();
-                let mutex = mutex.clone();
-
-                move || {
-                    let mut rng = rand::thread_rng();
-                    // Note how we're starting at 1 instead of 0
-                    for seqno in 1u128.. {
-                        rng.fill_bytes(&mut buf);
-                        db.insert(&seqno.to_be_bytes(), &buf, fsync, true);
-                        if pending_writes.fetch_add(1, Ordering::Relaxed) >= max_pending
-                            && with_backpressure
-                        {
-                            // Wait for the consumer to consume one
-                            let _guard = condvar.wait(mutex.lock().unwrap()).unwrap();
-                        } else {
-                            // Notify the consumer that we wrote one
-                            condvar.notify_one();
-                        }
-                    }
-                }
-            });
-
-            let value_size = args.value_size;
-            let decrement_workload_size = Some((16 + value_size) as u64);
-
-            std::thread::spawn({
-                log::debug!("Starting reader");
-                let db = db.clone();
-
-                move || {
-                    let mut last_key = 0u128;
-                    loop {
-                        let last_key_bytes = last_key.to_be_bytes();
-                        let start_exclusive = std::ops::Bound::Excluded(&last_key_bytes[..]);
-                        if let Some((key, _)) =
-                            db.range_first((start_exclusive, std::ops::Bound::Unbounded))
-                        {
-                            last_key = u128::from_be_bytes(key[..].try_into().unwrap());
-                            db.remove_unique(&key, fsync, decrement_workload_size);
-                            if pending_writes.fetch_sub(1, Ordering::Relaxed) >= max_pending
-                                && with_backpressure
-                            {
-                                // Notify the writer that we consumed one
-                                condvar.notify_one();
-                            }
-                        } else {
-                            // Wait for the writer to write one
-                            let _guard = condvar.wait(mutex.lock().unwrap()).unwrap();
-                        }
-                    }
                 }
             });
 

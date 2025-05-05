@@ -2,16 +2,16 @@
 
 let prefix = "queue";
 let data_dir = ".data";
-let seconds = 3 * 60;
+let seconds = 1 * 60;
 let cache_mib = 16 * 1_024 * 1_024;
 let value_size = 128;
 
 alias bench = cargo run -r --
 
-for db in ["local-fjall", "fjall", "redb", "sled"] {
+for db in ["fjall", "redb", "sled"] {
     let out = $"($prefix)_($db).jsonl";
     print $out;
-    RUST_BACKTRACE=full RUST_LOG=warn bench run --seconds $seconds --out $out --workload queue --value-size $value_size --backend $db --data-dir $data_dir --item-count 100 --cache-size $cache_mib
+    RUST_BACKTRACE=full RUST_LOG=warn bench run --seconds $seconds --out $out --backend $db --data-dir $data_dir --cache-size $cache_mib queue --backpressure --value-size $value_size
     sleep 500ms
 }
 

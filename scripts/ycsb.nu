@@ -4,7 +4,7 @@
 # CONFIG
 #
 
-let prefix = "ycsb_"
+let prefix = "ycsb"
 let data_dir = ".data"
 let seconds = 1 * 15
 let cache_mib = 1

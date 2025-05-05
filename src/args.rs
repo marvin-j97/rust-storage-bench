@@ -176,9 +176,25 @@ pub struct YcsbOptions {
     pub read_random: bool,
 }
 
+#[derive(Parser, Clone, Debug, Serialize)]
+pub struct QueueOptions {
+    #[arg(long, default_value_t = true)]
+    pub backpressure: bool,
+
+    #[arg(long, default_value_t = 1_000)]
+    pub max_pending: u64,
+
+    #[arg(long, value_enum, default_value_t = Corpus::Random)]
+    pub corpus: Corpus,
+
+    #[arg(long, default_value_t = 200)]
+    pub value_size: u32,
+}
+
 #[derive(Clone, Debug, Subcommand, Serialize)]
 pub enum Workload {
     Ycsb(YcsbOptions),
+    Queue(QueueOptions),
 }
 
 #[derive(Clone, Subcommand, Debug, Serialize)]
