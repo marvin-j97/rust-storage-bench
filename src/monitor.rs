@@ -227,6 +227,7 @@ pub fn start_monitor(
                 prev_write_ops = write_ops;
                 prev_point_read_ops = point_read_ops;
                 prev_range_ops = range_ops;
+                prev_delete_ops = delete_ops;
             }
 
             log::debug!("its joever");
