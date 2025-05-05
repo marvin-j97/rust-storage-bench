@@ -1,24 +1,31 @@
 use super::super::start_killer;
-use crate::args::RunOptions;
+use crate::args::{CommonRunOptions, YcsbOptions};
 use crate::db::DatabaseWrapper;
 use rand::{Rng, RngCore};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use zipf::ZipfDistribution;
 
-pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBool>) {
-    let item_count = args.item_count as u64;
-
+pub fn run(
+    common_args: &CommonRunOptions,
+    ycsb_opts: &YcsbOptions,
+    db: &DatabaseWrapper,
+    finish_signal: Arc<AtomicBool>,
+) {
+    let item_count = ycsb_opts.item_count as u64;
     assert!(item_count > 0);
 
     {
         log::debug!("Pre-writing {item_count} items");
         let mut rng = rand::thread_rng();
-        let mut buf = vec![0; args.value_size as usize];
+        let mut buf = vec![0; ycsb_opts.value_size as usize];
 
         let iter = (0..(item_count as u128)).map(|x| {
             rng.fill_bytes(&mut buf);
-            (x.to_be_bytes().to_vec(), buf.to_vec())
+            (x.to_be_bytes().to_vec(), {
+                ycsb_opts.corpus.fetch(&mut rng, &mut buf);
+                buf.to_vec()
+            })
         });
 
         db.ingest(iter);
@@ -29,8 +36,8 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
         .spawn({
             log::debug!("Starting reader");
             let db = db.clone();
-            let random = args.read_random;
-            let exponent = args.zipf_exponent;
+            let random = ycsb_opts.read_random;
+            let exponent = ycsb_opts.zipf_exponent;
 
             move || {
                 use rand::prelude::Distribution;
@@ -51,7 +58,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
         })
         .unwrap();
 
-    start_killer(args.seconds, finish_signal);
+    start_killer(common_args.seconds, finish_signal);
 
     worker.join().unwrap();
 }

@@ -6,7 +6,7 @@ mod workload;
 
 use args::Args;
 use clap::Parser;
-use db::DatabaseWrapper;
+use db::{Backend, DatabaseBuilder};
 use monitor::start_monitor;
 use std::io::Write;
 use std::sync::atomic::AtomicBool;
@@ -80,7 +80,13 @@ pub fn main() -> std::io::Result<()> {
             log::info!("Writing finished report to {:?}", args.out);
             std::fs::write(args.out, html).unwrap();
         }
-        args::Commands::Run(mut args) => {
+        args::Commands::Run(mut cmd) => {
+            let args = &mut cmd.args;
+
+            if args.fsync && args.backend == Backend::Sled {
+                panic!("Sled does not support proper synchronous writes: https://github.com/spacejam/sled/issues/1351");
+            }
+
             if args.display_name.is_none() {
                 args.display_name = Some(args.backend.to_string());
             }
@@ -91,11 +97,15 @@ pub fn main() -> std::io::Result<()> {
                 std::fs::remove_dir_all(&data_dir).unwrap();
             }
 
-            let out_path = args
-                .out
-                .as_ref()
-                .cloned()
-                .unwrap_or_else(|| format!("{}.jsonl", scru128::new_string()).into());
+            let out_path = std::path::absolute(
+                args.out
+                    .as_ref()
+                    .cloned()
+                    .unwrap_or_else(|| format!("{}.jsonl", scru128::new_string()).into()),
+            )
+            .unwrap();
+
+            log::info!("Outputting to {out_path:?}");
 
             if out_path.try_exists()? {
                 log::warn!("{out_path:?} already exists");
@@ -154,6 +164,8 @@ pub fn main() -> std::io::Result<()> {
             {
                 log::debug!("Args: {}", serde_json::to_string_pretty(&args).unwrap());
 
+                let mut args = serde_json::to_value(&args).unwrap();
+                args["cmd"] = std::env::args().collect::<Vec<String>>().into();
                 let json = serde_json::to_string(&args).unwrap();
                 writeln!(&mut file_writer, "{json}").unwrap();
             }
@@ -211,7 +223,7 @@ pub fn main() -> std::io::Result<()> {
                 writeln!(&mut file_writer, "{json}").unwrap();
             }
 
-            let db = DatabaseWrapper::load(&data_dir, &args);
+            let db = DatabaseBuilder::build(&data_dir, args);
 
             let finished = Arc::new(AtomicBool::default());
 
@@ -224,7 +236,7 @@ pub fn main() -> std::io::Result<()> {
                 finished.clone(),
             );
 
-            run_workload(db, &args, finished.clone());
+            run_workload(db, &cmd, finished.clone());
 
             monitor.join().unwrap();
         }

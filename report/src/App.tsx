@@ -332,27 +332,7 @@ function App() {
 					<For each={setups()}>
 						{(series) => (
 							<div>
-								{/* TODO: --out */}
-								cargo run -r -- run{" "}
-								{Object.entries(series.args)
-									.filter(
-										([_, value]) =>
-											typeof value === "string" ||
-											typeof value === "number" ||
-											(typeof value === "boolean" && value),
-									)
-									.map(([key, value]) => {
-										const kekabKey = key.replace(/_/g, "-");
-
-										if (typeof value === "boolean") {
-											return [`--${kekabKey}`].join(" ");
-										}
-										if (typeof value === "number") {
-											return [`--${kekabKey}`, `${value}`].join(" ");
-										}
-										return [`--${kekabKey}`, `"${value}"`].join(" ");
-									})
-									.join(" ")}
+								{series.args.cmd.join(" ")}
 							</div>
 						)}
 					</For>

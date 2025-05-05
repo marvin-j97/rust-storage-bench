@@ -1,26 +1,33 @@
 use super::super::start_killer;
-use crate::args::RunOptions;
+use crate::args::{CommonRunOptions, YcsbOptions};
 use crate::db::DatabaseWrapper;
-use rand::{Rng, RngCore};
+use rand::Rng;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use zipf::ZipfDistribution;
 
-pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBool>) {
-    let fsync = args.fsync;
-    let exponent = args.zipf_exponent;
-    let item_count = args.item_count as u64;
+const POINT_READ_CHANCE: f32 = 0.5;
 
+pub fn run(
+    common_args: &CommonRunOptions,
+    ycsb_opts: &YcsbOptions,
+    db: &DatabaseWrapper,
+    finish_signal: Arc<AtomicBool>,
+) {
+    let item_count = ycsb_opts.item_count as u64;
     assert!(item_count > 0);
+
+    let mut buf = vec![0; ycsb_opts.value_size as usize];
 
     {
         log::debug!("Pre-writing {item_count} items");
         let mut rng = rand::thread_rng();
-        let mut buf = vec![0; args.value_size as usize];
 
         let iter = (0..(item_count as u128)).map(|x| {
-            rng.fill_bytes(&mut buf);
-            (x.to_be_bytes().to_vec(), buf.to_vec())
+            (x.to_be_bytes().to_vec(), {
+                ycsb_opts.corpus.fetch(&mut rng, &mut buf);
+                buf.to_vec()
+            })
         });
 
         db.ingest(iter);
@@ -29,8 +36,10 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
     let worker = std::thread::spawn({
         log::debug!("Starting reader");
         let db = db.clone();
-        let random = args.read_random;
-        let mut buf = vec![0; args.value_size as usize];
+        let random = ycsb_opts.read_random;
+        let exponent = ycsb_opts.zipf_exponent;
+        let corpus = ycsb_opts.corpus;
+        let fsync = common_args.fsync;
 
         move || {
             use rand::prelude::Distribution;
@@ -40,7 +49,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
 
             loop {
                 match rng.gen_range(0.0..1.0) {
-                    x if x >= 0.5 => {
+                    x if x <= POINT_READ_CHANCE => {
                         let x: u128 = if random {
                             rng.gen_range(0..item_count as u128)
                         } else {
@@ -56,7 +65,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
                             (zipf.sample(&mut rng) - 1) as u128
                         };
 
-                        rng.fill_bytes(&mut buf);
+                        corpus.fetch(&mut rng, &mut buf);
                         db.insert(&x.to_be_bytes(), &buf, fsync, false);
                     }
                 }
@@ -64,7 +73,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBoo
         }
     });
 
-    start_killer(args.seconds, finish_signal);
+    start_killer(common_args.seconds, finish_signal);
 
     worker.join().unwrap();
 }

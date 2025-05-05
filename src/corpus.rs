@@ -25,7 +25,6 @@ impl Corpus {
 
                 v.copy_from_slice(json_corpus.get(start..start + take).unwrap().as_bytes());
             }
-            _ => unimplemented!(),
         }
     }
 }

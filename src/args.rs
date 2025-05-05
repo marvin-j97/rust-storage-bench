@@ -1,6 +1,6 @@
-use crate::workload::Workload;
+// use crate::workload::Workload;
 use crate::{corpus::Corpus, db::Backend};
-use clap::{Parser, Subcommand};
+use clap::{Args as ClapArgs, Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -19,6 +19,12 @@ pub enum LsmCompaction {
     Tiered,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, clap::ValueEnum, Serialize, Deserialize)]
+pub enum Compression {
+    None,
+    Lz4,
+}
+
 impl std::fmt::Display for LsmCompaction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -34,65 +40,62 @@ impl std::fmt::Display for LsmCompaction {
 
 #[derive(Parser, Clone, Debug, Serialize)]
 #[clap(rename_all = "kebab_case")]
-pub struct RunOptions {
-    #[arg(long, value_enum, default_value_t = Corpus::Random)]
-    pub corpus: Corpus,
+pub struct CommonRunOptions {
+    /// Granularity in milliseconds with which to poll metrics
+    #[arg(long, alias = "granularity", default_value_t = 500)]
+    pub granularity_ms: u16,
 
+    /// Database to use
     #[arg(long, value_enum)]
     pub backend: Backend,
 
+    /// Where to store temporary database
     #[arg(long)]
     pub data_dir: PathBuf,
 
+    /// Where to store result jsonl file
     #[arg(long)]
     pub out: Option<PathBuf>,
 
+    /// Display name
+    ///
+    /// The default is the DB name + version
     #[arg(long)]
     pub display_name: Option<String>,
 
-    #[arg(long, value_enum)]
-    pub workload: Workload,
-
+    /// How many seconds to run the workload for
     #[arg(long, default_value_t = 60)]
     pub seconds: u16,
 
-    #[arg(long, alias = "granularity", default_value_t = 500)]
-    pub granularity_ms: u16,
+    /// Use immediately durable writes (synchronous writes)
+    #[arg(long, alias = "sync", default_value_t = false)]
+    pub fsync: bool,
 
     #[arg(long, default_value_t = 512_000_000)] // 512 MB
     pub cache_size: u64,
 
-    /// Use durable writes
-    #[arg(long, alias = "sync", default_value_t = false)]
-    pub fsync: bool,
+    /// Compression to use, if supported
+    #[arg(long, value_enum, default_value_t = Compression::Lz4)]
+    pub compression: Compression,
 
-    #[arg(long, default_value_t = 1_000_000)]
-    pub item_count: usize,
-
+    /// Compaction for LSM-trees
+    #[arg(long, value_enum, default_value_t = LsmCompaction::Leveled)]
+    pub lsm_compaction: LsmCompaction,
+    /*
     /// Number of threads to use. Not applicable to all workloads
     #[arg(long, default_value_t = 1)]
     pub threads: usize,
 
-    #[arg(long)]
-    pub value_size: u32,
-
-    #[arg(long, default_value_t = 0.9)]
-    pub zipf_exponent: f64,
-
     /// Whether to use random or monotonic keys. Not applicable to all workloads
     #[arg(long, default_value_t = false)]
     pub write_random: bool,
-
-    /// Whether to use random or Zipfian read distribution. Not applicable to all workloads
-    #[arg(long, default_value_t = false)]
-    pub read_random: bool,
 
     #[arg(long, default_value_t = false)]
     pub warmup_cache: bool,
 
     /// Compaction for LSM-trees
     #[arg(long, value_enum, default_value_t = LsmCompaction::Leveled)]
-    pub lsm_compaction: LsmCompaction,
+    pub lsm_compaction: LsmCompaction, */
     // #[arg(long)]
     // pub key_size: u8,
 
@@ -103,10 +106,6 @@ pub struct RunOptions {
     // /// Block size for LSM-trees
     // #[arg(long, default_value_t = 4_096)]
     // pub lsm_block_size: u16,
-
-    // /// Compression for LSM-trees
-    // #[arg(long, value_enum, default_value_t = Compression::Lz4)]
-    // pub lsm_compression: Compression,
 
     // /// Intermittenly flush sled to keep memory usage sane
     // /// This is hopefully a temporary workaround
@@ -121,12 +120,69 @@ pub struct ReportOptions {
     pub files: Vec<PathBuf>,
 
     /// Output file
-    #[arg(short = 'o', long = "out", default_value = "out.html")]
+    #[arg(short = 'o', long = "out", default_value = "report.html")]
     pub out: PathBuf,
+}
+
+#[derive(Clone, Debug, ClapArgs, Serialize)]
+pub struct RunArgs {
+    #[command(flatten)]
+    pub args: CommonRunOptions,
+
+    #[command(subcommand)]
+    pub workload: Workload,
+}
+
+#[derive(Copy, Eq, PartialEq, Debug, Clone, ValueEnum, Serialize, Deserialize)]
+pub enum YcsbType {
+    A,
+    B,
+    C,
+}
+
+impl std::fmt::Display for YcsbType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::A => "Ycsb A",
+                Self::B => "Ycsb B",
+                Self::C => "Ycsb C",
+            }
+        )
+    }
+}
+
+#[derive(Parser, Clone, Debug, Serialize)]
+pub struct YcsbOptions {
+    #[arg(long = "type")]
+    pub r#type: YcsbType,
+
+    #[arg(long, value_enum, default_value_t = Corpus::Random)]
+    pub corpus: Corpus,
+
+    #[arg(long, default_value_t = 1_000_000)]
+    pub item_count: usize,
+
+    #[arg(long, default_value_t = 1.0)]
+    pub zipf_exponent: f64,
+
+    #[arg(long, default_value_t = 200)]
+    pub value_size: u32,
+
+    /// Whether to use random or Zipfian read distribution. Not applicable to all workloads
+    #[arg(long, default_value_t = false)]
+    pub read_random: bool,
+}
+
+#[derive(Clone, Debug, Subcommand, Serialize)]
+pub enum Workload {
+    Ycsb(YcsbOptions),
 }
 
 #[derive(Clone, Subcommand, Debug, Serialize)]
 pub enum Commands {
-    Run(RunOptions),
+    Run(RunArgs),
     Report(ReportOptions),
 }

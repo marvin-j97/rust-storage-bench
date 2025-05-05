@@ -1,4 +1,4 @@
-use crate::{args::RunOptions, db::DatabaseWrapper, unix_timestamp};
+use crate::{args::CommonRunOptions, db::DatabaseWrapper, unix_timestamp};
 use std::{
     fs::File,
     io::{BufWriter, Write},
@@ -17,7 +17,7 @@ pub fn start_monitor(
     data_dir: PathBuf,
     mut sys: System,
     db: DatabaseWrapper,
-    args: RunOptions,
+    args: CommonRunOptions,
     finish_signal: Arc<AtomicBool>,
 ) -> JoinHandle<()> {
     let mut prev_write_ops = 0;
@@ -275,6 +275,7 @@ pub fn start_monitor(
                 .unwrap();
             }
 
+            file_writer.flush().unwrap();
             file_writer.into_inner().unwrap().sync_all().unwrap();
 
             std::process::exit(0);

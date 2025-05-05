@@ -1,17 +1,18 @@
-mod feed;
-mod monotonic;
-mod monotonic_fixed;
-mod read_write;
+// mod feed;
+// mod monotonic;
+// mod monotonic_fixed;
+// mod read_write;
 mod ycsb;
 
-use crate::{args::RunOptions, db::DatabaseWrapper};
-use clap::ValueEnum;
-use rand::{prelude::Distribution, Rng, RngCore};
-use serde::Serialize;
+use crate::{
+    args::{RunArgs, Workload},
+    db::DatabaseWrapper,
+};
+use rand::{prelude::Distribution, Rng};
 use std::{
     hash::Hasher,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, Ordering},
         Arc,
     },
     time::Duration,
@@ -24,7 +25,7 @@ fn start_killer(sec: u16, signal: Arc<AtomicBool>) {
     signal.store(true, Ordering::Relaxed);
 }
 
-// TODO: add more workloads
+/* // TODO: add more workloads
 #[derive(Copy, Debug, Clone, ValueEnum, Serialize, PartialEq, Eq)]
 #[clap(rename_all = "kebab_case")]
 pub enum Workload {
@@ -92,14 +93,32 @@ pub enum Workload {
 
     /// Queue workload with 2 independent producer and consumer threads running in parallel.
     QueueIndependent,
-}
+} */
 
-pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<AtomicBool>) {
-    log::info!("Starting workload {:?}", args.workload);
+pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<AtomicBool>) {
+    let args = &cmd.args;
 
-    let fsync = args.fsync;
+    log::info!("Starting workload {:?}", cmd.workload);
 
-    match args.workload {
+    match &cmd.workload {
+        Workload::Ycsb(ycsb_opts) => {
+            use crate::args::YcsbType::{A, B, C};
+
+            match ycsb_opts.r#type {
+                A => {
+                    ycsb::a::run(args, &ycsb_opts, &db, finish_signal);
+                }
+                B => {
+                    ycsb::b::run(args, &ycsb_opts, &db, finish_signal);
+                }
+                C => {
+                    ycsb::c::run(args, &ycsb_opts, &db, finish_signal);
+                }
+            }
+        }
+    }
+
+    /* match args.workload {
         /* Workload::FullScan => {
             println!("Ingesting data");
 
@@ -378,7 +397,7 @@ pub fn run_workload(db: DatabaseWrapper, args: &RunOptions, finish_signal: Arc<A
         Workload::ReadWrite => {
             read_write::run(args, &db, finish_signal);
         }
-    };
+    }; */
 }
 
 /// Hash a key using the default hasher.

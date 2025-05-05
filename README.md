@@ -2,10 +2,10 @@
 
 Benchmarking Rust storage engines:
 
+- canopydb Ω (https://github.com/arthurprs/canopydb)
 - fjall Δ ★ (https://github.com/fjall-rs/fjall)
 - redb Ω ★ (https://www.redb.org)
 - sled Ψ (https://sled.rs)
-- canopydb Ω (https://github.com/arthurprs/canopydb)
 
 ---
 
@@ -19,12 +19,13 @@ Benchmarking Rust storage engines:
 Build before:
 
 ```bash
-nu build.nu
+nu scripts/build.nu
 ```
 
 Then run benchmarks and create HTML report:
 
-```bash
+<!-- TODO: redo this -->
+<!-- ```bash
 alias bench="cargo run -r --"
 bench run --backend fjall --seconds 60 --value-size 100 --data-dir=.data --workload random --out stats.jsonl
 bench run --backend redb --seconds 60 --value-size 100 --data-dir=.data --workload random --out stats2.jsonl
@@ -32,12 +33,12 @@ bench run --backend sled --seconds 60 --value-size 100 --data-dir=.data --worklo
 bench run --backend canopydb --seconds 60 --value-size 100 --data-dir=.data --workload random --out stats4.jsonl
 bench report --out report.html stats.jsonl stats2.jsonl stats3.jsonl stats4.jsonl
 open report.html
-```
+``` -->
 
-Run YCSB-like benchmarks:
+Run YCSB-like benchmarks (look in the `scripts/ycsb.nu` file for some configuration):
 
 ```bash
-systemd-run --scope -p MemoryLimit=2G nu ycsb.nu
+systemd-run --scope -p MemoryLimit=2G nu scripts/ycsb.nu
 ```
 
 ## Testing other storage engines
