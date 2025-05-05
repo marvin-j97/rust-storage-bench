@@ -405,11 +405,15 @@ impl DatabaseWrapper {
         }
     }
 
-    pub fn time_compacting(&self) -> u64 {
+    pub fn time_compacting_us(&self) -> u64 {
         match &self.inner {
-            GenericDatabase::Fjall { keyspace, .. } => keyspace.inner().time_compacting(),
+            GenericDatabase::Fjall { keyspace, .. } => {
+                keyspace.inner().time_compacting().as_micros() as u64
+            }
             #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { keyspace, .. } => keyspace.inner().time_compacting(),
+            GenericDatabase::LocalFjall { keyspace, .. } => {
+                keyspace.inner().time_compacting().as_micros() as u64
+            }
             _ => 0,
         }
     }

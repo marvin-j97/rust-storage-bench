@@ -126,8 +126,9 @@ pub fn start_monitor(
                 };
 
                 let l0_avg_segment_lifetime_ms = {
-                    let now = unix_timestamp().as_micros() as u64;
+                    let now = unix_timestamp().as_micros();
                     let l0_avg_creation_date = db.avg_l0_segment_creation_date_us();
+
                     if l0_avg_creation_date == 0 {
                         0
                     } else {
@@ -156,7 +157,7 @@ pub fn start_monitor(
                     db.tree_height(),
                     db.fragmented_bytes(),
                     db.active_compactions(),
-                    db.time_compacting(),
+                    db.time_compacting_us(),
                     db.l0_runs(),
                     l0_avg_segment_lifetime_ms,
                     //

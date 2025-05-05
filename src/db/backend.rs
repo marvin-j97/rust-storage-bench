@@ -53,7 +53,7 @@ impl std::fmt::Display for Backend {
 
                 Self::Sled => "sled 0.34.7",
 
-                Self::Fjall => "fjall 2.8.0",
+                Self::Fjall => "fjall 2.10.0",
 
                 #[cfg(feature = "localfjall")]
                 Self::LocalFjall => "fjall nightly",
