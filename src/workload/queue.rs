@@ -48,6 +48,7 @@ pub fn run(
                     fsync,
                     true,
                 );
+
                 if pending_writes.fetch_add(1, Ordering::Relaxed) >= max_pending
                     && with_backpressure
                 {
