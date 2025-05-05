@@ -57,7 +57,7 @@ impl std::fmt::Display for Backend {
                 #[cfg(feature = "localfjall")]
                 Self::LocalFjall => "fjall nightly",
 
-                Self::Redb => "redb 2.4.0",
+                Self::Redb => "redb 2.5.0",
 
                 #[cfg(feature = "heed")]
                 Self::Heed => "heed 0.20.5",
