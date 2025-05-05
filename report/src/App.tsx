@@ -264,7 +264,7 @@ function App() {
 						</div>
 						<div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
 							<LineChart
-								title="Bloom filter size"
+								title="(Pinned) bloom filter size"
 								timeseries={reactiveTimeseries.get("bloom_filter_size")}
 								formatter={prettyBytes}
 							/>
