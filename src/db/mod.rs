@@ -65,6 +65,9 @@ pub struct DatabaseWrapper {
     /// Number of bytes read in range reads (key + value length)
     pub range_read_bytes: Arc<AtomicU64>,
 
+    pub delete_ops: Arc<AtomicU64>,
+    pub delete_latency: Arc<AtomicU64>,
+
     pub write_latency_histogram: Arc<Mutex<DDSketch>>,
     pub point_read_latency_histogram: Arc<Mutex<DDSketch>>,
     pub range_latency_histogram: Arc<Mutex<DDSketch>>,
@@ -1105,6 +1108,7 @@ impl DatabaseWrapper {
                         local_fjall::PersistMode::Buffer
                     })
                     .unwrap();
+
                 if let Some(decrement_workload_size) = decrement_workload_size {
                     self.workload_real_bytes.fetch_sub(
                         decrement_workload_size,
@@ -1119,7 +1123,7 @@ impl DatabaseWrapper {
     }
 
     pub fn remove(&self, key: &[u8], durable: bool, decrement_workload_size: Option<u64>) {
-        let _start = Instant::now();
+        let start = Instant::now();
 
         match &self.inner {
             #[cfg(feature = "sqlite")]
@@ -1202,23 +1206,13 @@ impl DatabaseWrapper {
             );
         }
 
-        // TODO: latency
-        // let written_latency = start.elapsed().as_nanos() as u64;
+        let delete_latency = start.elapsed().as_nanos() as u64;
 
-        // self.write_latency
-        //     .fetch_add(written_latency, std::sync::atomic::Ordering::Relaxed);
+        self.delete_latency
+            .fetch_add(delete_latency, std::sync::atomic::Ordering::Relaxed);
 
-        // self.write_ops
-        //     .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-
-        // self.write_latency_histogram
-        //     .lock()
-        //     .unwrap()
-        //     .record(written_latency / 10)
-        //     .inspect_err(|_| {
-        //         log::warn!("Write latency value too large for histogram");
-        //     })
-        //     .ok();
+        self.delete_ops
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
 }
 

@@ -271,10 +271,9 @@ impl DatabaseBuilder {
             write_latency_histogram: Default::default(),
             point_read_latency_histogram: Default::default(),
             range_latency_histogram: Default::default(),
-            /*
+
             delete_ops: Default::default(),
-            deleted_bytes: Default::default(),
-            delete_latency: Default::default(), */
+            delete_latency: Default::default(),
         }
     }
 }

@@ -90,6 +90,16 @@ function App() {
 						formatter={millify}
 					/>
 					<LineChart
+						title="Delete latency"
+						timeseries={reactiveTimeseries.get("delete_latency")}
+						formatter={formatNano}
+					/>
+					<LineChart
+						title="Deletes per second"
+						timeseries={reactiveTimeseries.get("delete_rate")}
+						formatter={millify}
+					/>
+					<LineChart
 						title="Write ops (cumulative)"
 						timeseries={reactiveTimeseries.get("write_ops")}
 						formatter={millify}

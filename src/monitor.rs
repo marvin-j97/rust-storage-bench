@@ -23,6 +23,8 @@ pub fn start_monitor(
     let mut prev_write_ops = 0;
     let mut prev_point_read_ops = 0;
     let mut prev_range_ops = 0;
+    let mut prev_delete_ops = 0;
+
     let mut file_writer = BufWriter::new(file_writer);
 
     log::debug!("Starting monitor");
@@ -42,6 +44,7 @@ pub fn start_monitor(
             let mut potential_write_ops = 0;
             let mut potential_point_read_ops = 0;
             let mut potential_range_ops = 0;
+            let mut potential_delete_ops = 0;
 
             loop {
                 let duration = Duration::from_millis(args.granularity_ms.into());
@@ -87,7 +90,7 @@ pub fn start_monitor(
                 let write_ops = db.write_ops.load(Ordering::Relaxed);
                 let point_read_ops = db.point_read_ops.load(Ordering::Relaxed);
                 let range_ops = db.range_ops.load(Ordering::Relaxed);
-                let delete_ops = 0;
+                let delete_ops = db.delete_ops.load(Ordering::Relaxed);
 
                 let accumulated_write_latency = db
                     .write_latency
@@ -123,6 +126,18 @@ pub fn start_monitor(
                     0
                 };
                 potential_range_ops += (range_rate_per_second as f64 / frequency) as u64;
+
+                let accumulated_delete_latency = db
+                    .delete_latency
+                    .fetch_min(0, std::sync::atomic::Ordering::Release);
+                let delete_ops_since = delete_ops - prev_delete_ops;
+                let avg_delete_latency = accumulated_delete_latency / delete_ops_since.max(1);
+                let delete_rate_per_second = if avg_delete_latency > 0 {
+                    Duration::from_secs(1).as_nanos() as u64 / avg_delete_latency
+                } else {
+                    0
+                };
+                potential_delete_ops += (delete_rate_per_second as f64 / frequency) as u64;
 
                 let space_amp = if workload_real_bytes == 0 {
                     0.0
@@ -180,17 +195,17 @@ pub fn start_monitor(
                     avg_write_latency,
                     avg_point_read_latency,
                     avg_range_latency,
-                    0, // TODO:
+                    avg_delete_latency,
                     //
                     write_rate_per_second,
                     point_read_rate_per_second,
                     range_rate_per_second,
-                    0, // TODO:
+                    delete_rate_per_second,
                     //
                     potential_write_ops,
                     potential_point_read_ops,
                     potential_range_ops,
-                    0, // TODO:
+                    potential_delete_ops,
                     //
                     format!("{:.2}", write_amp)
                         .parse::<f64>()
