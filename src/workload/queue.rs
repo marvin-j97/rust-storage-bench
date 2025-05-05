@@ -37,7 +37,7 @@ pub fn run(
         move || {
             let mut rng = rand::thread_rng();
 
-            // Note how we're starting at 1 instead of 0
+            // NOTE: Note how we're starting at 1 instead of 0
             for seqno in 1u128.. {
                 db.insert(
                     &seqno.to_be_bytes(),
@@ -52,8 +52,12 @@ pub fn run(
                 if pending_writes.fetch_add(1, Ordering::Relaxed) >= max_pending
                     && with_backpressure
                 {
+                    // log::debug!("queue too long, waiting");
+
                     // Wait for the consumer to consume one
                     let _guard = condvar.wait(mutex.lock().unwrap()).unwrap();
+
+                    // log::debug!("backpressure over");
                 } else {
                     // Notify the consumer that we wrote one
                     condvar.notify_one();
@@ -80,6 +84,7 @@ pub fn run(
                     db.range_first((start_exclusive, std::ops::Bound::Unbounded))
                 {
                     last_key = u128::from_be_bytes(key[..].try_into().unwrap());
+
                     db.remove_unique(&key, fsync, decrement_workload_size);
 
                     if pending_writes.fetch_sub(1, Ordering::Relaxed) >= max_pending
@@ -89,6 +94,8 @@ pub fn run(
                         condvar.notify_one();
                     }
                 } else {
+                    // log::debug!("consumer got no item, waiting for producer");
+
                     // Wait for the writer to write one
                     let _guard = condvar.wait(mutex.lock().unwrap()).unwrap();
                 }

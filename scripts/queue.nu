@@ -1,17 +1,27 @@
 #!/bin/nu
 
+#
+# CONFIG
+#
+
 let prefix = "queue";
 let data_dir = ".data";
 let seconds = 1 * 60;
-let cache_mib = 16 * 1_024 * 1_024;
+let cache_mib = 16;
 let value_size = 128;
 
+#
+# BENCH
+#
+
 alias bench = cargo run -r --
+
+let cache = $cache_mib * 1_024 * 1_024
 
 for db in ["fjall", "redb", "sled"] {
     let out = $"($prefix)_($db).jsonl";
     print $out;
-    RUST_BACKTRACE=full RUST_LOG=warn bench run --seconds $seconds --out $out --backend $db --data-dir $data_dir --cache-size $cache_mib queue --backpressure --value-size $value_size
+    RUST_BACKTRACE=full RUST_LOG=warn bench run --seconds $seconds --out $out --backend $db --data-dir $data_dir --cache-size $cache queue --backpressure --value-size $value_size
     sleep 500ms
 }
 
