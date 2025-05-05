@@ -1,10 +1,10 @@
 use super::super::start_killer;
 use crate::args::{CommonRunOptions, YcsbOptions};
 use crate::db::DatabaseWrapper;
+use crate::workload::choose_zipf;
 use rand::Rng;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use zipf::ZipfDistribution;
 
 const POINT_READ_CHANCE: f32 = 0.95;
 
@@ -42,10 +42,7 @@ pub fn run(
         let fsync = common_args.fsync;
 
         move || {
-            use rand::prelude::Distribution;
-
             let mut rng = rand::thread_rng();
-            let zipf = ZipfDistribution::new(item_count as usize, exponent).unwrap();
 
             loop {
                 match rng.gen_range(0.0..1.0) {
@@ -53,7 +50,7 @@ pub fn run(
                         let x: u128 = if random {
                             rng.gen_range(0..item_count as u128)
                         } else {
-                            (zipf.sample(&mut rng) - 1) as u128
+                            choose_zipf(&mut rng, exponent, item_count) as u128
                         };
 
                         db.get(&x.to_be_bytes()).unwrap();
@@ -62,7 +59,7 @@ pub fn run(
                         let x: u128 = if random {
                             rng.gen_range(0..item_count as u128)
                         } else {
-                            (zipf.sample(&mut rng) - 1) as u128
+                            choose_zipf(&mut rng, exponent, item_count) as u128
                         };
 
                         corpus.fetch(&mut rng, &mut buf);
