@@ -33,42 +33,46 @@ pub fn run(
         db.ingest(iter);
     }
 
-    let worker = std::thread::spawn({
-        log::debug!("Starting reader");
-        let db = db.clone();
-        let random = ycsb_opts.read_random;
-        let exponent = ycsb_opts.zipf_exponent;
-        let corpus = ycsb_opts.corpus;
-        let fsync = common_args.fsync;
+    let worker = std::thread::Builder::new()
+        .name("worker".into())
+        .spawn({
+            log::debug!("Starting worker");
 
-        move || {
-            let mut rng = rand::thread_rng();
+            let db = db.clone();
+            let random = ycsb_opts.read_random;
+            let exponent = ycsb_opts.zipf_exponent;
+            let corpus = ycsb_opts.corpus;
+            let fsync = common_args.fsync;
 
-            loop {
-                match rng.gen_range(0.0..1.0) {
-                    x if x <= POINT_READ_CHANCE => {
-                        let x: u128 = if random {
-                            rng.gen_range(0..item_count as u128)
-                        } else {
-                            choose_zipf(&mut rng, exponent, item_count) as u128
-                        };
+            move || {
+                let mut rng = rand::thread_rng();
 
-                        db.get(&x.to_be_bytes()).unwrap();
-                    }
-                    _ => {
-                        let x: u128 = if random {
-                            rng.gen_range(0..item_count as u128)
-                        } else {
-                            choose_zipf(&mut rng, exponent, item_count) as u128
-                        };
+                loop {
+                    match rng.gen_range(0.0..1.0) {
+                        x if x <= POINT_READ_CHANCE => {
+                            let x: u128 = if random {
+                                rng.gen_range(0..item_count as u128)
+                            } else {
+                                choose_zipf(&mut rng, exponent, item_count) as u128
+                            };
 
-                        corpus.fetch(&mut rng, &mut buf);
-                        db.insert(&x.to_be_bytes(), &buf, fsync, false);
+                            db.get(&x.to_be_bytes()).unwrap();
+                        }
+                        _ => {
+                            let x: u128 = if random {
+                                rng.gen_range(0..item_count as u128)
+                            } else {
+                                choose_zipf(&mut rng, exponent, item_count) as u128
+                            };
+
+                            corpus.fetch(&mut rng, &mut buf);
+                            db.insert(&x.to_be_bytes(), &buf, fsync, false);
+                        }
                     }
                 }
             }
-        }
-    });
+        })
+        .unwrap();
 
     start_killer(common_args.seconds, finish_signal);
 

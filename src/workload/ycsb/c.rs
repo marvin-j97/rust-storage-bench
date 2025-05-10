@@ -32,9 +32,10 @@ pub fn run(
     }
 
     let worker = std::thread::Builder::new()
-        .name("workload".to_owned())
+        .name("reader".to_owned())
         .spawn({
             log::debug!("Starting reader");
+
             let db = db.clone();
             let random = ycsb_opts.read_random;
             let exponent = ycsb_opts.zipf_exponent;
