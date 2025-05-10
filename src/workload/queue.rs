@@ -19,9 +19,8 @@ pub fn run(
     let with_backpressure = queue_opts.backpressure;
     let max_pending = queue_opts.max_pending;
 
-    let mutex = Arc::new(std::sync::Mutex::new(()));
+    let pending = Arc::new(std::sync::Mutex::new(0u64));
     let condvar = Arc::new(std::sync::Condvar::new());
-    let pending_writes = Arc::new(AtomicU64::new(0));
 
     std::thread::spawn({
         log::debug!("Starting writer");
@@ -31,8 +30,7 @@ pub fn run(
 
         let db = db.clone();
         let condvar = condvar.clone();
-        let pending_writes = pending_writes.clone();
-        let mutex = mutex.clone();
+        let pending = pending.clone();
 
         move || {
             let mut rng = rand::thread_rng();
@@ -49,18 +47,15 @@ pub fn run(
                     true,
                 );
 
-                if pending_writes.fetch_add(1, Ordering::Relaxed) >= max_pending
-                    && with_backpressure
-                {
-                    // log::debug!("queue too long, waiting");
-
-                    // Wait for the consumer to consume one
-                    let _guard = condvar.wait(mutex.lock().unwrap()).unwrap();
-
-                    // log::debug!("backpressure over");
-                } else {
-                    // Notify the consumer that we wrote one
+                let mut guard = pending.lock().unwrap();
+                if *guard == 0 {
+                    // Notify the reader that we wrote one
                     condvar.notify_one();
+                }
+                *guard += 1;
+                if with_backpressure {
+                    // Wait for pending to drop < max_pending
+                    guard = condvar.wait_while(guard, |g| *g >= max_pending).unwrap();
                 }
             }
         }
@@ -80,25 +75,26 @@ pub fn run(
                 let last_key_bytes = last_key.to_be_bytes();
                 let start_exclusive = std::ops::Bound::Excluded(&last_key_bytes[..]);
 
+                let mut consumed = false;
                 if let Some((key, _)) =
                     db.range_first((start_exclusive, std::ops::Bound::Unbounded))
                 {
                     last_key = u128::from_be_bytes(key[..].try_into().unwrap());
 
                     db.remove_unique(&key, fsync, decrement_workload_size);
+                    consumed = true;
+                }
 
-                    if pending_writes.fetch_sub(1, Ordering::Relaxed) >= max_pending
-                        && with_backpressure
-                    {
-                        // Notify the writer that we consumed one
+                let mut guard = pending.lock().unwrap();
+                if consumed {
+                    if with_backpressure && *guard >= max_pending {
+                        // Notify the waiting producer
                         condvar.notify_one();
                     }
-                } else {
-                    // log::debug!("consumer got no item, waiting for producer");
-
-                    // Wait for the writer to write one
-                    let _guard = condvar.wait(mutex.lock().unwrap()).unwrap();
+                    *guard -= 1;
                 }
+                // Wait for the one message to be pending
+                guard = condvar.wait_while(guard, |g| *g == 0).unwrap();
             }
         }
     });

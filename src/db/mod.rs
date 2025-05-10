@@ -998,7 +998,6 @@ impl DatabaseWrapper {
             }
 
             GenericDatabase::Fjall { keyspace, db } => {
-                // TODO: add option to write through transactions
                 db.insert(key, value).unwrap();
 
                 keyspace
