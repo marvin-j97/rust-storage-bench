@@ -528,7 +528,7 @@ impl DatabaseWrapper {
     }
 
     pub fn fragmented_bytes(&self) -> usize {
-        match &self.inner {
+        /* match &self.inner {
             // TODO: expensive?!
             /* GenericDatabase::Redb(db) => {
                 use redb::ReadableTableMetadata;
@@ -538,7 +538,8 @@ impl DatabaseWrapper {
                 table.stats().unwrap().fragmented_bytes() as usize
             } */
             _ => 0,
-        }
+        } */
+        0
     }
 
     pub fn tree_height(&self) -> usize {
@@ -810,7 +811,14 @@ impl DatabaseWrapper {
 
             #[cfg(feature = "rocksdb")]
             GenericDatabase::RocksDb(db) => {
-                let value = db.get(key).unwrap();
+                let value = db
+                    .get_opt(key, &{
+                        // NOTE: For now, disable checksum checks
+                        let mut opts = rocksdb::ReadOptions::default();
+                        opts.set_verify_checksums(false);
+                        opts
+                    })
+                    .unwrap();
                 report_latency();
                 value
             }
@@ -1226,6 +1234,7 @@ fn rocksdb_range<'a>(
     } else {
         (range.0, range.1)
     };
+
     let it_mode = match start {
         Bound::Included(x) | Bound::Excluded(x) => rocksdb::IteratorMode::From(
             x,
@@ -1238,42 +1247,48 @@ fn rocksdb_range<'a>(
         Bound::Unbounded if rev => rocksdb::IteratorMode::End,
         Bound::Unbounded => rocksdb::IteratorMode::Start,
     };
-    db.iterator(it_mode)
-        .map(|kv| kv.unwrap())
-        .enumerate()
-        .filter(move |(i, (k, _v))| {
-            if *i != 0 {
-                return true;
-            }
-            // skip the first element if it's an excluded start
-            if let Bound::Excluded(x) = start {
-                if rev {
-                    &k[..] < x
-                } else {
-                    &k[..] > x
-                }
+
+    db.iterator_opt(it_mode, {
+        // NOTE: For now, disable checksum checks
+        let mut opts = rocksdb::ReadOptions::default();
+        opts.set_verify_checksums(false);
+        opts
+    })
+    .map(|kv| kv.unwrap())
+    .enumerate()
+    .filter(move |(i, (k, _v))| {
+        if *i != 0 {
+            return true;
+        }
+        // skip the first element if it's an excluded start
+        if let Bound::Excluded(x) = start {
+            if rev {
+                &k[..] < x
             } else {
-                true
+                &k[..] > x
             }
-        })
-        .take_while(move |(_, (k, _v))| match end {
-            Bound::Included(x) => {
-                if rev {
-                    &k[..] >= x
-                } else {
-                    &k[..] <= x
-                }
+        } else {
+            true
+        }
+    })
+    .take_while(move |(_, (k, _v))| match end {
+        Bound::Included(x) => {
+            if rev {
+                &k[..] >= x
+            } else {
+                &k[..] <= x
             }
-            Bound::Excluded(x) => {
-                if rev {
-                    &k[..] > x
-                } else {
-                    &k[..] < x
-                }
+        }
+        Bound::Excluded(x) => {
+            if rev {
+                &k[..] > x
+            } else {
+                &k[..] < x
             }
-            Bound::Unbounded => true,
-        })
-        .map(|(_, (k, v))| (k, v))
+        }
+        Bound::Unbounded => true,
+    })
+    .map(|(_, (k, v))| (k, v))
 }
 
 #[cfg(feature = "sqlite")]
