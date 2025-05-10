@@ -42,7 +42,7 @@ impl std::fmt::Display for LsmCompaction {
 #[clap(rename_all = "kebab_case")]
 pub struct CommonRunOptions {
     /// Granularity in milliseconds with which to poll metrics
-    #[arg(long, alias = "granularity", default_value_t = 500)]
+    #[arg(long, alias = "granularity", default_value_t = 1_000)]
     pub granularity_ms: u16,
 
     /// Database to use
