@@ -63,6 +63,12 @@ pub struct CommonRunOptions {
     #[arg(long)]
     pub display_name: Option<String>,
 
+    /// Custom display color
+    ///
+    /// Should be hex format: #RRGGBB
+    #[arg(long, alias = "colour")]
+    pub color: Option<String>,
+
     /// How many seconds to run the workload for
     #[arg(long, default_value_t = 60)]
     pub seconds: u16,
