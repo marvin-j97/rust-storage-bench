@@ -2,6 +2,7 @@ mod args;
 mod corpus;
 mod db;
 mod monitor;
+mod report;
 mod workload;
 
 use args::Args;
@@ -12,6 +13,8 @@ use std::io::Write;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use workload::run_workload;
+
+use crate::report::generate_report;
 
 #[cfg(feature = "jemalloc")]
 #[cfg(not(target_env = "msvc"))]
@@ -36,8 +39,6 @@ pub fn unix_timestamp() -> std::time::Duration {
         .unwrap()
 }
 
-const RESULT_PLACEHOLDER: &str = "<!-- __DATA__ -->";
-
 pub fn main() -> std::io::Result<()> {
     env_logger::Builder::from_default_env()
         .filter_module("rust_storage_bench", log::LevelFilter::Debug)
@@ -55,30 +56,7 @@ pub fn main() -> std::io::Result<()> {
 
     match Args::parse().command {
         args::Commands::Report(args) => {
-            let report_template_path = std::env::var("RSB_TEMPLATE_PATH")
-                .unwrap_or_else(|_| String::from("report/dist/index.html"));
-
-            log::info!("Reading template HTML from {report_template_path}");
-            let mut html = std::fs::read_to_string(report_template_path).unwrap();
-
-            for path in args.files {
-                log::debug!("Adding {path:?}");
-                let jsonl_data = std::fs::read_to_string(path).unwrap();
-
-                html = html.replace(
-                    RESULT_PLACEHOLDER,
-                    &format!(
-                        r#"<script type="data" compressed="false">
-{jsonl_data}
-</script>
-{RESULT_PLACEHOLDER}
-        "#
-                    ),
-                );
-            }
-
-            log::info!("Writing finished report to {:?}", args.out);
-            std::fs::write(args.out, html).unwrap();
+            generate_report(args)?;
         }
         args::Commands::Run(mut cmd) => {
             let args = &mut cmd.args;
@@ -89,12 +67,6 @@ pub fn main() -> std::io::Result<()> {
 
             if args.display_name.is_none() {
                 args.display_name = Some(args.backend.to_string());
-            }
-
-            let data_dir = args.data_dir.clone();
-
-            if data_dir.exists() {
-                std::fs::remove_dir_all(&data_dir).unwrap();
             }
 
             let out_path = std::path::absolute(
@@ -110,6 +82,12 @@ pub fn main() -> std::io::Result<()> {
             if out_path.try_exists()? {
                 log::warn!("{out_path:?} already exists");
                 std::process::exit(0);
+            }
+
+            let data_dir = args.data_dir.clone();
+
+            if data_dir.try_exists()? {
+                std::fs::remove_dir_all(&data_dir).unwrap();
             }
 
             // The disk format of a log file is like this:
