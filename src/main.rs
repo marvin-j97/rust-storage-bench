@@ -97,7 +97,7 @@ pub fn main() -> std::io::Result<()> {
             // [data point, data point, data point]
             // [data point, data point, data point]
             // { fin: true }
-            let mut file_writer = std::fs::File::create(out_path).unwrap();
+            let mut file_writer = std::fs::File::create(&out_path).unwrap();
 
             let mut sys = sysinfo::System::new_all();
             sys.refresh_all();
@@ -212,6 +212,7 @@ pub fn main() -> std::io::Result<()> {
                 db.clone(),
                 args.clone(),
                 finished.clone(),
+                out_path,
             );
 
             run_workload(db, &cmd, finished.clone());
