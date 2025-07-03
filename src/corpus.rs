@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 const JSON_CORPUS: &[u8] = include_str!("../corpus/asteroids.json").as_bytes();
 const CODE_CORPUS: &[u8] = include_str!("../corpus/rust.rs").as_bytes();
 const ENGLISH_CORPUS: &[u8] = include_str!("../corpus/english.txt").as_bytes();
+const HTML_CORPUS: &[u8] = include_str!("../corpus/webpage.html").as_bytes();
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, clap::ValueEnum, Serialize, Deserialize)]
 pub enum Corpus {
@@ -18,7 +19,9 @@ pub enum Corpus {
 
     /// Natural language
     English,
-    // Xml,
+
+    /// Web page
+    Html,
 }
 
 impl Corpus {
@@ -31,14 +34,18 @@ impl Corpus {
             Self::Json => JSON_CORPUS,
             Self::Code => CODE_CORPUS,
             Self::English => ENGLISH_CORPUS,
+            Self::Html => HTML_CORPUS,
         };
+
         while !v.is_empty() {
             let take = v.len().min(corpus.len());
+
             let start = if corpus.len() == take {
                 0
             } else {
                 rng.gen_range(0..corpus.len() - take)
             };
+
             v[..take].copy_from_slice(&corpus[start..start + take]);
             v = &mut v[take..];
         }
