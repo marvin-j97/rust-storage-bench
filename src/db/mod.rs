@@ -862,6 +862,7 @@ impl DatabaseWrapper {
                 report_latency();
                 value
             }
+
             GenericDatabase::Fjall { db, .. } => {
                 let item = db.get(key).unwrap();
                 report_latency();
@@ -880,6 +881,7 @@ impl DatabaseWrapper {
                 report_latency();
                 item.map(|x| x.to_vec())
             }
+
             GenericDatabase::Redb(db) => {
                 let read_txn = db.begin_read().unwrap();
                 let table = read_txn.open_table(TABLE).unwrap();
@@ -890,6 +892,7 @@ impl DatabaseWrapper {
                     value.to_vec()
                 })
             }
+
             #[cfg(feature = "heed")]
             GenericDatabase::Heed { db, env } => {
                 let read_txn = env.read_txn().unwrap();
@@ -897,6 +900,7 @@ impl DatabaseWrapper {
                 report_latency();
                 value.map(ToOwned::to_owned)
             }
+
             GenericDatabase::Canopydb(db) => {
                 let tx = db.begin_read().unwrap();
                 let tree = tx.get_tree(b"default").unwrap().unwrap();
@@ -1033,20 +1037,29 @@ impl DatabaseWrapper {
 
     pub fn flush(&self) {
         match &self.inner {
-            GenericDatabase::Fjall { keyspace, db } => {
+            GenericDatabase::Fjall { keyspace, .. } => {
                 keyspace.persist(fjall::PersistMode::SyncAll).unwrap();
             }
-            GenericDatabase::FjallNightly { keyspace, db } => {
+
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { keyspace, .. } => {
                 keyspace
                     .persist(fjall_nightly::PersistMode::SyncAll)
                     .unwrap();
             }
+
+            #[cfg(feature = "rocksdb")]
             GenericDatabase::RocksDb(db) => db.flush_wal(true).unwrap(),
+
             GenericDatabase::Sled(db) => {
                 db.flush().unwrap();
             }
+
             GenericDatabase::Redb(_) => {}
+
+            #[cfg(feature = "heed")]
             GenericDatabase::Heed { .. } => {}
+
             _ => unimplemented!(),
         }
     }
