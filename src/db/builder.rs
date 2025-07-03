@@ -56,12 +56,13 @@ impl DatabaseBuilder {
                 let mut bopts = BlockBasedOptions::default();
                 bopts.set_bloom_filter(10.0, false);
                 bopts.set_block_size(4 * 1_024);
-                bopts.set_index_type(rocksdb::BlockBasedIndexType::TwoLevelIndexSearch);
+                bopts.set_index_type(rocksdb::BlockBasedIndexType::BinarySearch);
                 bopts.set_pin_l0_filter_and_index_blocks_in_cache(true);
-                bopts.set_pin_top_level_index_and_filter(true);
+                // bopts.set_pin_top_level_index_and_filter(true);
                 bopts.set_data_block_index_type(rocksdb::DataBlockIndexType::BinaryAndHash);
                 bopts.set_data_block_hash_ratio(0.75);
                 bopts.set_index_block_restart_interval(1);
+                bopts.set_cache_index_and_filter_blocks(true);
 
                 let my_cache = rocksdb::Cache::new_lru_cache(args.cache_size as usize);
                 bopts.set_block_cache(&my_cache);
@@ -182,9 +183,9 @@ impl DatabaseBuilder {
                 GenericDatabase::Fjall { keyspace, db }
             }
 
-            #[cfg(feature = "localfjall")]
-            Backend::LocalFjall => {
-                let config = local_fjall::Config::new(path)
+            #[cfg(feature = "fjall_nightly")]
+            Backend::FjallNightly => {
+                let config = fjall_nightly::Config::new(path)
                     .cache_size(args.cache_size)
                     .compaction_workers(7)
                     .max_write_buffer_size(256 * 1_024 * 1_024)
@@ -192,36 +193,36 @@ impl DatabaseBuilder {
 
                 let keyspace = config.open_transactional().unwrap();
 
-                let mut create_opts = local_fjall::PartitionCreateOptions::default()
+                let mut create_opts = fjall_nightly::PartitionCreateOptions::default()
                     .max_memtable_size(64 * 1_024 * 1_024)
                     .block_size(4 * 1_024)
                     .compaction_strategy(match args.lsm_compaction {
                         crate::args::LsmCompaction::Leveled => {
-                            local_fjall::compaction::Strategy::Leveled(
-                                local_fjall::compaction::Leveled::default(),
+                            fjall_nightly::compaction::Strategy::Leveled(
+                                fjall_nightly::compaction::Leveled::default(),
                             )
                         }
                         crate::args::LsmCompaction::Tiered => {
-                            local_fjall::compaction::Strategy::SizeTiered(
-                                local_fjall::compaction::SizeTiered::default(),
+                            fjall_nightly::compaction::Strategy::SizeTiered(
+                                fjall_nightly::compaction::SizeTiered::default(),
                             )
                         }
                     })
                     .compression(match args.compression {
-                        crate::args::Compression::None => local_fjall::CompressionType::None,
-                        crate::args::Compression::Lz4 => local_fjall::CompressionType::Lz4,
+                        crate::args::Compression::None => fjall_nightly::CompressionType::None,
+                        crate::args::Compression::Lz4 => fjall_nightly::CompressionType::Lz4,
                     });
 
-                if args.value_size
-                    >= local_fjall::KvSeparationOptions::default().separation_threshold
-                {
-                    create_opts = create_opts.with_kv_separation(Default::default());
-                }
+                // if args.value_size
+                //     >= fjall_nightly::KvSeparationOptions::default().separation_threshold
+                // {
+                //     create_opts = create_opts.with_kv_separation(Default::default());
+                // }
 
                 let db = keyspace.open_partition("data", create_opts).unwrap();
 
                 if db.inner().is_kv_separated() {
-                    use local_fjall::GarbageCollection;
+                    use fjall_nightly::GarbageCollection;
                     let blobs = db.clone();
 
                     std::thread::spawn(move || loop {
@@ -232,7 +233,7 @@ impl DatabaseBuilder {
                     });
                 }
 
-                GenericDatabase::LocalFjall { keyspace, db }
+                GenericDatabase::FjallNightly { keyspace, db }
             }
 
             Backend::Canopydb => {

@@ -7,10 +7,10 @@ pub enum Backend {
     #[serde(rename = "fjall")]
     Fjall,
 
-    #[cfg(feature = "localfjall")]
-    #[serde(rename = "local_fjall")]
-    #[serde(alias = "localfjall")]
-    LocalFjall,
+    #[cfg(feature = "fjall_nightly")]
+    #[serde(rename = "fjall_nightly")]
+    #[serde(alias = "fjall_nightly")]
+    FjallNightly,
 
     #[serde(rename = "sled")]
     Sled,
@@ -54,8 +54,8 @@ impl std::fmt::Display for Backend {
 
                 Self::Fjall => "fjall 2.10.0",
 
-                #[cfg(feature = "localfjall")]
-                Self::LocalFjall => "fjall nightly",
+                #[cfg(feature = "fjall_nightly")]
+                Self::FjallNightly => "fjall nightly",
 
                 Self::Redb => "redb 2.5.0",
 
@@ -63,7 +63,7 @@ impl std::fmt::Display for Backend {
                 Self::Heed => "heed 0.20.5",
 
                 #[cfg(feature = "rocksdb")]
-                Self::RocksDb => "rocksdb 0.22.0",
+                Self::RocksDb => "rocksdb 0.23.0",
 
                 Self::Canopydb => "canopydb 0.2.4",
                 // Self::Bloodstone => "sled 1.0.0-alpha.122",

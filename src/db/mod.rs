@@ -18,10 +18,10 @@ pub enum GenericDatabase {
         db: fjall::TxPartition,
     },
 
-    #[cfg(feature = "localfjall")]
-    LocalFjall {
-        keyspace: local_fjall::TxKeyspace,
-        db: local_fjall::TxPartition,
+    #[cfg(feature = "fjall_nightly")]
+    FjallNightly {
+        keyspace: fjall_nightly::TxKeyspace,
+        db: fjall_nightly::TxPartition,
     },
 
     Sled(sled::Db),
@@ -114,8 +114,8 @@ impl DatabaseWrapper {
                     .map(|(k, v)| (k.to_vec(), v.to_vec()))
             }
 
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { db, keyspace } => {
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { db, keyspace } => {
                 let read_tx = keyspace.read_tx();
                 let mut iter = read_tx.range::<&[u8], _>(db, range);
 
@@ -212,8 +212,8 @@ impl DatabaseWrapper {
                 return self.range_len((Bound::Included(prefix), upper_bound), rev, take);
             }
 
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { db, keyspace } => {
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { db, keyspace } => {
                 let read_tx = keyspace.read_tx();
                 let iter = read_tx.prefix(db, prefix);
 
@@ -374,8 +374,8 @@ impl DatabaseWrapper {
                     .count()
             }
 
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { db, keyspace } => {
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { db, keyspace } => {
                 let read_tx = keyspace.read_tx();
                 let iter = read_tx.range::<&[u8], _>(db, range);
 
@@ -568,12 +568,20 @@ impl DatabaseWrapper {
         }
     }
 
+    // TODO: curr cache size
+
     pub fn write_buffer_size(&self) -> u64 {
         match &self.inner {
             GenericDatabase::Fjall { keyspace, .. } => keyspace.write_buffer_size(),
 
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { keyspace, .. } => keyspace.write_buffer_size(),
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { keyspace, .. } => keyspace.write_buffer_size(),
+
+            #[cfg(feature = "rocksdb")]
+            GenericDatabase::RocksDb(db) => db
+                .property_int_value("rocksdb.size-all-mem-tables")
+                .unwrap_or_default()
+                .unwrap_or_default(),
 
             _ => 0,
         }
@@ -587,11 +595,11 @@ impl DatabaseWrapper {
                 db.inner().tree.bloom_filter_size()
             }
 
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { db, .. } => {
-                use local_fjall::AbstractTree;
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { db, .. } => {
+                use fjall_nightly::AbstractTree;
 
-                db.inner().tree.bloom_filter_size()
+                db.inner().tree.pinned_bloom_filter_size()
             }
 
             _ => 0,
@@ -606,9 +614,9 @@ impl DatabaseWrapper {
                 db.inner().tree.l0_run_count()
             }
 
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { db, .. } => {
-                use local_fjall::AbstractTree;
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { db, .. } => {
+                use fjall_nightly::AbstractTree;
 
                 db.inner().tree.l0_run_count()
             }
@@ -634,11 +642,11 @@ impl DatabaseWrapper {
                 sum.checked_div(count).unwrap_or_default()
             }
 
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { db, .. } => {
+            /*   #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { db, .. } => {
                 let tree = match &db.inner().tree {
-                    local_fjall::AnyTree::Blob(tree) => &tree.index.0,
-                    local_fjall::AnyTree::Standard(tree) => tree,
+                    fjall_nightly::AnyTree::Blob(tree) => &tree.index.0,
+                    fjall_nightly::AnyTree::Standard(tree) => tree,
                 };
 
                 let first_level = &tree.levels.read().unwrap();
@@ -649,15 +657,15 @@ impl DatabaseWrapper {
                     .iter()
                     .collect::<Vec<_>>();
 
-                let count = first_level.len() as u64;
+                let count = first_level.len() as u128;
 
-                let sum: u64 = first_level
+                let sum: u128 = first_level
                     .iter()
                     .map(|x| x.metadata.created_at as u128)
                     .sum();
 
                 sum.checked_div(count).unwrap_or_default()
-            }
+            } */
             _ => 0,
         }
     }
@@ -667,8 +675,8 @@ impl DatabaseWrapper {
             GenericDatabase::Fjall { keyspace, .. } => {
                 keyspace.inner().time_compacting().as_micros() as u64
             }
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { keyspace, .. } => {
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { keyspace, .. } => {
                 keyspace.inner().time_compacting().as_micros() as u64
             }
             _ => 0,
@@ -678,8 +686,16 @@ impl DatabaseWrapper {
     pub fn active_compactions(&self) -> usize {
         match &self.inner {
             GenericDatabase::Fjall { keyspace, .. } => keyspace.inner().active_compactions(),
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { keyspace, .. } => keyspace.inner().active_compactions(),
+
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { keyspace, .. } => keyspace.inner().active_compactions(),
+
+            #[cfg(feature = "rocksdb")]
+            GenericDatabase::RocksDb(db) => db
+                .property_int_value("rocksdb.num-running-compactions")
+                .unwrap_or_default()
+                .unwrap_or_default() as usize,
+
             _ => 0,
         }
     }
@@ -691,12 +707,19 @@ impl DatabaseWrapper {
 
                 db.inner().tree.blob_file_count()
             }
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { db, .. } => {
-                use local_fjall::AbstractTree;
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { db, .. } => {
+                use fjall_nightly::AbstractTree;
 
                 db.inner().tree.blob_file_count()
             }
+
+            #[cfg(feature = "rocksdb")]
+            GenericDatabase::RocksDb(db) => db
+                .property_int_value("rocksdb.num-blob-files")
+                .unwrap()
+                .unwrap() as usize,
+
             _ => 0,
         }
     }
@@ -709,11 +732,26 @@ impl DatabaseWrapper {
                 db.inner().tree.segment_count()
             }
 
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { db, .. } => {
-                use local_fjall::AbstractTree;
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { db, .. } => {
+                use fjall_nightly::AbstractTree;
 
                 db.inner().tree.segment_count()
+            }
+
+            #[cfg(feature = "rocksdb")]
+            GenericDatabase::RocksDb(db) => {
+                let mut total_sst_files = 0;
+
+                for level in 0..7 {
+                    let prop = format!("rocksdb.num-files-at-level{}", level);
+
+                    if let Ok(Some(val)) = db.property_int_value(&prop) {
+                        total_sst_files += val as usize;
+                    }
+                }
+
+                total_sst_files
             }
             _ => 0,
         }
@@ -723,8 +761,9 @@ impl DatabaseWrapper {
         match &self.inner {
             GenericDatabase::Fjall { keyspace, .. } => keyspace.inner().journal_disk_space(),
 
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { keyspace, .. } => keyspace.inner().journal_disk_space(),
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { keyspace, .. } => keyspace.inner().journal_disk_space(),
+
             _ => 0,
         }
     }
@@ -733,8 +772,9 @@ impl DatabaseWrapper {
         match &self.inner {
             GenericDatabase::Fjall { keyspace, .. } => keyspace.journal_count(),
 
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { keyspace, .. } => keyspace.journal_count(),
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { keyspace, .. } => keyspace.journal_count(),
+
             _ => 0,
         }
     }
@@ -752,8 +792,8 @@ impl DatabaseWrapper {
         match &self.inner {
             GenericDatabase::Fjall { db, .. } => db.inner().len().unwrap(),
 
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { db, .. } => db.inner().len().unwrap(),
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { db, .. } => db.inner().len().unwrap(),
 
             GenericDatabase::Canopydb(db) => {
                 let tx = db.begin_read().unwrap();
@@ -828,8 +868,8 @@ impl DatabaseWrapper {
                 item.map(|x| x.to_vec())
             }
 
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { db, .. } => {
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { db, .. } => {
                 let item = db.get(key).unwrap();
                 report_latency();
                 item.map(|x| x.to_vec())
@@ -934,11 +974,11 @@ impl DatabaseWrapper {
                     }))
                     .unwrap();
             }
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { db, .. } => {
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { db, .. } => {
                 db.inner()
                     .ingest(items.map(|(k, v)| {
-                        on_bytes_written(key.len() + value.len());
+                        on_bytes_written(&k, &v);
                         (k, v)
                     }))
                     .unwrap();
@@ -991,6 +1031,26 @@ impl DatabaseWrapper {
         log::info!("Ingested {count} initial items in {:?}", start.elapsed());
     }
 
+    pub fn flush(&self) {
+        match &self.inner {
+            GenericDatabase::Fjall { keyspace, db } => {
+                keyspace.persist(fjall::PersistMode::SyncAll).unwrap();
+            }
+            GenericDatabase::FjallNightly { keyspace, db } => {
+                keyspace
+                    .persist(fjall_nightly::PersistMode::SyncAll)
+                    .unwrap();
+            }
+            GenericDatabase::RocksDb(db) => db.flush_wal(true).unwrap(),
+            GenericDatabase::Sled(db) => {
+                db.flush().unwrap();
+            }
+            GenericDatabase::Redb(_) => {}
+            GenericDatabase::Heed { .. } => {}
+            _ => unimplemented!(),
+        }
+    }
+
     pub fn insert(&self, key: &[u8], value: &[u8], durable: bool, increment_workload_size: bool) {
         let start = Instant::now();
 
@@ -1017,16 +1077,16 @@ impl DatabaseWrapper {
                     })
                     .unwrap();
             }
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { keyspace, db } => {
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { keyspace, db } => {
                 db.insert(key, value).unwrap();
 
                 keyspace
                     .persist(if durable {
                         // NOTE: RocksDB uses fsyncdata by default, too
-                        local_fjall::PersistMode::SyncData
+                        fjall_nightly::PersistMode::SyncData
                     } else {
-                        local_fjall::PersistMode::Buffer
+                        fjall_nightly::PersistMode::Buffer
                     })
                     .unwrap();
             }
@@ -1102,17 +1162,17 @@ impl DatabaseWrapper {
     // the plain remove function. This way workloads can test both kinds.
     pub fn remove_unique(&self, key: &[u8], durable: bool, decrement_workload_size: Option<u64>) {
         match &self.inner {
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { keyspace, db } => {
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { keyspace, db } => {
                 // TODO: remove_weak
                 db.remove(key).unwrap();
 
                 keyspace
                     .persist(if durable {
                         // NOTE: RocksDB uses fsyncdata by default, too
-                        local_fjall::PersistMode::SyncData
+                        fjall_nightly::PersistMode::SyncData
                     } else {
-                        local_fjall::PersistMode::Buffer
+                        fjall_nightly::PersistMode::Buffer
                     })
                     .unwrap();
 
@@ -1151,16 +1211,16 @@ impl DatabaseWrapper {
                     })
                     .unwrap();
             }
-            #[cfg(feature = "localfjall")]
-            GenericDatabase::LocalFjall { keyspace, db } => {
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { keyspace, db } => {
                 db.remove(key).unwrap();
 
                 keyspace
                     .persist(if durable {
                         // NOTE: RocksDB uses fsyncdata by default, too
-                        local_fjall::PersistMode::SyncData
+                        fjall_nightly::PersistMode::SyncData
                     } else {
-                        local_fjall::PersistMode::Buffer
+                        fjall_nightly::PersistMode::Buffer
                     })
                     .unwrap();
             }
