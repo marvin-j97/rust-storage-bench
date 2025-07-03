@@ -19,6 +19,7 @@ pub fn start_monitor(
     db: DatabaseWrapper,
     args: CommonRunOptions,
     finish_signal: Arc<AtomicBool>,
+    out_path: PathBuf,
 ) -> JoinHandle<()> {
     let mut prev_write_ops = 0;
     let mut prev_point_read_ops = 0;
@@ -293,6 +294,24 @@ pub fn start_monitor(
 
             file_writer.flush().unwrap();
             file_writer.into_inner().unwrap().sync_all().unwrap();
+
+            if out_path.extension().and_then(|s| s.to_str()) == Some("gzip") {
+                use base64::Engine;
+                use flate2::write::GzEncoder;
+                use flate2::Compression;
+
+                log::debug!("Compressing output file using gzip");
+
+                let contents = std::fs::read_to_string(&out_path).unwrap();
+
+                let mut encoder = GzEncoder::new(Vec::new(), Compression::best());
+                encoder.write_all(contents.as_bytes()).unwrap();
+                let compressed_bytes = encoder.finish().unwrap();
+                let encoded_string =
+                    base64::engine::general_purpose::STANDARD.encode(&compressed_bytes);
+
+                std::fs::write(&out_path, encoded_string).unwrap();
+            }
 
             std::process::exit(0);
         })

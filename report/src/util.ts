@@ -33,11 +33,11 @@ export function chooseColor(backendName: string): string {
 	if (backendName.includes("sled")) {
 		return "#ee5555";
 	}
-	if (backendName.includes("local")) {
-		return "#4455FF";
+	if (backendName.includes("nightly")) {
+		return "#8888FF";
 	}
 	if (backendName.includes("fjall")) {
-		return "#38bdf8";
+		return "#38bde0";
 	}
 	if (backendName.includes("rocksdb")) {
 		return "#fbbf24";
@@ -54,6 +54,7 @@ export function chooseColor(backendName: string): string {
 	if (backendName.includes("leveldb")) {
 		return "#4499ff";
 	}
+
 	const code = [...backendName]
 		.reduce((acc, c) => acc + c.charCodeAt(0), backendName.length);
 

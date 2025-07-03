@@ -252,22 +252,14 @@ function App() {
 						</div>
 					</div>
 				</div>
-				
+
 				{/* lsm stats */}
 				<div class="mt-3 flex flex-col gap-3">
 					<div class="ml-2 cursor-pointer" onClick={() => toggleLsmStats((x) => !x)}>
 						LSM-specific metrics
 					</div>
 					<Show when={showLsmStats()}>
-						<div class="rounded-lg p-3 mx-3 dark:text-yellow-100 dark:bg-yellow-950">
-							Only work for Fjall currently
-						</div>
 						<div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
-							<LineChart
-								title="(Pinned) bloom filter size"
-								timeseries={reactiveTimeseries.get("bloom_filter_size")}
-								formatter={prettyBytes}
-							/>
 							<LineChart
 								title="Write buffer size"
 								timeseries={reactiveTimeseries.get("write_buffer_size")}
@@ -276,6 +268,20 @@ function App() {
 							<LineChart
 								title="# disk segments"
 								timeseries={reactiveTimeseries.get("disk_segment_count")}
+							/>
+							<LineChart
+								title="# active compactions"
+								timeseries={reactiveTimeseries.get("running_compactions")}
+							/>
+						</div>
+						<div class="rounded-lg p-3 mx-3 dark:text-yellow-100 dark:bg-yellow-950">
+							Only work for Fjall currently
+						</div>
+						<div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
+							<LineChart
+								title="(Pinned) bloom filter size"
+								timeseries={reactiveTimeseries.get("bloom_filter_size")}
+								formatter={prettyBytes}
 							/>
 							<LineChart
 								title="# blob files"
@@ -289,10 +295,6 @@ function App() {
 								title="Average L0 segment lifetime"
 								timeseries={reactiveTimeseries.get("l0_segment_avg_lifetime_ms")}
 								formatter={(x) => `${x} ms`}
-							/>
-							<LineChart
-								title="# active compactions"
-								timeseries={reactiveTimeseries.get("running_compactions")}
 							/>
 							<LineChart
 								title="Journal count"

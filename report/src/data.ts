@@ -5,8 +5,9 @@ import { createStore, produce } from "solid-js/store";
 import { chooseColor, isLsm } from "./util";
 
 import devData from "../log.jsonl?raw";
-import devData2 from "../log2.jsonl?raw";
-import devData3 from "../log3.jsonl?raw";
+import devData2 from "../log2.jsonl.gzip?raw";
+import devData3 from "../log3.jsonl.gzip?raw";
+import devData4 from "../log4.jsonl.gzip?raw";
 
 export type Setup = {
 	displayName: string;
@@ -80,6 +81,23 @@ const BTREE_ONLY_PARAMETERS = new Set([
 	"fragmented_bytes",
 ]);
 
+async function gunzip(text: string) {
+	const binaryString = atob(text);
+	const len = binaryString.length;
+	const bytes = new Uint8Array(len);
+	for (let i = 0; i < len; i++) {
+		bytes[i] = binaryString.charCodeAt(i);
+	}
+
+	const ds = new DecompressionStream('gzip');
+	const decompressedStream = new Response(
+		new Blob([bytes]).stream().pipeThrough(ds)
+	).body;
+
+	const decompressedText = await new Response(decompressedStream).text();
+
+	return decompressedText;
+}
 
 export function useMetricsData() {
 	const [setups, setSetups] = createSignal<Setup[]>([]);
@@ -92,7 +110,7 @@ export function useMetricsData() {
 		rangeReadPercentiles: [] as GroupedSeries[],
 	});
 
-	onMount(() => {
+	onMount(async () => {
 		// NOTE: Patch HTML with dev data
 		if (import.meta.env.DEV) {
 			console.log("hello dev");
@@ -106,11 +124,14 @@ export function useMetricsData() {
 				<script type="data" compressed="false">
 					${devData}
 				</script>
-        <script type="data" compressed="false">
+        <script type="data" compressed="gzip">
 					${devData2}
 				</script>
-        <script type="data" compressed="false">
+        <script type="data" compressed="gzip">
 					${devData3}
+				</script>
+        <script type="data" compressed="gzip">
+					${devData4}
 				</script>
         `;
 			}
@@ -126,7 +147,13 @@ export function useMetricsData() {
 		for (let i = 0; i < els.length; i++) {
 			const item = els[i];
 
-			const txt = item.textContent!.trim();
+			const isCompressed = item.getAttribute("compressed") ?? "false";
+
+			let txt = item.textContent!.trim();
+			if (isCompressed === "gzip") {
+				txt = (await gunzip(txt)).trim();
+			}
+
 			const lines = txt.split("\n");
 			const _system = JSON.parse(lines[0]);
 			const args = JSON.parse(lines[1]);
