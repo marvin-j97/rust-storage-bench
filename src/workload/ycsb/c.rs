@@ -4,14 +4,14 @@ use crate::db::DatabaseWrapper;
 use crate::workload::ycsb::Options;
 use crate::workload::{choose_zipf, PanicGuard};
 use rand::{Rng, RngCore};
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicIsize;
 use std::sync::Arc;
 
 pub fn run(
     common_args: &CommonRunOptions,
     ycsb_opts: &Options,
     db: &DatabaseWrapper,
-    finish_signal: Arc<AtomicBool>,
+    finish_signal: Arc<AtomicIsize>,
 ) {
     let item_count = ycsb_opts.item_count as u64;
     assert!(item_count > 0);

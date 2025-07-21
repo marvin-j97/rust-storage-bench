@@ -51,7 +51,7 @@ pub struct FeedPost {
 
 const VIRTUAL_USERS: usize = 10_000;
 
-pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBool>) {
+pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicIsize>) {
     log::debug!("Pre-writing items");
 
     let mut rng = rand::thread_rng();

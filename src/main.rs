@@ -203,7 +203,7 @@ pub fn main() -> std::io::Result<()> {
 
             let db = DatabaseBuilder::build(&data_dir, args);
 
-            let finished = Arc::new(AtomicBool::default());
+            let finished = Arc::new(AtomicIsize::new(-1));
 
             let monitor = start_monitor(
                 file_writer,

@@ -6,7 +6,7 @@ use rand::{Rng, RngCore};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 
-pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBool>) {
+pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicIsize>) {
     let fsync = args.fsync;
     let item_count = args.item_count as u64;
 

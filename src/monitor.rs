@@ -4,7 +4,7 @@ use std::{
     io::{BufWriter, Write},
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicIsize, Ordering},
         Arc,
     },
     thread::JoinHandle,
@@ -18,7 +18,7 @@ pub fn start_monitor(
     mut sys: System,
     db: DatabaseWrapper,
     args: CommonRunOptions,
-    finish_signal: Arc<AtomicBool>,
+    finish_signal: Arc<AtomicIsize>,
     out_path: PathBuf,
 ) -> JoinHandle<()> {
     let mut prev_write_ops = 0;
@@ -221,7 +221,7 @@ pub fn start_monitor(
 
                 writeln!(&mut file_writer, "{json}").unwrap();
 
-                if finish_signal.load(Ordering::Relaxed) {
+                if finish_signal.load(Ordering::Relaxed) >= 0 {
                     break;
                 }
 
@@ -316,7 +316,7 @@ pub fn start_monitor(
                 std::fs::write(&out_path, encoded_string).unwrap();
             }
 
-            std::process::exit(0);
+            std::process::exit(finish_signal.load(Ordering::Relaxed).abs() as i32);
         })
         .unwrap()
 }

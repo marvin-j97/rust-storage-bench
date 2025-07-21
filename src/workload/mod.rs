@@ -14,26 +14,26 @@ use rand::{prelude::Distribution, Rng};
 use std::{
     hash::Hasher,
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicIsize, AtomicU64, Ordering},
         Arc,
     },
     time::Duration,
 };
 use zipf::ZipfDistribution;
 
-fn start_killer(sec: u16, signal: Arc<AtomicBool>) {
+fn start_killer(sec: u16, signal: Arc<AtomicIsize>) {
     log::debug!("Started killer");
     std::thread::sleep(Duration::from_secs(sec as u64));
-    signal.store(true, Ordering::Relaxed);
+    signal.store(0, Ordering::Relaxed);
 }
 
-pub struct PanicGuard(Arc<AtomicBool>);
+pub struct PanicGuard(Arc<AtomicIsize>);
 
 impl Drop for PanicGuard {
     fn drop(&mut self) {
         if std::thread::panicking() {
             log::error!("Thread panicked, aborting benchmark");
-            self.0.store(true, Ordering::Relaxed);
+            self.0.store(1, Ordering::Relaxed);
         }
     }
 }

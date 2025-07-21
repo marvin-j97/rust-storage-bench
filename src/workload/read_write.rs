@@ -11,7 +11,7 @@ use std::{
     },
 };
 
-pub(crate) fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBool>) {
+pub(crate) fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicIsize>) {
     let item_count = args.item_count as u64;
     let value_size = args.value_size as usize;
     let exponent = args.zipf_exponent;
@@ -100,7 +100,7 @@ pub(crate) fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<At
 pub(crate) fn run_independent(
     args: &RunOptions,
     db: &DatabaseWrapper,
-    finish_signal: Arc<AtomicBool>,
+    finish_signal: Arc<AtomicIsize>,
 ) {
     let fsync = args.fsync;
     let item_count = args.item_count as u64;

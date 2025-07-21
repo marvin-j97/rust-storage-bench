@@ -4,7 +4,8 @@ use crate::workload::PanicGuard;
 use crate::{args::CommonRunOptions, db::DatabaseWrapper};
 use clap::Parser;
 use serde::Serialize;
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::atomic::AtomicIsize;
+use std::sync::Arc;
 
 #[derive(Parser, Clone, Debug, Serialize)]
 pub struct Options {
@@ -29,7 +30,7 @@ pub fn run(
     common_args: &CommonRunOptions,
     queue_opts: &Options,
     db: &DatabaseWrapper,
-    finish_signal: Arc<AtomicBool>,
+    finish_signal: Arc<AtomicIsize>,
 ) {
     let fsync = common_args.fsync;
 

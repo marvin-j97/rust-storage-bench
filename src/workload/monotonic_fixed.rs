@@ -6,7 +6,7 @@ use rand::{Rng, RngCore};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicBool>) {
+pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicIsize>) {
     log::debug!("Ingesting data");
     let item_count = args.item_count as u64;
 
