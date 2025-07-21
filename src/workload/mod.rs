@@ -3,7 +3,7 @@
 // mod monotonic_fixed;
 // mod read_write;
 pub(crate) mod queue;
-mod ycsb;
+// pub(crate) mod tpc_c;
 pub(crate) mod ycsb;
 
 use crate::{
@@ -114,12 +114,11 @@ pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<Atomi
     log::info!("Starting workload {:#?}", cmd.workload);
 
     match &cmd.workload {
-        Workload::TpcC => {
-            use crate::workload::tpc_c;
+        // Workload::TpcC => {
+        //     use crate::workload::tpc_c;
 
-            tpc_c::run(args, &db, finish_signal);
-        }
-
+        //     tpc_c::run(args, &db, finish_signal);
+        // }
         Workload::Ycsb(ycsb_opts) => {
             use crate::workload::ycsb::YcsbType::{A, B, C};
 
