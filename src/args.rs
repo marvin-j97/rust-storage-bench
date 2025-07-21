@@ -207,8 +207,7 @@ pub struct ReadWriteOptions {
 
 #[derive(Clone, Debug, Subcommand, Serialize)]
 pub enum Workload {
-    TpcC,
-
+    // TpcC,
     Ycsb(YcsbOptions),
 
     /// Runs a queue-like workload where:
