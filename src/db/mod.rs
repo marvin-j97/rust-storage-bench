@@ -326,6 +326,7 @@ impl DatabaseWrapper {
                 }
             }
 
+            #[cfg(feature = "heed")]
             GenericDatabase::Heed { db, env } => {
                 let upper_bound = get_upper_bound(prefix).unwrap();
                 let range: (Bound<&[u8]>, Bound<&[u8]>) =
