@@ -1,7 +1,8 @@
 use super::super::start_killer;
-use crate::args::{CommonRunOptions, YcsbOptions};
+use crate::args::CommonRunOptions;
 use crate::db::DatabaseWrapper;
-use crate::workload::choose_zipf;
+use crate::workload::ycsb::Options;
+use crate::workload::{choose_zipf, PanicGuard};
 use rand::Rng;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -10,7 +11,7 @@ const POINT_READ_CHANCE: f32 = 0.95;
 
 pub fn run(
     common_args: &CommonRunOptions,
-    ycsb_opts: &YcsbOptions,
+    ycsb_opts: &Options,
     db: &DatabaseWrapper,
     finish_signal: Arc<AtomicBool>,
 ) {
@@ -38,13 +39,17 @@ pub fn run(
         .spawn({
             log::debug!("Starting worker");
 
+            let stop_signal = finish_signal.clone();
             let db = db.clone();
+
             let random = ycsb_opts.read_random;
             let exponent = ycsb_opts.zipf_exponent;
             let corpus = ycsb_opts.corpus;
             let fsync = common_args.fsync;
 
             move || {
+                let _guard = PanicGuard(stop_signal);
+
                 let mut rng = rand::thread_rng();
 
                 loop {

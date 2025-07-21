@@ -2,8 +2,9 @@
 // mod monotonic;
 // mod monotonic_fixed;
 // mod read_write;
-mod queue;
+pub(crate) mod queue;
 mod ycsb;
+pub(crate) mod ycsb;
 
 use crate::{
     args::{RunArgs, Workload},
@@ -13,7 +14,7 @@ use rand::{prelude::Distribution, Rng};
 use std::{
     hash::Hasher,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
     },
     time::Duration,
@@ -24,6 +25,17 @@ fn start_killer(sec: u16, signal: Arc<AtomicBool>) {
     log::debug!("Started killer");
     std::thread::sleep(Duration::from_secs(sec as u64));
     signal.store(true, Ordering::Relaxed);
+}
+
+pub struct PanicGuard(Arc<AtomicBool>);
+
+impl Drop for PanicGuard {
+    fn drop(&mut self) {
+        if std::thread::panicking() {
+            log::error!("Thread panicked, aborting benchmark");
+            self.0.store(true, Ordering::Relaxed);
+        }
+    }
 }
 
 /* // TODO: add more workloads
@@ -99,11 +111,17 @@ pub enum Workload {
 pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<AtomicBool>) {
     let args = &cmd.args;
 
-    log::info!("Starting workload {:?}", cmd.workload);
+    log::info!("Starting workload {:#?}", cmd.workload);
 
     match &cmd.workload {
+        Workload::TpcC => {
+            use crate::workload::tpc_c;
+
+            tpc_c::run(args, &db, finish_signal);
+        }
+
         Workload::Ycsb(ycsb_opts) => {
-            use crate::args::YcsbType::{A, B, C};
+            use crate::workload::ycsb::YcsbType::{A, B, C};
 
             match ycsb_opts.r#type {
                 A => {
@@ -117,7 +135,101 @@ pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<Atomi
                 }
             }
         }
+
         Workload::Queue(opts) => queue::run(args, opts, &db, finish_signal),
+
+        Workload::ReadWrite(opts) => {
+            let random_key_distribution = opts.write_random;
+
+            let key_mapper = move |k: u64| -> u64 {
+                if random_key_distribution {
+                    hash_key(k)
+                } else {
+                    k
+                }
+            };
+
+            let item_count = opts.item_count as u64;
+            assert!(item_count > 0);
+
+            let value_size = opts.value_size as usize;
+
+            {
+                log::debug!("Writing initial data ({item_count} items)");
+
+                let mut rng = rand::thread_rng();
+                let mut buf = vec![0; value_size];
+
+                for i in 0..item_count {
+                    let key = &key_mapper(i).to_be_bytes();
+                    opts.corpus.fetch(&mut rng, &mut buf);
+                    db.insert(key, &buf, false, true);
+                }
+            }
+
+            let written_count = Arc::new(AtomicU64::new(item_count));
+
+            let writer = std::thread::Builder::new()
+                .name("writer".into())
+                .spawn({
+                    log::debug!("Starting writer");
+
+                    let stop_signal = finish_signal.clone();
+                    let db = db.clone();
+                    let written_count = written_count.clone();
+                    let fsync = args.fsync;
+                    let corpus = opts.corpus;
+
+                    move || {
+                        let _guard = PanicGuard(stop_signal);
+
+                        let mut rng = rand::thread_rng();
+                        let mut buf = vec![0; value_size];
+
+                        for x in item_count.. {
+                            let key = &key_mapper(x).to_be_bytes();
+                            corpus.fetch(&mut rng, &mut buf);
+                            db.insert(key, &buf, fsync, true);
+                            written_count.fetch_add(1, Ordering::Relaxed);
+                        }
+                    }
+                })
+                .unwrap();
+
+            if !opts.write_only {
+                std::thread::Builder::new()
+                    .name("reader".into())
+                    .spawn({
+                        log::debug!("Starting reader");
+
+                        let stop_signal = finish_signal.clone();
+                        let db = db.clone();
+                        let read_random = opts.read_random;
+                        let exponent = opts.zipf_exponent;
+
+                        move || {
+                            let _guard = PanicGuard(stop_signal);
+
+                            let mut rng = rand::thread_rng();
+                            loop {
+                                let written_count = written_count.load(Ordering::Relaxed);
+                                let x = if read_random {
+                                    rng.gen_range(0..written_count)
+                                } else {
+                                    choose_zipf(&mut rng, exponent, written_count)
+                                };
+                                let key = &key_mapper(x).to_be_bytes();
+                                db.get(key);
+                            }
+                        }
+                    })
+                    .unwrap();
+            }
+
+            start_killer(args.seconds, finish_signal);
+
+            writer.join().unwrap();
+        }
     }
 
     /* match args.workload {

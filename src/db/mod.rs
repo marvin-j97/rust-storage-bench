@@ -4,6 +4,10 @@ mod builder;
 pub use backend::Backend;
 pub use builder::DatabaseBuilder;
 use builder::TABLE;
+#[cfg(feature = "sqlite")]
+use r2d2::Pool;
+#[cfg(feature = "sqlite")]
+use r2d2_sqlite::SqliteConnectionManager;
 use sketches_ddsketch::DDSketch;
 use std::{
     ops::Bound,
@@ -40,7 +44,7 @@ pub enum GenericDatabase {
     RocksDb(Arc<rocksdb::OptimisticTransactionDB>),
 
     #[cfg(feature = "sqlite")]
-    Sqlite(Arc<Mutex<rusqlite::Connection>>),
+    Sqlite(Pool<SqliteConnectionManager>),
 }
 
 #[derive(Clone)]
@@ -138,7 +142,7 @@ impl DatabaseWrapper {
             #[cfg(feature = "sqlite")]
             GenericDatabase::Sqlite(db) => {
                 let (stmt, params) = sqlite_range(range, false);
-                db.lock()
+                db.get()
                     .unwrap()
                     .prepare_cached(&stmt)
                     .unwrap()
@@ -194,6 +198,166 @@ impl DatabaseWrapper {
             v.as_ref().map(|(k, v)| k.len() + v.len()).unwrap_or(0) as u64,
             start,
         );
+
+        v
+    }
+
+    pub fn prefix(&self, prefix: &[u8], rev: bool, take: usize) -> Vec<(Vec<u8>, Vec<u8>)> {
+        let start = Instant::now();
+        let mut sum_bytes = 0;
+
+        let v = match &self.inner {
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { db, keyspace } => {
+                let read_tx = keyspace.read_tx();
+                let iter = read_tx.prefix(db, prefix);
+
+                if rev {
+                    iter.rev()
+                        .take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| (k.to_vec(), v.to_vec()))
+                        .inspect(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .collect()
+                } else {
+                    iter.take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| (k.to_vec(), v.to_vec()))
+                        .inspect(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .collect()
+                }
+            }
+
+            GenericDatabase::Fjall { db, keyspace } => {
+                let read_tx = keyspace.read_tx();
+                let iter = read_tx.prefix(db, prefix);
+
+                if rev {
+                    iter.rev()
+                        .take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| (k.to_vec(), v.to_vec()))
+                        .inspect(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .collect()
+                } else {
+                    iter.take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| (k.to_vec(), v.to_vec()))
+                        .inspect(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .collect()
+                }
+            }
+
+            GenericDatabase::Sled(db) => {
+                let iter = db.scan_prefix(prefix);
+
+                if rev {
+                    iter.rev()
+                        .take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| (k.to_vec(), v.to_vec()))
+                        .inspect(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .collect()
+                } else {
+                    iter.take(take)
+                        .map(|kv| kv.unwrap())
+                        .map(|(k, v)| (k.to_vec(), v.to_vec()))
+                        .inspect(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .collect()
+                }
+            }
+
+            #[cfg(feature = "rocksdb")]
+            GenericDatabase::RocksDb(db) => {
+                let upper_bound = get_upper_bound(prefix);
+                let upper_bound = upper_bound
+                    .as_ref()
+                    .map_or(Bound::Unbounded, |b| Bound::Excluded(b.as_slice()));
+
+                /* let range = db
+                .range::<&[u8]>((Bound::Included(prefix), upper_bound))
+                .unwrap(); */
+
+                let range = rocksdb_range((Bound::Included(prefix), upper_bound), rev, &db);
+
+                range
+                    .take(take)
+                    .map(|(k, v)| (k.to_vec(), v.to_vec()))
+                    .inspect(|(k, v)| {
+                        sum_bytes += k.len() + v.len();
+                    })
+                    .collect()
+            }
+
+            GenericDatabase::Redb(db) => {
+                let upper_bound = get_upper_bound(prefix).unwrap();
+
+                let tx = db.begin_read().unwrap();
+                let table = tx.open_table(TABLE).unwrap();
+                let iter = table.range(prefix..&upper_bound).unwrap();
+
+                if rev {
+                    iter.map(|guard| guard.unwrap())
+                        .map(|(k, v)| (k.value().to_vec(), v.value().to_vec()))
+                        .inspect(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .collect()
+                } else {
+                    iter.rev()
+                        .map(|guard| guard.unwrap())
+                        .map(|(k, v)| (k.value().to_vec(), v.value().to_vec()))
+                        .inspect(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .collect()
+                }
+            }
+
+            GenericDatabase::Heed { db, env } => {
+                let upper_bound = get_upper_bound(prefix).unwrap();
+                let range: (Bound<&[u8]>, Bound<&[u8]>) =
+                    (Bound::Included(prefix), Bound::Excluded(&*upper_bound));
+
+                let tx = env.read_txn().unwrap();
+
+                if rev {
+                    db.rev_range(&tx, &range)
+                        .unwrap()
+                        .map(|x| x.unwrap())
+                        .map(|(k, v)| (k.to_vec(), v.to_vec()))
+                        .inspect(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .collect()
+                } else {
+                    db.range(&tx, &range)
+                        .unwrap()
+                        .map(|x| x.unwrap())
+                        .map(|(k, v)| (k.to_vec(), v.to_vec()))
+                        .inspect(|(k, v)| {
+                            sum_bytes += k.len() + v.len();
+                        })
+                        .collect()
+                }
+            }
+
+            _ => unimplemented!(),
+        };
+
+        self.report_scan(sum_bytes as u64, start);
 
         v
     }
@@ -354,7 +518,7 @@ impl DatabaseWrapper {
             #[cfg(feature = "sqlite")]
             GenericDatabase::Sqlite(db) => {
                 let (stmt, params) = sqlite_range(range, rev);
-                db.lock()
+                db.get()
                     .unwrap()
                     .prepare_cached(&stmt)
                     .unwrap()
@@ -606,6 +770,19 @@ impl DatabaseWrapper {
         }
     }
 
+    pub fn block_index_size(&self) -> usize {
+        match &self.inner {
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { db, .. } => {
+                use fjall_nightly::AbstractTree;
+
+                db.inner().tree.pinned_block_index_size()
+            }
+
+            _ => 0,
+        }
+    }
+
     pub fn l0_runs(&self) -> usize {
         match &self.inner {
             GenericDatabase::Fjall { db, .. } => {
@@ -827,7 +1004,7 @@ impl DatabaseWrapper {
             #[cfg(feature = "sqlite")]
             GenericDatabase::Sqlite(db) => {
                 let value = db
-                    .lock()
+                    .get()
                     .unwrap()
                     .prepare_cached("SELECT value FROM data WHERE key = ?")
                     .unwrap()
@@ -845,8 +1022,6 @@ impl DatabaseWrapper {
                         }
                     }
                 }
-
-                // NOTE: Durability is controlled by pragma in load()
             }
 
             #[cfg(feature = "rocksdb")]
@@ -947,7 +1122,7 @@ impl DatabaseWrapper {
         match &self.inner {
             #[cfg(feature = "sqlite")]
             GenericDatabase::Sqlite(db) => {
-                let db = db.lock().unwrap();
+                let db = db.get().unwrap();
                 db.execute("BEGIN IMMEDIATE", []).unwrap();
                 let mut stmt = db
                     .prepare_cached("INSERT INTO data (key, value) VALUES (?, ?)")
@@ -1070,7 +1245,7 @@ impl DatabaseWrapper {
         match &self.inner {
             #[cfg(feature = "sqlite")]
             GenericDatabase::Sqlite(db) => {
-                db.lock()
+                db.get()
                     .unwrap()
                     .execute("INSERT INTO data (key, value) VALUES (?, ?)", (key, value))
                     .unwrap();
@@ -1175,7 +1350,7 @@ impl DatabaseWrapper {
     // the plain remove function. This way workloads can test both kinds.
     pub fn remove_unique(&self, key: &[u8], durable: bool, decrement_workload_size: Option<u64>) {
         match &self.inner {
-            #[cfg(feature = "fjall_nightly")]
+            /* #[cfg(feature = "fjall_nightly")]
             GenericDatabase::FjallNightly { keyspace, db } => {
                 // TODO: remove_weak
                 db.remove(key).unwrap();
@@ -1195,7 +1370,7 @@ impl DatabaseWrapper {
                         std::sync::atomic::Ordering::Relaxed,
                     );
                 }
-            }
+            } */
             _ => {
                 self.remove(key, durable, decrement_workload_size);
             }

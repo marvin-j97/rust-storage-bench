@@ -11,30 +11,37 @@ impl DatabaseBuilder {
         let db = match args.backend {
             #[cfg(feature = "sqlite")]
             Backend::Sqlite => {
+                use r2d2_sqlite::SqliteConnectionManager;
                 use rusqlite::Connection;
 
                 std::fs::create_dir_all(&path).unwrap();
 
-                let conn = Connection::open(path.as_ref().join("sqlite.db")).unwrap();
+                let path = path.as_ref().join("sqlite.db");
 
-                conn.pragma_update(None, "journal_mode", "WAL").unwrap();
-                conn.pragma_update(None, "cache_size", format!("-{}", args.cache_size / 1024))
+                {
+                    let conn = Connection::open(&path).unwrap();
+
+                    conn.pragma_update(None, "journal_mode", "WAL").unwrap();
+                    conn.pragma_update(None, "cache_size", format!("-{}", args.cache_size / 1_024))
+                        .unwrap();
+
+                    if args.fsync {
+                        conn.pragma_update(None, "synchronous", "FULL").unwrap();
+                    } else {
+                        conn.pragma_update(None, "synchronous", "NORMAL").unwrap();
+                    }
+
+                    conn.execute(
+                        "CREATE TABLE data (key BLOB PRIMARY KEY COLLATE BINARY, value BLOB NOT NULL) WITHOUT ROWID, STRICT",
+                        (),
+                    )
                     .unwrap();
-
-                if args.fsync {
-                    conn.pragma_update(None, "synchronous", "FULL").unwrap();
-                } else {
-                    conn.pragma_update(None, "synchronous", "NORMAL").unwrap();
                 }
 
-                // TODO: test WITHOUT ROWID to get a clustered index
-                conn.execute(
-                    "CREATE TABLE data (key BLOB NOT NULL UNIQUE, value BLOB NOT NULL) STRICT",
-                    (),
-                )
-                .unwrap();
+                let manager = SqliteConnectionManager::file(path);
+                let pool = r2d2::Pool::new(manager).unwrap();
 
-                GenericDatabase::Sqlite(Arc::new(Mutex::new(conn)))
+                GenericDatabase::Sqlite(pool)
             }
 
             #[cfg(feature = "rocksdb")]
@@ -55,7 +62,7 @@ impl DatabaseBuilder {
 
                 let mut bopts = BlockBasedOptions::default();
                 bopts.set_bloom_filter(10.0, false);
-                bopts.set_block_size(4 * 1_024);
+                bopts.set_block_size(args.lsm_block_size as usize);
                 bopts.set_index_type(rocksdb::BlockBasedIndexType::BinarySearch);
                 bopts.set_pin_l0_filter_and_index_blocks_in_cache(true);
                 // bopts.set_pin_top_level_index_and_filter(true);
@@ -143,7 +150,7 @@ impl DatabaseBuilder {
 
                 let create_opts = fjall::PartitionCreateOptions::default()
                     .max_memtable_size(64 * 1_024 * 1_024)
-                    .block_size(4 * 1_024)
+                    .block_size(args.lsm_block_size)
                     .compaction_strategy(match args.lsm_compaction {
                         crate::args::LsmCompaction::Leveled => {
                             fjall::compaction::Strategy::Leveled(
@@ -195,7 +202,7 @@ impl DatabaseBuilder {
 
                 let mut create_opts = fjall_nightly::PartitionCreateOptions::default()
                     .max_memtable_size(64 * 1_024 * 1_024)
-                    .block_size(4 * 1_024)
+                    .block_size(args.lsm_block_size)
                     .compaction_strategy(match args.lsm_compaction {
                         crate::args::LsmCompaction::Leveled => {
                             fjall_nightly::compaction::Strategy::Leveled(

@@ -178,7 +178,7 @@ pub fn start_monitor(
                     db.journal_count(),
                     db.journal_size(),
                     db.bloom_filter_size(),
-                    0, // TODO:
+                    db.block_index_size(),
                     0, // TODO:
                     db.write_buffer_size(),
                     db.tree_height(),
@@ -231,7 +231,8 @@ pub fn start_monitor(
                 prev_delete_ops = delete_ops;
             }
 
-            log::debug!("its joever");
+            log::info!("Benchmark finished");
+            log::trace!("Writing remaining metrics");
 
             writeln!(&mut file_writer, "{}", serde_json::json!({ "fin": true })).unwrap();
 
@@ -292,6 +293,8 @@ pub fn start_monitor(
                 .unwrap();
             }
 
+            log::trace!("Flushing metrics file");
+
             file_writer.flush().unwrap();
             file_writer.into_inner().unwrap().sync_all().unwrap();
 
@@ -300,7 +303,7 @@ pub fn start_monitor(
                 use flate2::write::GzEncoder;
                 use flate2::Compression;
 
-                log::debug!("Compressing output file using gzip");
+                log::trace!("Compressing output file using gzip");
 
                 let contents = std::fs::read_to_string(&out_path).unwrap();
 
