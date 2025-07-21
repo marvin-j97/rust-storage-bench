@@ -108,7 +108,7 @@ pub enum Workload {
     QueueIndependent,
 } */
 
-pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<AtomicBool>) {
+pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<AtomicIsize>) {
     let args = &cmd.args;
 
     log::info!("Starting workload {:#?}", cmd.workload);
