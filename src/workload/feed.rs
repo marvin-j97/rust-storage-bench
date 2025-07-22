@@ -54,7 +54,7 @@ const VIRTUAL_USERS: usize = 10_000;
 pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicIsize>) {
     log::debug!("Pre-writing items");
 
-    let mut rng = rand::thread_rng();
+    let mut rng = crate::random::thread_rng();
     let mut buf = vec![0; args.value_size as usize];
     let feed_limit = 10;
     let initial_posts_per_user = (args.item_count / VIRTUAL_USERS).max(feed_limit);
@@ -90,7 +90,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicIsi
             let db = db.clone();
 
             std::thread::spawn(move || {
-                let mut rng = rand::thread_rng();
+                let mut rng = crate::random::thread_rng();
                 let mut buf = vec![0; args.value_size as usize];
                 let zipf = ZipfDistribution::new(VIRTUAL_USERS, args.zipf_exponent).unwrap();
 

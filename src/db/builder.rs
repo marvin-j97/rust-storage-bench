@@ -200,7 +200,7 @@ impl DatabaseBuilder {
 
                 let keyspace = config.open_transactional().unwrap();
 
-                let mut create_opts = fjall_nightly::PartitionCreateOptions::default()
+                let create_opts = fjall_nightly::PartitionCreateOptions::default()
                     .max_memtable_size(64 * 1_024 * 1_024)
                     .block_size(args.lsm_block_size)
                     .compaction_strategy(match args.lsm_compaction {

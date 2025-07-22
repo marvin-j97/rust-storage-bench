@@ -15,7 +15,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicIsi
 
     if item_count > 0 {
         log::debug!("Pre-writing {item_count} items");
-        let mut rng = rand::thread_rng();
+        let mut rng = crate::random::thread_rng();
 
         let iter = (0..(item_count as u128)).map(|x| {
             rng.fill_bytes(&mut buf);
@@ -31,7 +31,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicIsi
         let written_count = written_count.clone();
 
         move || {
-            let mut rng = rand::thread_rng();
+            let mut rng = crate::random::thread_rng();
 
             for x in (item_count as u128).. {
                 let key = x.to_be_bytes();
@@ -50,7 +50,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicIsi
         let exponent = args.zipf_exponent;
 
         move || {
-            let mut rng = rand::thread_rng();
+            let mut rng = crate::random::thread_rng();
             loop {
                 let written_count = written_count.load(Ordering::Relaxed);
                 if written_count > 1 {

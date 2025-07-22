@@ -11,7 +11,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicIsi
     let item_count = args.item_count as u64;
 
     let mut buf = vec![0; args.value_size as usize];
-    let mut rng = rand::thread_rng();
+    let mut rng = crate::random::thread_rng();
 
     let iter = (0..item_count).map(|x| {
         rng.fill_bytes(&mut buf);
@@ -34,7 +34,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicIsi
         let exponent = args.zipf_exponent;
 
         move || {
-            let mut rng = rand::thread_rng();
+            let mut rng = crate::random::thread_rng();
 
             loop {
                 let x = if random {
