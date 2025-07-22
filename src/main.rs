@@ -2,6 +2,7 @@ mod args;
 mod corpus;
 mod db;
 mod monitor;
+mod random;
 mod report;
 mod workload;
 
@@ -10,7 +11,7 @@ use clap::Parser;
 use db::{Backend, DatabaseBuilder};
 use monitor::start_monitor;
 use std::io::Write;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicIsize};
 use std::sync::Arc;
 use workload::run_workload;
 
@@ -43,6 +44,14 @@ pub fn main() -> std::io::Result<()> {
     env_logger::Builder::from_default_env()
         .filter_module("rust_storage_bench", log::LevelFilter::Debug)
         .init();
+
+    #[cfg(feature = "antithesis")]
+    {
+        use precept::dispatch::{antithesis::AntithesisDispatch, noop::NoopDispatch};
+        let dispatcher =
+            AntithesisDispatch::try_load_boxed().unwrap_or_else(|| NoopDispatch::new_boxed());
+        precept::init_boxed(dispatcher).expect("failed to setup precept");
+    }
 
     log::info!("rust-storage-bench {}", env!("CARGO_PKG_VERSION"));
     {
