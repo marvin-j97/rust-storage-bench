@@ -10,7 +10,7 @@ use args::Args;
 use clap::Parser;
 use db::{Backend, DatabaseBuilder};
 use monitor::start_monitor;
-use std::io::Write;
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::sync::atomic::{AtomicBool, AtomicIsize};
 use std::sync::Arc;
 use workload::run_workload;
@@ -40,6 +40,55 @@ pub fn unix_timestamp() -> std::time::Duration {
         .unwrap()
 }
 
+const COLUMN_HEADERS: &[&str] = &[
+    "time_ms",
+    "cpu",
+    "mem_kib",
+    "disk_space_kib",
+    "disk_writes_kib",
+    "disk_reads_kib",
+    //
+    "disk_segment_count", // TODO: replace with level_sizes: [L0, L1, L2, L3, L4, L5, L6]
+    "blob_file_count",
+    "journal_count",
+    "journal_size",
+    "bloom_filter_size",
+    "block_index_size",
+    "cache_size",
+    "write_buffer_size",
+    "tree_height",
+    "fragmented_bytes",
+    "running_compactions",
+    "time_compacting_us",
+    "l0_runs",
+    "l0_segment_avg_lifetime_ms",
+    //
+    "write_ops",
+    "point_read_ops",
+    "range_ops",
+    "delete_ops",
+    //
+    "write_latency",
+    "point_read_latency",
+    "range_latency",
+    "delete_latency",
+    //
+    "write_rate",
+    "point_read_rate",
+    "range_rate",
+    "delete_rate",
+    //
+    "write_potential",
+    "point_read_potential",
+    "range_potential",
+    "delete_potential",
+    //
+    "write_amp",
+    "space_amp",
+    "read_amp",
+    //
+];
+
 pub fn main() -> std::io::Result<()> {
     env_logger::Builder::from_default_env()
         .filter_module("rust_storage_bench", log::LevelFilter::Debug)
@@ -64,6 +113,77 @@ pub fn main() -> std::io::Result<()> {
     }
 
     match Args::parse().command {
+        args::Commands::Aggregate(args) => {
+            let out = std::fs::File::create(args.out)?;
+            let mut out = BufWriter::new(out);
+
+            let files = args.files;
+
+            // Create an iterator over all input files
+            let mut iters = files
+                .into_iter()
+                .map(|path| {
+                    let file = std::fs::File::open(path)?;
+                    let file = BufReader::new(file);
+                    let mut line_reader = file.lines();
+                    line_reader.next().unwrap()?; // Skip system info
+
+                    // Get args
+                    let args = line_reader.next().unwrap()?;
+                    let args: serde_json::Value = serde_json::from_str(&args).unwrap();
+                    let id = args["id"].as_str().unwrap().to_owned();
+
+                    let headers = line_reader.next().unwrap()?;
+                    let headers: Vec<String> = serde_json::from_str(&headers).unwrap();
+
+                    let iter = line_reader
+                        .map(|line| line.unwrap())
+                        .take_while(|line| !line.contains(r#""fin""#))
+                        .map(|line| {
+                            let json: serde_json::Value = serde_json::from_str(&line).unwrap();
+                            json
+                        });
+
+                    Ok::<_, std::io::Error>((id, headers, iter))
+                })
+                .collect::<std::io::Result<Vec<_>>>()?;
+
+            // Merge into JSON object and emit into out
+            'outer: loop {
+                let mut obj = serde_json::Value::Object(Default::default());
+
+                for (id, headers, row_iter) in &mut iters {
+                    let Some(next_row) = row_iter.next() else {
+                        break 'outer;
+                    };
+
+                    obj["time"] = serde_json::Value::Number(serde_json::Number::from(
+                        next_row[0].as_u64().unwrap(),
+                    ));
+
+                    let mut projection = serde_json::Value::Object(Default::default());
+
+                    for column in &args.project {
+                        let idx = headers
+                            .iter()
+                            .enumerate()
+                            .find(|(_, x)| *x == column)
+                            .map(|(idx, _)| idx)
+                            .unwrap_or_else(|| panic!("should have column {column:?}"));
+
+                        projection[column.as_str()] = next_row[idx].clone();
+                    }
+
+                    obj[id.as_str()] = projection;
+                }
+
+                out.write_all(serde_json::to_string(&obj).unwrap().as_bytes())?;
+                out.write_all(b"\n")?;
+            }
+
+            out.flush()?;
+            out.get_mut().sync_all()?;
+        }
         args::Commands::Report(args) => {
             generate_report(args)?;
         }
@@ -159,54 +279,7 @@ pub fn main() -> std::io::Result<()> {
 
             // Write the table headers
             {
-                let json = serde_json::json!([
-                    "time_ms",
-                    "cpu",
-                    "mem_kib",
-                    "disk_space_kib",
-                    "disk_writes_kib",
-                    "disk_reads_kib",
-                    //
-                    "disk_segment_count", // TODO: replace with level_sizes: [L0, L1, L2, L3, L4, L5, L6]
-                    "blob_file_count",
-                    "journal_count",
-                    "journal_size",
-                    "bloom_filter_size",
-                    "block_index_size",
-                    "cache_size",
-                    "write_buffer_size",
-                    "tree_height",
-                    "fragmented_bytes",
-                    "running_compactions",
-                    "time_compacting_us",
-                    "l0_runs",
-                    "l0_segment_avg_lifetime_ms",
-                    //
-                    "write_ops",
-                    "point_read_ops",
-                    "range_ops",
-                    "delete_ops",
-                    //
-                    "write_latency",
-                    "point_read_latency",
-                    "range_latency",
-                    "delete_latency",
-                    //
-                    "write_rate",
-                    "point_read_rate",
-                    "range_rate",
-                    "delete_rate",
-                    //
-                    "write_potential",
-                    "point_read_potential",
-                    "range_potential",
-                    "delete_potential",
-                    //
-                    "write_amp",
-                    "space_amp",
-                    "read_amp",
-                    //
-                ]);
+                let json = serde_json::json!(COLUMN_HEADERS);
                 writeln!(&mut file_writer, "{json}").unwrap();
             }
 

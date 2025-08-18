@@ -162,6 +162,8 @@ impl DatabaseWrapper {
                     .unwrap()
             }
             GenericDatabase::Redb(db) => {
+                use redb::ReadableDatabase;
+
                 let tx = db.begin_read().unwrap();
                 let tree = tx.open_table(TABLE).unwrap();
                 let mut iter = tree.range::<&[u8]>(range).unwrap();
@@ -302,11 +304,13 @@ impl DatabaseWrapper {
             }
 
             GenericDatabase::Redb(db) => {
+                use redb::ReadableDatabase;
+
                 let upper_bound = get_upper_bound(prefix).unwrap();
 
                 let tx = db.begin_read().unwrap();
                 let table = tx.open_table(TABLE).unwrap();
-                let iter = table.range(prefix..&upper_bound).unwrap();
+                let iter = table.range(prefix..&*upper_bound).unwrap();
 
                 if rev {
                     iter.map(|guard| guard.unwrap())
@@ -386,14 +390,14 @@ impl DatabaseWrapper {
                     iter.rev()
                         .take(take)
                         .map(|kv| kv.unwrap())
-                        .map(|(k, v)| {
+                        .inspect(|(k, v)| {
                             sum_bytes += k.len() + v.len();
                         })
                         .count()
                 } else {
                     iter.take(take)
                         .map(|kv| kv.unwrap())
-                        .map(|(k, v)| {
+                        .inspect(|(k, v)| {
                             sum_bytes += k.len() + v.len();
                         })
                         .count()
@@ -407,14 +411,14 @@ impl DatabaseWrapper {
                     iter.rev()
                         .take(take)
                         .map(|kv| kv.unwrap())
-                        .map(|(k, v)| {
+                        .inspect(|(k, v)| {
                             sum_bytes += k.len() + v.len();
                         })
                         .count()
                 } else {
                     iter.take(take)
                         .map(|kv| kv.unwrap())
-                        .map(|(k, v)| {
+                        .inspect(|(k, v)| {
                             sum_bytes += k.len() + v.len();
                         })
                         .count()
@@ -427,14 +431,14 @@ impl DatabaseWrapper {
                     iter.rev()
                         .take(take)
                         .map(|kv| kv.unwrap())
-                        .map(|(k, v)| {
+                        .inspect(|(k, v)| {
                             sum_bytes += k.len() + v.len();
                         })
                         .count()
                 } else {
                     iter.take(take)
                         .map(|kv| kv.unwrap())
-                        .map(|(k, v)| {
+                        .inspect(|(k, v)| {
                             sum_bytes += k.len() + v.len();
                         })
                         .count()
@@ -456,7 +460,7 @@ impl DatabaseWrapper {
                     let iter = db.rev_prefix_iter(&tx, prefix).unwrap();
                     iter.take(take)
                         .map(|kv| kv.unwrap())
-                        .map(|(k, v)| {
+                        .inspect(|(k, v)| {
                             sum_bytes += k.len() + v.len();
                         })
                         .count()
@@ -464,7 +468,7 @@ impl DatabaseWrapper {
                     let iter = db.prefix_iter(&tx, prefix).unwrap();
                     iter.take(take)
                         .map(|kv| kv.unwrap())
-                        .map(|(k, v)| {
+                        .inspect(|(k, v)| {
                             sum_bytes += k.len() + v.len();
                         })
                         .count()
@@ -603,6 +607,8 @@ impl DatabaseWrapper {
                 }
             }
             GenericDatabase::Redb(db) => {
+                use redb::ReadableDatabase;
+
                 let tx = db.begin_read().unwrap();
 
                 let table = tx.open_table(TABLE).unwrap();
@@ -711,6 +717,7 @@ impl DatabaseWrapper {
         match &self.inner {
             // TODO: fjall: non-vacant levels
             GenericDatabase::Redb(db) => {
+                use redb::ReadableDatabase;
                 use redb::ReadableTableMetadata;
 
                 // TODO: too expensive!!! memoize??
@@ -1059,6 +1066,8 @@ impl DatabaseWrapper {
             }
 
             GenericDatabase::Redb(db) => {
+                use redb::ReadableDatabase;
+
                 let read_txn = db.begin_read().unwrap();
                 let table = read_txn.open_table(TABLE).unwrap();
 
@@ -1092,6 +1101,130 @@ impl DatabaseWrapper {
         );
 
         item
+    }
+
+    pub fn ingest_unordered(&self, items: impl Iterator<Item = (Vec<u8>, Vec<u8>)>) {
+        let start = Instant::now();
+
+        let mut count = 0;
+        let mut bytes_written = 0;
+
+        match &self.inner {
+            #[cfg(feature = "sqlite")]
+            GenericDatabase::Sqlite(_db) => {
+                unimplemented!();
+            }
+
+            #[cfg(feature = "rocksdb")]
+            GenericDatabase::RocksDb(db) => {
+                for (key, value) in items {
+                    db.put(&key, &value).unwrap();
+
+                    count += 1;
+                    bytes_written += key.len() + value.len();
+                }
+
+                db.flush_wal(true).unwrap();
+
+                db.flush().unwrap();
+            }
+
+            GenericDatabase::Fjall { db, keyspace } => {
+                for (key, value) in items {
+                    db.insert(&key, &*value).unwrap();
+
+                    count += 1;
+                    bytes_written += key.len() + value.len();
+                }
+
+                keyspace.persist(fjall::PersistMode::SyncAll).unwrap();
+
+                db.inner().rotate_memtable_and_wait().unwrap();
+            }
+
+            #[cfg(feature = "fjall_nightly")]
+            GenericDatabase::FjallNightly { db, keyspace } => {
+                for (key, value) in items {
+                    db.insert(&key, &*value).unwrap();
+
+                    count += 1;
+                    bytes_written += key.len() + value.len();
+                }
+
+                keyspace
+                    .persist(fjall_nightly::PersistMode::SyncAll)
+                    .unwrap();
+
+                db.inner().rotate_memtable_and_wait().unwrap();
+            }
+
+            GenericDatabase::Sled(db) => {
+                for (key, value) in items {
+                    db.insert(&key, &*value).unwrap();
+
+                    count += 1;
+                    bytes_written += key.len() + value.len();
+                }
+                db.flush().unwrap();
+            }
+
+            GenericDatabase::Redb(db) => {
+                let write_txn = db.begin_write().unwrap();
+                {
+                    let mut table = write_txn.open_table(TABLE).unwrap();
+
+                    for (key, value) in items {
+                        table.insert(&*key, &*value).unwrap();
+
+                        count += 1;
+                        bytes_written += key.len() + value.len();
+                    }
+                }
+                write_txn.commit().unwrap();
+            }
+
+            #[cfg(feature = "heed")]
+            GenericDatabase::Heed { db, env } => {
+                let mut write_txn = env.write_txn().unwrap();
+                {
+                    for (key, value) in items {
+                        db.put(&mut write_txn, &key, &value).unwrap();
+
+                        count += 1;
+                        bytes_written += key.len() + value.len();
+                    }
+                }
+                write_txn.commit().unwrap();
+            }
+
+            GenericDatabase::Canopydb(db) => {
+                let write_txn = db.begin_write().unwrap();
+                {
+                    let mut tree = write_txn.get_tree(b"default").unwrap().unwrap();
+
+                    for (key, value) in items {
+                        tree.insert(&key, &value).unwrap();
+
+                        count += 1;
+                        bytes_written += key.len() + value.len();
+                    }
+                }
+                write_txn.commit().unwrap();
+            }
+        }
+
+        self.write_latency.fetch_add(
+            start.elapsed().as_nanos() as u64,
+            std::sync::atomic::Ordering::Relaxed,
+        );
+
+        self.write_ops
+            .fetch_add(count, std::sync::atomic::Ordering::Relaxed);
+
+        self.written_bytes
+            .fetch_add(bytes_written as u64, std::sync::atomic::Ordering::Relaxed);
+
+        log::info!("Ingested {count} initial items in {:?}", start.elapsed());
     }
 
     /// Ingest a batch of items into the database.
@@ -1231,10 +1364,16 @@ impl DatabaseWrapper {
                 db.flush().unwrap();
             }
 
-            GenericDatabase::Redb(_) => {}
+            GenericDatabase::Redb(db) => {
+                let mut wtx = db.begin_write().unwrap();
+                wtx.set_durability(redb::Durability::Immediate).unwrap();
+                wtx.commit().unwrap();
+            }
 
             #[cfg(feature = "heed")]
-            GenericDatabase::Heed { .. } => {}
+            GenericDatabase::Heed { env, .. } => {
+                env.force_sync().unwrap();
+            }
 
             _ => unimplemented!(),
         }
@@ -1287,11 +1426,13 @@ impl DatabaseWrapper {
                 }
             }
             GenericDatabase::Redb(db) => {
-                use redb::Durability::{Eventual, Immediate};
+                use redb::Durability::{Immediate, None};
 
                 let mut write_txn = db.begin_write().unwrap();
 
-                write_txn.set_durability(if durable { Immediate } else { Eventual });
+                write_txn
+                    .set_durability(if durable { Immediate } else { None })
+                    .unwrap();
 
                 {
                     let mut table = write_txn.open_table(TABLE).unwrap();
@@ -1421,11 +1562,13 @@ impl DatabaseWrapper {
                 }
             }
             GenericDatabase::Redb(db) => {
-                use redb::Durability::{Eventual, Immediate};
+                use redb::Durability::{Immediate, None};
 
                 let mut write_txn = db.begin_write().unwrap();
 
-                write_txn.set_durability(if durable { Immediate } else { Eventual });
+                write_txn
+                    .set_durability(if durable { Immediate } else { None })
+                    .unwrap();
 
                 {
                     let mut table = write_txn.open_table(TABLE).unwrap();

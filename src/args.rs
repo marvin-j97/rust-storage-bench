@@ -17,6 +17,7 @@ pub struct Args {
 pub enum LsmCompaction {
     Leveled,
     Tiered,
+    Fifo,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, clap::ValueEnum, Serialize, Deserialize)]
@@ -33,6 +34,7 @@ impl std::fmt::Display for LsmCompaction {
             match self {
                 Self::Leveled => "LCS",
                 Self::Tiered => "STCS",
+                Self::Fifo => "FIFO",
             }
         )
     }
@@ -75,6 +77,12 @@ pub enum MarkerShape {
 #[derive(Parser, Clone, Debug, Serialize)]
 #[clap(rename_all = "kebab_case")]
 pub struct CommonRunOptions {
+    /// Benchmark ID
+    ///
+    /// May be used identification in further processing
+    #[arg(long, default_value_t = scru128::new_string())]
+    pub id: String,
+
     /// Granularity in milliseconds with which to poll metrics
     #[arg(long, alias = "granularity", default_value_t = 1_000)]
     pub granularity_ms: u16,
@@ -122,13 +130,27 @@ pub struct CommonRunOptions {
     #[arg(long, value_enum, default_value_t = Compression::Lz4)]
     pub compression: Compression,
 
+    /// Block size for LSM-trees
+    #[arg(long, default_value_t = 64_000_000)]
+    pub lsm_write_buffer_bytes: u64,
+
     /// Compaction for LSM-trees
     #[arg(long, value_enum, default_value_t = LsmCompaction::Leveled)]
     pub lsm_compaction: LsmCompaction,
 
+    #[arg(long, default_value_t = 512_000_000)]
+    pub lsm_fifo_limit_bytes: u64,
+
     /// Block size for LSM-trees
     #[arg(long, default_value_t = 4_096)]
     pub lsm_block_size: u32,
+
+    /// Bloom filter BPK
+    #[arg(long, default_value_t = 10)]
+    pub lsm_bloom_bpk: u8,
+
+    #[arg(long, default_value_t = 0.0)]
+    pub lsm_data_block_hash_ratio: f32,
     /*
     /// Number of threads to use. Not applicable to all workloads
     #[arg(long, default_value_t = 1)]
@@ -223,8 +245,24 @@ pub enum Workload {
     ReadWrite(ReadWriteOptions),
 }
 
+#[derive(Parser, Clone, Debug, Serialize)]
+#[clap(rename_all = "kebab_case")]
+pub struct AggregateOptions {
+    /// Input files
+    pub files: Vec<PathBuf>,
+
+    /// Columns to project
+    #[arg(long = "project")]
+    pub project: Vec<String>,
+
+    /// Output file
+    #[arg(short = 'o', long = "out", default_value = "aggregate.jsonl")]
+    pub out: PathBuf,
+}
+
 #[derive(Clone, Subcommand, Debug, Serialize)]
 pub enum Commands {
     Run(RunArgs),
     Report(ReportOptions),
+    Aggregate(AggregateOptions),
 }
