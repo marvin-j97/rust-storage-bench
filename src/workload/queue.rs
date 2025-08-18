@@ -56,7 +56,7 @@ pub fn run(
             move || {
                 let _guard = PanicGuard(stop_signal);
 
-                let mut rng = rand::thread_rng();
+                let mut rng = crate::random::thread_rng();
 
                 // NOTE: Note how we're starting at 1 instead of 0
                 for seqno in 1u128.. {

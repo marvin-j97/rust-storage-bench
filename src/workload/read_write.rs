@@ -27,7 +27,7 @@ pub(crate) fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<At
     };
 
     {
-        let mut rng = rand::thread_rng();
+        let mut rng = crate::random::thread_rng();
         let mut buf = vec![0; value_size];
         for i in 0..item_count {
             let key = &key_mapper(i).to_be_bytes();
@@ -50,7 +50,7 @@ pub(crate) fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<At
             let disjoint = disjoint.clone();
 
             move || {
-                let mut rng = rand::thread_rng();
+                let mut rng = crate::random::thread_rng();
                 loop {
                     if rng.gen_bool(0.5) {
                         let x = next_write.fetch_add(1, Ordering::SeqCst);
@@ -117,7 +117,7 @@ pub(crate) fn run_independent(
     };
 
     {
-        let mut rng = rand::thread_rng();
+        let mut rng = crate::random::thread_rng();
         let mut buf = vec![0; value_size];
         for i in 0..item_count {
             let key = &key_mapper(i).to_be_bytes();
@@ -133,7 +133,7 @@ pub(crate) fn run_independent(
         let written_count = written_count.clone();
 
         move || {
-            let mut rng = rand::thread_rng();
+            let mut rng = crate::random::thread_rng();
             let mut buf = vec![0; value_size];
 
             for x in item_count.. {
@@ -150,7 +150,7 @@ pub(crate) fn run_independent(
         let db = db.clone();
 
         move || {
-            let mut rng = rand::thread_rng();
+            let mut rng = crate::random::thread_rng();
             loop {
                 let written_count = written_count.load(Ordering::Relaxed);
                 let x = if read_random {

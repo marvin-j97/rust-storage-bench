@@ -14,7 +14,7 @@ use rand::{prelude::Distribution, Rng};
 use std::{
     hash::Hasher,
     sync::{
-        atomic::{AtomicBool, AtomicIsize, AtomicU64, Ordering},
+        atomic::{AtomicIsize, AtomicU64, Ordering},
         Arc,
     },
     time::Duration,
@@ -156,7 +156,7 @@ pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<Atomi
             {
                 log::debug!("Writing initial data ({item_count} items)");
 
-                let mut rng = rand::thread_rng();
+                let mut rng = crate::random::thread_rng();
                 let mut buf = vec![0; value_size];
 
                 for i in 0..item_count {
@@ -182,7 +182,7 @@ pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<Atomi
                     move || {
                         let _guard = PanicGuard(stop_signal);
 
-                        let mut rng = rand::thread_rng();
+                        let mut rng = crate::random::thread_rng();
                         let mut buf = vec![0; value_size];
 
                         for x in item_count.. {
@@ -209,7 +209,7 @@ pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<Atomi
                         move || {
                             let _guard = PanicGuard(stop_signal);
 
-                            let mut rng = rand::thread_rng();
+                            let mut rng = crate::random::thread_rng();
                             loop {
                                 let written_count = written_count.load(Ordering::Relaxed);
                                 let x = if read_random {
@@ -297,7 +297,7 @@ pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<Atomi
                 println!("Ingesting {} items", args.item_count);
                 let item_count = args.item_count as u64;
 
-                let mut rng = rand::thread_rng();
+                let mut rng = crate::random::thread_rng();
 
                 let iter = (written_count..(written_count + item_count)).map(|x| {
                     rng.fill_bytes(&mut buf);
@@ -316,7 +316,7 @@ pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<Atomi
                     let stopped = stopped.clone();
 
                     move || {
-                        let mut rng = rand::thread_rng();
+                        let mut rng = crate::random::thread_rng();
 
                         while !stopped.load(Ordering::Relaxed) {
                             let x = if read_random {
@@ -405,7 +405,7 @@ pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<Atomi
                 let db = db.clone();
 
                 move || {
-                    let mut rng = rand::thread_rng();
+                    let mut rng = crate::random::thread_rng();
 
                     for x in 0u128.. {
                         let key = x.to_be_bytes();
@@ -425,7 +425,7 @@ pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<Atomi
 
                 move || {
                     let mut buf = vec![0; value_size];
-                    let mut rng = rand::thread_rng();
+                    let mut rng = crate::random::thread_rng();
 
                     for x in 0u64.. {
                         let key = (hash_key(x) as u128).to_be_bytes();
@@ -471,7 +471,7 @@ pub fn choose_zipf(rng: &mut impl Rng, exponent: f64, written_count: u64) -> u64
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::thread_rng;
+    use crate::random::thread_rng;
 
     #[test]
     fn test_zipf_1_based() {

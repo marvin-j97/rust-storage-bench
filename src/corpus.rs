@@ -1,4 +1,4 @@
-use rand::{rngs::ThreadRng, Rng, RngCore};
+use rand::{Rng, RngCore};
 use serde::{Deserialize, Serialize};
 
 const JSON_CORPUS: &[u8] = include_str!("../corpus/asteroids.json").as_bytes();
@@ -25,7 +25,7 @@ pub enum Corpus {
 }
 
 impl Corpus {
-    pub fn fetch(&self, rng: &mut ThreadRng, mut v: &mut [u8]) {
+    pub fn fetch(&self, rng: &mut impl RngCore, mut v: &mut [u8]) {
         let corpus = match self {
             Self::Random => {
                 rng.fill_bytes(v);
@@ -59,7 +59,7 @@ mod tests {
     #[test]
     fn corpus_random() {
         let mut buf = vec![0; 64];
-        let mut rng = rand::thread_rng();
+        let mut rng = crate::random::thread_rng();
 
         assert_eq!(&[0; 64], &*buf);
 
@@ -77,7 +77,7 @@ mod tests {
     #[test]
     fn corpus_json() {
         let mut buf = vec![0; 64];
-        let mut rng = rand::thread_rng();
+        let mut rng = crate::random::thread_rng();
 
         assert_eq!(&[0; 64], &*buf);
 
@@ -98,7 +98,7 @@ mod tests {
         assert!(CODE_CORPUS.len() < BUF_LEN);
 
         let mut buf = vec![0; BUF_LEN];
-        let mut rng = rand::thread_rng();
+        let mut rng = crate::random::thread_rng();
 
         assert_eq!(&[0; BUF_LEN], &*buf);
 

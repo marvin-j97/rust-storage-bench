@@ -22,7 +22,7 @@ pub fn run(
 
     {
         log::debug!("Pre-writing {item_count} items");
-        let mut rng = rand::thread_rng();
+        let mut rng = crate::random::thread_rng();
 
         let iter = (0..(item_count as u128)).map(|x| {
             (x.to_be_bytes().to_vec(), {
@@ -50,7 +50,7 @@ pub fn run(
             move || {
                 let _guard = PanicGuard(stop_signal);
 
-                let mut rng = rand::thread_rng();
+                let mut rng = crate::random::thread_rng();
 
                 loop {
                     match rng.gen_range(0.0..1.0) {

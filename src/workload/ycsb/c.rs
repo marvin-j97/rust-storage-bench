@@ -18,7 +18,7 @@ pub fn run(
 
     {
         log::debug!("Pre-writing {item_count} items");
-        let mut rng = rand::thread_rng();
+        let mut rng = crate::random::thread_rng();
         let mut buf = vec![0; ycsb_opts.value_size as usize];
 
         let iter = (0..(item_count as u128)).map(|x| {
@@ -46,7 +46,7 @@ pub fn run(
             move || {
                 let _guard = PanicGuard(stop_signal);
 
-                let mut rng = rand::thread_rng();
+                let mut rng = crate::random::thread_rng();
 
                 loop {
                     let x: u128 = if random {
