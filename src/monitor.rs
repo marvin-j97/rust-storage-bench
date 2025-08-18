@@ -78,6 +78,7 @@ pub fn start_monitor(
 
                 let read_user_bytes = db.range_read_bytes.load(Ordering::Relaxed)
                     + db.point_read_bytes.load(Ordering::Relaxed);
+
                 let written_user_bytes = db.written_bytes.load(Ordering::Relaxed);
                 let write_amp = if written_user_bytes == 0 {
                     0.0
