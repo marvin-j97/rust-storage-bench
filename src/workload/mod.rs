@@ -6,6 +6,7 @@
 pub(crate) mod event_log;
 pub(crate) mod feed;
 pub(crate) mod queue;
+pub(crate) mod webtable;
 pub(crate) mod ycsb;
 
 use crate::{
@@ -122,6 +123,11 @@ pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<Atomi
 
         Workload::EventLog(opts) => {
             use crate::workload::event_log::run;
+
+            run(args, opts, &db, finish_signal);
+        }
+        Workload::Webtable(opts) => {
+            use crate::workload::webtable::run;
 
             run(args, opts, &db, finish_signal);
         }
