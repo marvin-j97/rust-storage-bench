@@ -1,6 +1,7 @@
 use super::start_killer;
-use crate::args::RunOptions;
+use crate::args::CommonRunOptions;
 use crate::db::DatabaseWrapper;
+use clap::Parser;
 use fake::faker::boolean::en::*;
 use fake::faker::lorem::en::*;
 use fake::faker::name::en::*;
@@ -9,7 +10,7 @@ use fake::{Dummy, Fake, Faker};
 use rand::prelude::Distribution;
 use rand::{Rng, RngCore};
 use serde::{Deserialize, Serialize};
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicIsize;
 use std::sync::Arc;
 use zipf::ZipfDistribution;
 
@@ -49,15 +50,37 @@ pub struct FeedPost {
     shares: usize,
 }
 
-const VIRTUAL_USERS: usize = 10_000;
+const VIRTUAL_USERS: usize = 1_000_000;
 
-pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicIsize>) {
+#[derive(Parser, Clone, Debug, Serialize)]
+pub struct Options {
+    /// Value size in bytes
+    #[arg(long, default_value_t = 50)]
+    pub tweet_size: u32,
+
+    #[arg(long, default_value_t = 100)]
+    pub item_count: usize,
+
+    #[arg(long, default_value_t = 1)]
+    pub threads: usize,
+
+    #[arg(long, default_value_t = 1.0)]
+    pub zipf_exponent: f64,
+}
+
+pub fn run(
+    common_args: &CommonRunOptions,
+    opts: &Options,
+    db: &DatabaseWrapper,
+    finish_signal: Arc<AtomicIsize>,
+) {
     log::debug!("Pre-writing items");
 
     let mut rng = crate::random::thread_rng();
-    let mut buf = vec![0; args.value_size as usize];
+    let mut buf = vec![0; opts.tweet_size as usize];
+
     let feed_limit = 10;
-    let initial_posts_per_user = (args.item_count / VIRTUAL_USERS).max(feed_limit);
+    let initial_posts_per_user = (opts.item_count / VIRTUAL_USERS).max(feed_limit);
 
     let iter = (0..VIRTUAL_USERS)
         .flat_map(|x| (0..=initial_posts_per_user).clone().map(move |y| (x, y)))
@@ -84,15 +107,23 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicIsi
 
     db.ingest(iter);
 
-    let threads = (0..args.threads)
+    // assert_eq!(
+    //     db.len(),
+    //     initial_posts_per_user * VIRTUAL_USERS + VIRTUAL_USERS,
+    // );
+
+    let threads = (0..opts.threads)
         .map(|_thread_no| {
-            let args = args.clone();
+            let common_args = common_args.clone();
+            let opts = opts.clone();
             let db = db.clone();
+            let tweet_size = opts.tweet_size;
+            let zipf_exp = opts.zipf_exponent;
 
             std::thread::spawn(move || {
                 let mut rng = crate::random::thread_rng();
-                let mut buf = vec![0; args.value_size as usize];
-                let zipf = ZipfDistribution::new(VIRTUAL_USERS, args.zipf_exponent).unwrap();
+                let mut buf = vec![0; tweet_size as usize];
+                let zipf = ZipfDistribution::new(VIRTUAL_USERS, zipf_exp).unwrap();
 
                 for _loop_idx in 0.. {
                     let choice: f32 = rng.gen_range(0.0..1.0);
@@ -101,14 +132,14 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicIsi
                     let idx = zipf.sample(&mut rng) - 1;
                     let user_id = format!("u{idx:0>7}");
 
-                    if choice > 0.9 {
+                    if choice > 0.8 {
                         // Insert post
                         let post_id = scru128::new_string();
                         let post_key = format!("{user_id}#f#{post_id}");
 
                         rng.fill_bytes(&mut buf);
 
-                        db.insert(post_key.as_bytes(), &buf, args.fsync, true);
+                        db.insert(post_key.as_bytes(), &buf, common_args.fsync, true);
                     } else {
                         // Get profile
                         let user_profile_key = format!("{user_id}#p");
@@ -120,7 +151,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicIsi
                         assert_eq!(
                             feed_limit,
                             db.prefix_len(feed_prefix.as_bytes(), true, feed_limit),
-                            "{feed_prefix} failed"
+                            "{feed_prefix} failed",
                         );
                     }
                 }
@@ -128,7 +159,7 @@ pub fn run(args: &RunOptions, db: &DatabaseWrapper, finish_signal: Arc<AtomicIsi
         })
         .collect::<Vec<_>>();
 
-    start_killer(args.seconds, finish_signal);
+    start_killer(common_args.seconds, finish_signal);
 
     for t in threads {
         t.join().unwrap();

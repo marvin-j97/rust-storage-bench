@@ -47,4 +47,7 @@ pub struct Options {
     /// Whether to use random or Zipfian read distribution.
     #[arg(long, default_value_t = false)]
     pub read_random: bool,
+
+    #[arg(long, default_value_t = 1)]
+    pub threads: usize,
 }

@@ -114,6 +114,10 @@ pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<Atomi
     log::info!("Starting workload {:#?}", cmd.workload);
 
     match &cmd.workload {
+        Workload::Feed(opts) => {
+            feed::run(args, opts, &db, finish_signal);
+        }
+
         // Workload::TpcC => {
         //     use crate::workload::tpc_c;
 
@@ -159,11 +163,11 @@ pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<Atomi
                 let mut rng = crate::random::thread_rng();
                 let mut buf = vec![0; value_size];
 
-                for i in 0..item_count {
-                    let key = &key_mapper(i).to_be_bytes();
+                db.ingest_unordered((0..item_count).map(|x| {
+                    let k = &key_mapper(x).to_be_bytes();
                     opts.corpus.fetch(&mut rng, &mut buf);
-                    db.insert(key, &buf, false, true);
-                }
+                    (k.to_vec(), buf.to_vec())
+                }));
             }
 
             let written_count = Arc::new(AtomicU64::new(item_count));

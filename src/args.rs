@@ -1,3 +1,4 @@
+use crate::workload::feed::Options as FeedOptions;
 use crate::workload::{queue::Options as QueueOptions, ycsb::Options as YcsbOptions};
 use crate::{corpus::Corpus, db::Backend};
 use clap::{Args as ClapArgs, Parser, Subcommand, ValueEnum};
@@ -229,6 +230,8 @@ pub struct ReadWriteOptions {
 
 #[derive(Clone, Debug, Subcommand, Serialize)]
 pub enum Workload {
+    Feed(FeedOptions),
+
     // TpcC,
     Ycsb(YcsbOptions),
 

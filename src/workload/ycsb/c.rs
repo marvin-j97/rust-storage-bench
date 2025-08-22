@@ -2,7 +2,7 @@ use super::super::start_killer;
 use crate::args::CommonRunOptions;
 use crate::db::DatabaseWrapper;
 use crate::workload::ycsb::Options;
-use crate::workload::{choose_zipf, PanicGuard};
+use crate::workload::{choose_zipf, hash_key, PanicGuard};
 use rand::{Rng, RngCore};
 use std::sync::atomic::AtomicIsize;
 use std::sync::Arc;
@@ -22,46 +22,48 @@ pub fn run(
         let mut buf = vec![0; ycsb_opts.value_size as usize];
 
         let iter = (0..(item_count as u128)).map(|x| {
-            rng.fill_bytes(&mut buf);
-            (x.to_be_bytes().to_vec(), {
+            let k = hash_key(x).to_be_bytes().to_vec();
+            let v = {
+                rng.fill_bytes(&mut buf);
                 ycsb_opts.corpus.fetch(&mut rng, &mut buf);
                 buf.to_vec()
-            })
+            };
+            (k, v)
         });
 
-        db.ingest(iter);
+        db.ingest_unordered(iter);
     }
 
-    let worker = std::thread::Builder::new()
-        .name("reader".to_owned())
-        .spawn({
-            log::debug!("Starting reader");
+    for thread_no in 0..ycsb_opts.threads {
+        std::thread::Builder::new()
+            .name(format!("reader {thread_no}"))
+            .spawn({
+                log::debug!("Starting reader {thread_no}");
 
-            let stop_signal = finish_signal.clone();
-            let db = db.clone();
+                let stop_signal = finish_signal.clone();
+                let db = db.clone();
 
-            let random = ycsb_opts.read_random;
-            let exponent = ycsb_opts.zipf_exponent;
+                let random = ycsb_opts.read_random;
+                let exponent = ycsb_opts.zipf_exponent;
 
-            move || {
-                let _guard = PanicGuard(stop_signal);
+                move || {
+                    let _guard = PanicGuard(stop_signal);
 
-                let mut rng = crate::random::thread_rng();
+                    let mut rng = crate::random::thread_rng();
 
-                loop {
-                    let x: u128 = if random {
-                        rng.gen_range(0..item_count as u128)
-                    } else {
-                        choose_zipf(&mut rng, exponent, item_count) as u128
-                    };
+                    loop {
+                        let x: u128 = if random {
+                            rng.gen_range(0..item_count as u128)
+                        } else {
+                            choose_zipf(&mut rng, exponent, item_count) as u128
+                        };
 
-                    db.get(&x.to_be_bytes()).unwrap();
+                        db.get(&hash_key(x).to_be_bytes()).unwrap();
+                    }
                 }
-            }
-        })
-        .unwrap();
+            })
+            .unwrap();
+    }
 
     start_killer(common_args.seconds, finish_signal);
-
-    worker.join().unwrap();
 }

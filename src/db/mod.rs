@@ -1038,7 +1038,7 @@ impl DatabaseWrapper {
                     .get_opt(key, &{
                         // NOTE: For now, disable checksum checks
                         let mut opts = rocksdb::ReadOptions::default();
-                        opts.set_verify_checksums(false);
+                        opts.set_verify_checksums(true);
                         opts
                     })
                     .unwrap();
@@ -1387,7 +1387,9 @@ impl DatabaseWrapper {
             GenericDatabase::Sqlite(db) => {
                 db.get()
                     .unwrap()
-                    .execute("INSERT INTO data (key, value) VALUES (?, ?)", (key, value))
+                    .prepare_cached("INSERT INTO data (key, value) VALUES (?, ?)")
+                    .unwrap()
+                    .execute((key, value))
                     .unwrap();
 
                 // NOTE: Durability is controlled by pragma in load()
@@ -1643,7 +1645,7 @@ fn rocksdb_range<'a>(
     db.iterator_opt(it_mode, {
         // NOTE: For now, disable checksum checks
         let mut opts = rocksdb::ReadOptions::default();
-        opts.set_verify_checksums(false);
+        opts.set_verify_checksums(true);
         opts
     })
     .map(|kv| kv.unwrap())
