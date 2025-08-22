@@ -3,6 +3,7 @@
 // mod monotonic_fixed;
 // mod read_write;
 // pub(crate) mod tpc_c;
+pub(crate) mod event_log;
 pub(crate) mod feed;
 pub(crate) mod queue;
 pub(crate) mod ycsb;
@@ -119,6 +120,11 @@ pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<Atomi
             feed::run(args, opts, &db, finish_signal);
         }
 
+        Workload::EventLog(opts) => {
+            use crate::workload::event_log::run;
+
+            run(args, opts, &db, finish_signal);
+        }
         // Workload::TpcC => {
         //     use crate::workload::tpc_c;
 

@@ -232,6 +232,8 @@ pub struct ReadWriteOptions {
 pub enum Workload {
     Feed(FeedOptions),
 
+    EventLog(EventLogOptions),
+
     // TpcC,
     Ycsb(YcsbOptions),
 
