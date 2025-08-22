@@ -2,8 +2,9 @@
 // mod monotonic;
 // mod monotonic_fixed;
 // mod read_write;
-pub(crate) mod queue;
 // pub(crate) mod tpc_c;
+pub(crate) mod feed;
+pub(crate) mod queue;
 pub(crate) mod ycsb;
 
 use crate::{
