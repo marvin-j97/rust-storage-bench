@@ -37,7 +37,7 @@ pub fn start_monitor(
 
     let granularity = if let Some(desired_datapoint_count) = args.auto_granularity {
         log::trace!("Ignoring granularity setting, instead using auto granularity");
-        args.seconds / desired_datapoint_count
+        (args.seconds / desired_datapoint_count) * 1_000
     } else {
         args.granularity_ms
     };
