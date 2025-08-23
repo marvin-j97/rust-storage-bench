@@ -35,16 +35,16 @@ pub fn start_monitor(
 
     let start_instant = Instant::now();
 
-    let granularity = if let Some(desired_datapoint_count) = args.auto_granularity {
+    let granularity_ms = if let Some(desired_datapoint_count) = args.auto_granularity {
         log::trace!("Ignoring granularity setting, instead using auto granularity");
         (args.seconds / desired_datapoint_count) * 1_000
     } else {
         args.granularity_ms
     };
-    log::debug!("Using granularity: {granularity}ms");
+    log::debug!("Using granularity: {granularity_ms}ms");
 
     // "How often does this run per second?"
-    let frequency = (Duration::from_secs(1).as_millis() as f64) / (granularity as f64);
+    let frequency = (Duration::from_secs(1).as_millis() as f64) / (granularity_ms as f64);
 
     std::thread::Builder::new()
         .name("monitor".to_owned())
@@ -55,7 +55,7 @@ pub fn start_monitor(
             let mut potential_delete_ops = 0;
 
             loop {
-                let duration = Duration::from_millis(args.granularity_ms.into());
+                let duration = Duration::from_millis(granularity_ms.into());
                 std::thread::sleep(duration);
 
                 sys.refresh_process_specifics(pid, ProcessRefreshKind::everything());
