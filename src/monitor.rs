@@ -36,10 +36,12 @@ pub fn start_monitor(
     let start_instant = Instant::now();
 
     let granularity = if let Some(desired_datapoint_count) = args.auto_granularity {
+        log::trace!("Ignoring granularity setting, instead using auto granularity");
         args.seconds / desired_datapoint_count
     } else {
         args.granularity_ms
     };
+    log::debug!("Using granularity: {granularity}ms");
 
     // "How often does this run per second?"
     let frequency = (Duration::from_secs(1).as_millis() as f64) / (granularity as f64);
