@@ -1,4 +1,3 @@
-// mod feed;
 // mod monotonic;
 // mod monotonic_fixed;
 // mod read_write;
@@ -6,6 +5,7 @@
 pub(crate) mod event_log;
 pub(crate) mod feed;
 pub(crate) mod queue;
+pub(crate) mod timeseries;
 pub(crate) mod webtable;
 pub(crate) mod ycsb;
 
@@ -126,11 +126,19 @@ pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<Atomi
 
             run(args, opts, &db, finish_signal);
         }
+
         Workload::Webtable(opts) => {
             use crate::workload::webtable::run;
 
             run(args, opts, &db, finish_signal);
         }
+
+        Workload::TimeSeries(opts) => {
+            use crate::workload::timeseries::run;
+
+            run(args, opts, &db, finish_signal);
+        }
+
         // Workload::TpcC => {
         //     use crate::workload::tpc_c;
 

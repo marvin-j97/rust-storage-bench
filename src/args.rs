@@ -1,6 +1,6 @@
 use crate::workload::{
     event_log::Options as EventLogOptions, feed::Options as FeedOptions,
-    webtable::Options as WebtableOptions,
+    timeseries::Options as TimeSeriesOptions, webtable::Options as WebtableOptions,
 };
 use crate::workload::{queue::Options as QueueOptions, ycsb::Options as YcsbOptions};
 use crate::{corpus::Corpus, db::Backend};
@@ -238,6 +238,8 @@ pub enum Workload {
     EventLog(EventLogOptions),
 
     Webtable(WebtableOptions),
+
+    TimeSeries(TimeSeriesOptions),
 
     // TpcC,
     Ycsb(YcsbOptions),

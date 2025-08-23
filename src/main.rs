@@ -11,7 +11,7 @@ use clap::Parser;
 use db::{Backend, DatabaseBuilder};
 use monitor::start_monitor;
 use std::io::{BufRead, BufReader, BufWriter, Write};
-use std::sync::atomic::{AtomicBool, AtomicIsize};
+use std::sync::atomic::AtomicIsize;
 use std::sync::Arc;
 use workload::run_workload;
 
