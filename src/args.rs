@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 /// CLI argument parse
 #[derive(Clone, Parser, Debug, Serialize)]
-#[command(author = "marvin-j97", version = env!("CARGO_PKG_VERSION"), about = "Rust KV-store profiler")]
+#[command(author = "marvin-j97", version = env!("CARGO_PKG_VERSION"), about = "Rust storage engine benchmark")]
 #[command(propagate_version = true)]
 pub struct Args {
     #[command(subcommand)]
@@ -90,6 +90,9 @@ pub struct CommonRunOptions {
     /// Granularity in milliseconds with which to poll metrics
     #[arg(long, alias = "granularity", default_value_t = 1_000)]
     pub granularity_ms: u16,
+
+    #[arg(long, alias = "auto-granularity")]
+    pub auto_granularity: Option<u16>,
 
     /// Database to use
     #[arg(long, value_enum)]

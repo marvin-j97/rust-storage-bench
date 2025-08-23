@@ -35,13 +35,18 @@ pub fn start_monitor(
 
     let start_instant = Instant::now();
 
+    let granularity = if let Some(desired_datapoint_count) = args.auto_granularity {
+        args.seconds / desired_datapoint_count
+    } else {
+        args.granularity_ms
+    };
+
+    // "How often does this run per second?"
+    let frequency = (Duration::from_secs(1).as_millis() as f64) / (granularity as f64);
+
     std::thread::Builder::new()
         .name("monitor".to_owned())
         .spawn(move || {
-            // "How often does this run per second?"
-            let frequency =
-                (Duration::from_secs(1).as_millis() as f64) / (args.granularity_ms as f64);
-
             let mut potential_write_ops = 0;
             let mut potential_point_read_ops = 0;
             let mut potential_range_ops = 0;
