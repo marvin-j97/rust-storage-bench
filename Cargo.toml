@@ -55,3 +55,4 @@ precept = { version = "0.1.0", optional = true, features = ["antithesis"] }
 r2d2 = "0.8.10"
 r2d2_sqlite = "0.31.0"
 format-bytes = "0.3.0"
+pretty-bytes = "0.2.2"
