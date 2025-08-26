@@ -233,6 +233,13 @@ pub fn start_monitor(
                     break;
                 }
 
+                if (disk_space_kib * 1_024) >= args.max_data_bytes {
+                    let disk_space_bytes = disk_space_kib * 1_024;
+                    let disk_space = pretty_bytes::converter::convert(disk_space_bytes as f64);
+                    log::warn!("Stopping because database size reached {disk_space}");
+                    break;
+                }
+
                 prev_write_ops = write_ops;
                 prev_point_read_ops = point_read_ops;
                 prev_range_ops = range_ops;

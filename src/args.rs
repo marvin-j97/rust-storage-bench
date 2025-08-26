@@ -126,6 +126,12 @@ pub struct CommonRunOptions {
     #[arg(long, default_value_t = 60)]
     pub seconds: u16,
 
+    /// How much max data to store (to avoid out-of-space)
+    ///
+    /// Default: 1 TB
+    #[arg(long, default_value_t = 1_000_000_000_000)]
+    pub max_data_bytes: u64,
+
     /// Use immediately durable writes (synchronous writes)
     #[arg(long, alias = "sync", default_value_t = false)]
     pub fsync: bool,
