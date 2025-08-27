@@ -219,6 +219,11 @@ pub fn main() -> std::io::Result<()> {
                 std::fs::remove_dir_all(&data_dir).unwrap();
             }
 
+            {
+                let out_parent = out_path.parent().unwrap();
+                std::fs::create_dir_all(out_parent)?;
+            }
+
             // The disk format of a log file is like this:
             // { system info object }
             // { args object }
