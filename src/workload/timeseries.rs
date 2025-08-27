@@ -18,6 +18,9 @@ pub struct Options {
     /// Value size in bytes
     #[arg(long, default_value_t = 8)]
     pub value_size: u32,
+
+    #[arg(long, default_value_t = 1)]
+    pub readers: usize,
 }
 
 pub fn run(
@@ -39,6 +42,7 @@ pub fn run(
 
             let stop_signal = finish_signal.clone();
             let db = db.clone();
+            let series_ids = series_ids.clone();
 
             let corpus = opts.corpus;
             let mut buf = vec![0; opts.value_size as usize];
@@ -59,20 +63,39 @@ pub fn run(
                         // NOTE: Add to topic index
                         let mut index_item_key = [0; 32];
                         index_item_key[0..16].copy_from_slice(series_id.as_bytes());
-                        index_item_key[16..].copy_from_slice(&datapoint_id.to_be_bytes());
+                        index_item_key[16..].copy_from_slice(&(!datapoint_id).to_be_bytes());
 
                         corpus.fetch(&mut rng, &mut buf);
                         db.insert(&index_item_key, &buf, false, true);
                     }
-
-                    // // NOTE: Limit to 100k inserts per second
-                    // std::thread::sleep(Duration::from_micros(10));
                 }
             }
         })
         .unwrap();
 
-    // TODO: read most recent 1000 items from random series
+    (0..opts.readers).for_each(|_| {
+        std::thread::Builder::new()
+            .name(String::from("reader"))
+            .spawn({
+                log::debug!("Starting reader");
+
+                let stop_signal = finish_signal.clone();
+                let db = db.clone();
+                let series_ids = series_ids.clone();
+
+                move || {
+                    let _guard = PanicGuard(stop_signal);
+
+                    let mut rng = rand::thread_rng();
+
+                    loop {
+                        let series_id = series_ids.choose(&mut rng).unwrap();
+                        assert!(db.prefix_len(&series_id.into_bytes(), false, 1_000) <= 1_000);
+                    }
+                }
+            })
+            .unwrap();
+    });
 
     start_killer(common_args.seconds, finish_signal);
 }

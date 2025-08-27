@@ -132,7 +132,7 @@ pub fn run(
                     let idx = zipf.sample(&mut rng) - 1;
                     let user_id = format!("u{idx:0>7}");
 
-                    if choice > 0.8 {
+                    if choice > 0.5 {
                         // Insert post
                         let post_id = scru128::new_string();
                         let post_key = format!("{user_id}#f#{post_id}");
