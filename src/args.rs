@@ -89,10 +89,10 @@ pub struct CommonRunOptions {
 
     /// Granularity in milliseconds with which to poll metrics
     #[arg(long, alias = "granularity", default_value_t = 1_000)]
-    pub granularity_ms: u16,
+    pub granularity_ms: u32,
 
     #[arg(long, alias = "auto-granularity")]
-    pub auto_granularity: Option<u16>,
+    pub auto_granularity: Option<u32>,
 
     /// Database to use
     #[arg(long, value_enum)]
@@ -124,7 +124,7 @@ pub struct CommonRunOptions {
 
     /// How many seconds to run the workload for
     #[arg(long, default_value_t = 60)]
-    pub seconds: u16,
+    pub seconds: u32,
 
     /// How much max data to store (to avoid out-of-space)
     ///
