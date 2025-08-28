@@ -50,7 +50,7 @@ pub struct FeedPost {
     shares: usize,
 }
 
-const VIRTUAL_USERS: usize = 1_000_000;
+const VIRTUAL_USERS: usize = 10_000_000;
 
 #[derive(Parser, Clone, Debug, Serialize)]
 pub struct Options {
