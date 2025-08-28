@@ -236,7 +236,7 @@ pub struct ReadWriteOptions {
     #[arg(long, default_value_t = 200)]
     pub value_size: u32,
 
-    #[arg(long, default_value_t = 1.2)]
+    #[arg(long, default_value_t = 1.0)]
     pub zipf_exponent: f64,
 }
 
