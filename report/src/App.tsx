@@ -284,6 +284,11 @@ function App() {
 								formatter={prettyBytes}
 							/>
 							<LineChart
+								title="(Pinned) block index size"
+								timeseries={reactiveTimeseries.get("block_index_size")}
+								formatter={prettyBytes}
+							/>
+							<LineChart
 								title="# blob files"
 								timeseries={reactiveTimeseries.get("blob_file_count")}
 							/>
