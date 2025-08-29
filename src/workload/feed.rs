@@ -50,8 +50,6 @@ pub struct FeedPost {
     shares: usize,
 }
 
-const VIRTUAL_USERS: usize = 10_000_000;
-
 #[derive(Parser, Clone, Debug, Serialize)]
 pub struct Options {
     /// Value size in bytes
@@ -66,6 +64,9 @@ pub struct Options {
 
     #[arg(long, default_value_t = 1.0)]
     pub zipf_exponent: f64,
+
+    #[arg(long, default_value_t = 1_000_000)]
+    pub users: usize,
 }
 
 pub fn run(
@@ -80,15 +81,14 @@ pub fn run(
     let mut buf = vec![0; opts.tweet_size as usize];
 
     let feed_limit = 10;
-    let initial_posts_per_user = (opts.item_count / VIRTUAL_USERS).max(feed_limit);
 
-    let iter = (0..VIRTUAL_USERS)
-        .flat_map(|x| (0..=initial_posts_per_user).clone().map(move |y| (x, y)))
+    let iter = (0..opts.users)
+        .flat_map(|x| (0..=feed_limit).clone().map(move |y| (x, y)))
         .map(|(user_idx, post_idx)| {
             let user_id = format!("u{user_idx:0>7}");
 
             // Insert profile last to keep insertion order consistent
-            if post_idx == initial_posts_per_user {
+            if post_idx == feed_limit {
                 let user_profile_key: String = format!("{user_id}#p");
 
                 let profile: UserProfile = Faker.fake();
@@ -119,11 +119,12 @@ pub fn run(
             let db = db.clone();
             let tweet_size = opts.tweet_size;
             let zipf_exp = opts.zipf_exponent;
+            let user_count = opts.users;
 
             std::thread::spawn(move || {
                 let mut rng = crate::random::thread_rng();
                 let mut buf = vec![0; tweet_size as usize];
-                let zipf = ZipfDistribution::new(VIRTUAL_USERS, zipf_exp).unwrap();
+                let zipf = ZipfDistribution::new(user_count, zipf_exp).unwrap();
 
                 for _loop_idx in 0.. {
                     let choice: f32 = rng.gen_range(0.0..1.0);
