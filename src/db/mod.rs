@@ -1036,7 +1036,6 @@ impl DatabaseWrapper {
             GenericDatabase::RocksDb(db) => {
                 let value = db
                     .get_opt(key, &{
-                        // NOTE: For now, disable checksum checks
                         let mut opts = rocksdb::ReadOptions::default();
                         opts.set_verify_checksums(true);
                         opts
@@ -1643,7 +1642,6 @@ fn rocksdb_range<'a>(
     };
 
     db.iterator_opt(it_mode, {
-        // NOTE: For now, disable checksum checks
         let mut opts = rocksdb::ReadOptions::default();
         opts.set_verify_checksums(true);
         opts
