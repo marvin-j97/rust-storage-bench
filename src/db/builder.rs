@@ -60,8 +60,13 @@ impl DatabaseBuilder {
                 opts.set_max_background_jobs(3);
                 opts.set_level_zero_file_num_compaction_trigger(4);
                 opts.set_write_buffer_size(args.lsm_write_buffer_bytes as usize);
-                opts.set_max_open_files(512);
                 opts.set_advise_random_on_open(false);
+
+                // Whyyyy RocksDB
+                opts.set_max_open_files(match crate::args::LsmCompaction::Fifo {
+                    crate::args::LsmCompaction::Fifo => -1,
+                    _ => 512,
+                });
 
                 let mut bopts = BlockBasedOptions::default();
                 bopts.set_bloom_filter(f64::from(args.lsm_bloom_bpk), false);
