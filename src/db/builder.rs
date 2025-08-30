@@ -84,8 +84,7 @@ impl DatabaseBuilder {
                         .set_data_block_hash_ratio(f64::from(1.0 / args.lsm_data_block_hash_ratio));
                 }
 
-                let my_cache =
-                    rocksdb::Cache::new_hyper_clock_cache(args.cache_size as usize, 100_000);
+                let my_cache = rocksdb::Cache::new_lru_cache(args.cache_size as usize);
 
                 bopts.set_block_cache(&my_cache);
 
