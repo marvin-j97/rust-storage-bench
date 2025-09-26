@@ -215,7 +215,8 @@ pub fn main() -> std::io::Result<()> {
 
             let data_dir = args.data_dir.clone();
 
-            if data_dir.try_exists()? {
+            if data_dir.try_exists()? && args.clean_data_dir {
+                log::info!("Cleaning data dir {data_dir:?}");
                 std::fs::remove_dir_all(&data_dir).unwrap();
             }
 

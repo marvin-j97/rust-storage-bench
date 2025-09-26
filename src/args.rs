@@ -102,6 +102,9 @@ pub struct CommonRunOptions {
     #[arg(long)]
     pub data_dir: PathBuf,
 
+    #[arg(long, default_value_t = true)]
+    pub clean_data_dir: bool,
+
     /// Where to store result jsonl file
     #[arg(long)]
     pub out: Option<PathBuf>,
