@@ -48,6 +48,11 @@ impl DatabaseBuilder {
             Backend::RocksDb => {
                 use rocksdb::BlockBasedOptions;
 
+                #[cfg(feature = "metrics")]
+                use crate::db::RocksTickers;
+                #[cfg(feature = "metrics")]
+                use rocksdb::statistics::Ticker;
+
                 std::fs::create_dir_all(&path).unwrap();
 
                 let mut opts = rocksdb::Options::default();
@@ -56,37 +61,48 @@ impl DatabaseBuilder {
                     crate::args::Compression::None => rocksdb::DBCompressionType::None,
                     crate::args::Compression::Lz4 => rocksdb::DBCompressionType::Lz4,
                 });
+                opts.set_min_level_to_compress(1);
                 opts.set_manual_wal_flush(true);
                 opts.set_max_background_jobs(3);
                 opts.set_level_zero_file_num_compaction_trigger(4);
                 opts.set_write_buffer_size(args.lsm_write_buffer_bytes as usize);
                 opts.set_advise_random_on_open(false);
 
-                // Whyyyy RocksDB
-                opts.set_max_open_files(match crate::args::LsmCompaction::Fifo {
+                opts.set_max_open_files(match args.lsm_compaction {
+                    // Whyyyy RocksDB
                     crate::args::LsmCompaction::Fifo => -1,
                     _ => 512,
                 });
 
                 let mut bopts = BlockBasedOptions::default();
-                bopts.set_bloom_filter(f64::from(args.lsm_bloom_bpk), false);
-                bopts.set_block_size(args.lsm_block_size as usize);
+
+                if let Some(bpk) = args.lsm_bloom_bpk {
+                    bopts.set_bloom_filter(f64::from(bpk), false);
+                }
+
+                if let Some(block_size) = args.lsm_block_size {
+                    bopts.set_block_size(block_size as usize);
+                }
+
                 bopts.set_index_type(rocksdb::BlockBasedIndexType::BinarySearch);
                 bopts.set_pin_l0_filter_and_index_blocks_in_cache(true);
-                // bopts.set_pin_top_level_index_and_filter(true);
+                bopts.set_pin_top_level_index_and_filter(true);
                 bopts.set_data_block_index_type(rocksdb::DataBlockIndexType::BinarySearch);
                 bopts.set_index_block_restart_interval(1);
                 bopts.set_cache_index_and_filter_blocks(true);
+                // bopts.set_index_compression(false); // TODO: cannot set index compression=false
+                bopts.set_checksum_type(rocksdb::ChecksumType::XXH3);
 
-                if args.lsm_data_block_hash_ratio > 0.0 {
-                    bopts.set_data_block_index_type(rocksdb::DataBlockIndexType::BinaryAndHash);
-                    bopts
-                        .set_data_block_hash_ratio(f64::from(1.0 / args.lsm_data_block_hash_ratio));
+                if let Some(hash_ratio) = args.lsm_data_block_hash_ratio {
+                    if hash_ratio > 0.0 {
+                        bopts.set_data_block_index_type(rocksdb::DataBlockIndexType::BinaryAndHash);
+                        bopts.set_data_block_hash_ratio(f64::from(1.0 / hash_ratio));
+                    }
                 }
 
-                let my_cache = rocksdb::Cache::new_lru_cache(args.cache_size as usize);
+                let cache = rocksdb::Cache::new_lru_cache(args.cache_size as usize);
 
-                bopts.set_block_cache(&my_cache);
+                bopts.set_block_cache(&cache);
 
                 opts.set_block_based_table_factory(&bopts);
 
@@ -107,6 +123,14 @@ impl DatabaseBuilder {
                     }
                 }
 
+                #[cfg(feature = "metrics")]
+                {
+                    opts.enable_statistics();
+                    opts.set_statistics_level(
+                        rocksdb::statistics::StatsLevel::ExceptHistogramOrTimers,
+                    );
+                }
+
                 // TODO: hmmm
                 // opts.set_enable_blob_files(args.value_size >= 1_024);
                 // opts.set_blob_compression_type(rocksdb::DBCompressionType::Lz4);
@@ -114,7 +138,27 @@ impl DatabaseBuilder {
                 // opts.set_min_blob_size(1_024);
 
                 let db = rocksdb::OptimisticTransactionDB::open(&opts, &path).unwrap();
-                GenericDatabase::RocksDb(Arc::new(db))
+
+                GenericDatabase::RocksDb {
+                    db: Arc::new(db),
+                    cache,
+                    opts,
+
+                    #[cfg(feature = "metrics")]
+                    tickers: Arc::new(RocksTickers {
+                        block_io: Ticker::BlockCacheMiss,
+                        block_cached: Ticker::BlockCacheHit,
+
+                        data_block_io: Ticker::BlockCacheDataMiss,
+                        data_block_cached: Ticker::BlockCacheDataHit,
+
+                        filter_block_io: Ticker::BlockCacheFilterMiss,
+                        filter_block_cached: Ticker::BlockCacheFilterHit,
+
+                        index_block_io: Ticker::BlockCacheIndexMiss,
+                        index_block_cached: Ticker::BlockCacheIndexHit,
+                    }),
+                }
             }
 
             #[cfg(feature = "heed")]
@@ -170,8 +214,8 @@ impl DatabaseBuilder {
                 GenericDatabase::Redb(Arc::new(db))
             }
 
-            Backend::Fjall => {
-                let config = fjall::Config::new(path)
+            Backend::Fjall2 => {
+                let config = fjall_2::Config::new(path)
                     .cache_size(args.cache_size)
                     .compaction_workers(2)
                     .max_write_buffer_size(256 * 1_024 * 1_024)
@@ -179,39 +223,45 @@ impl DatabaseBuilder {
 
                 let keyspace = config.open_transactional().unwrap();
 
-                let create_opts = fjall::PartitionCreateOptions::default()
-                    .bloom_filter_bits(Some(args.lsm_bloom_bpk))
+                let mut create_opts = fjall_2::PartitionCreateOptions::default()
                     .max_memtable_size(64 * 1_024 * 1_024)
-                    .block_size(args.lsm_block_size)
                     .compaction_strategy(match args.lsm_compaction {
                         crate::args::LsmCompaction::Leveled => {
-                            fjall::compaction::Strategy::Leveled(
-                                fjall::compaction::Leveled::default(),
+                            fjall_2::compaction::Strategy::Leveled(
+                                fjall_2::compaction::Leveled::default(),
                             )
                         }
                         crate::args::LsmCompaction::Tiered => {
-                            fjall::compaction::Strategy::SizeTiered(
-                                fjall::compaction::SizeTiered::default(),
+                            fjall_2::compaction::Strategy::SizeTiered(
+                                fjall_2::compaction::SizeTiered::default(),
                             )
                         }
-                        crate::args::LsmCompaction::Fifo => fjall::compaction::Strategy::Fifo(
-                            fjall::compaction::Fifo::new(args.lsm_fifo_limit_bytes, None),
+                        crate::args::LsmCompaction::Fifo => fjall_2::compaction::Strategy::Fifo(
+                            fjall_2::compaction::Fifo::new(args.lsm_fifo_limit_bytes, None),
                         ),
                     })
                     .compression(match args.compression {
-                        crate::args::Compression::None => fjall::CompressionType::None,
-                        crate::args::Compression::Lz4 => fjall::CompressionType::Lz4,
+                        crate::args::Compression::None => fjall_2::CompressionType::None,
+                        crate::args::Compression::Lz4 => fjall_2::CompressionType::Lz4,
                     });
 
+                if let Some(bpk) = args.lsm_bloom_bpk {
+                    create_opts = create_opts.bloom_filter_bits(Some(bpk));
+                }
+
+                if let Some(block_size) = args.lsm_block_size {
+                    create_opts = create_opts.block_size(block_size);
+                }
+
                 // TODO: hmmm
-                /* if args.value_size >= fjall::KvSeparationOptions::default().separation_threshold {
+                /* if args.value_size >= fjall_2::KvSeparationOptions::default().separation_threshold {
                     create_opts = create_opts.with_kv_separation(Default::default());
                 } */
 
                 let db = keyspace.open_partition("data", create_opts).unwrap();
 
                 if db.inner().is_kv_separated() {
-                    use fjall::GarbageCollection;
+                    use fjall_2::GarbageCollection;
                     let blobs = db.clone();
 
                     std::thread::spawn(move || loop {
@@ -222,70 +272,70 @@ impl DatabaseBuilder {
                     });
                 }
 
-                GenericDatabase::Fjall { keyspace, db }
+                GenericDatabase::Fjall2 { keyspace, db }
             }
 
-            #[cfg(feature = "fjall_nightly")]
-            Backend::FjallNightly => {
-                let config = fjall_nightly::Config::new(path)
+            #[cfg(feature = "fjall_3")]
+            Backend::Fjall3 => {
+                let builder = fjall_3::TxDatabase::builder(path)
                     .cache_size(args.cache_size)
                     .compaction_workers(2)
                     .max_write_buffer_size(4 * 1_024 * 1_024 * 1_024)
                     .manual_journal_persist(true);
 
-                let keyspace = config.open_transactional().unwrap();
+                let db = builder.open().unwrap();
 
-                let mut create_opts = fjall_nightly::PartitionCreateOptions::default()
-                    .data_block_hash_ratio(args.lsm_data_block_hash_ratio)
-                    .bloom_filter_bits(Some(args.lsm_bloom_bpk))
+                let mut create_opts = fjall_3::KeyspaceCreateOptions::default()
                     .max_memtable_size(args.lsm_write_buffer_bytes)
-                    .block_size(args.lsm_block_size)
                     .compaction_strategy(match args.lsm_compaction {
                         crate::args::LsmCompaction::Leveled => {
-                            fjall_nightly::compaction::Strategy::Leveled(
-                                fjall_nightly::compaction::Leveled::default(),
+                            fjall_3::compaction::Strategy::Leveled(
+                                fjall_3::compaction::Leveled::default(),
                             )
                         }
                         crate::args::LsmCompaction::Tiered => {
-                            fjall_nightly::compaction::Strategy::SizeTiered(
-                                fjall_nightly::compaction::SizeTiered::default(),
+                            fjall_3::compaction::Strategy::SizeTiered(
+                                fjall_3::compaction::SizeTiered::default(),
                             )
                         }
-                        crate::args::LsmCompaction::Fifo => {
-                            fjall_nightly::compaction::Strategy::Fifo(
-                                fjall_nightly::compaction::Fifo::new(
-                                    args.lsm_fifo_limit_bytes,
-                                    None,
-                                ),
-                            )
-                        }
+                        crate::args::LsmCompaction::Fifo => fjall_3::compaction::Strategy::Fifo(
+                            fjall_3::compaction::Fifo::new(args.lsm_fifo_limit_bytes, None),
+                        ),
                     })
-                    .compression(match args.compression {
-                        crate::args::Compression::None => fjall_nightly::CompressionType::None,
-                        crate::args::Compression::Lz4 => fjall_nightly::CompressionType::Lz4,
-                    });
+                    .data_block_compression_policy(fjall_3::config::CompressionPolicy::new(&[
+                        fjall_3::CompressionType::None,
+                        match args.compression {
+                            crate::args::Compression::None => fjall_3::CompressionType::None,
+                            crate::args::Compression::Lz4 => fjall_3::CompressionType::Lz4,
+                        },
+                    ]));
 
-                // if args.value_size
-                //     >= fjall_nightly::KvSeparationOptions::default().separation_threshold
-                // {
+                if let Some(hash_ratio) = args.lsm_data_block_hash_ratio {
+                    create_opts = create_opts.data_block_hash_ratio_policy(
+                        fjall_3::config::HashRatioPolicy::all(hash_ratio),
+                    );
+                }
+
+                if let Some(bpk) = args.lsm_bloom_bpk {
+                    create_opts = create_opts.filter_policy(fjall_3::config::FilterPolicy::all(
+                        fjall_3::config::FilterPolicyEntry::Bloom(
+                            fjall_3::config::BloomConstructionPolicy::BitsPerKey(bpk.into()),
+                        ),
+                    ));
+                }
+
+                if let Some(block_size) = args.lsm_block_size {
+                    create_opts = create_opts
+                        .data_block_size_policy(fjall_3::config::BlockSizePolicy::all(block_size));
+                }
+
+                // if args.value_size >= fjall_3::KV_SEPARATION_DEFAULT_THRESHOLD {
                 //     create_opts = create_opts.with_kv_separation(Default::default());
                 // }
 
-                let db = keyspace.open_partition("data", create_opts).unwrap();
+                let tree = db.keyspace("data", create_opts).unwrap();
 
-                if db.inner().is_kv_separated() {
-                    use fjall_nightly::GarbageCollection;
-                    let blobs = db.clone();
-
-                    std::thread::spawn(move || loop {
-                        blobs.gc_scan().unwrap();
-                        blobs.gc_with_space_amp_target(3.0).unwrap();
-                        blobs.gc_with_staleness_threshold(0.9).unwrap();
-                        std::thread::sleep(Duration::from_secs(60));
-                    });
-                }
-
-                GenericDatabase::FjallNightly { keyspace, db }
+                GenericDatabase::Fjall3 { db, tree }
             }
 
             Backend::Canopydb => {
