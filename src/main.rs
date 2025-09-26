@@ -60,8 +60,14 @@ const COLUMN_HEADERS: &[&str] = &[
     "fragmented_bytes",
     "running_compactions",
     "time_compacting_us",
+    "tombstone_count",
     "l0_runs",
     "l0_segment_avg_lifetime_ms",
+    //
+    "filter_true_negative_ratio",
+    "block_cache_hit_rate",
+    "index_block_cache_hit_rate",
+    "filter_block_cache_hit_rate",
     //
     "write_ops",
     "point_read_ops",

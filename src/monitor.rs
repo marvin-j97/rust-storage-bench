@@ -67,18 +67,7 @@ pub fn start_monitor(
                 let cpu = child.cpu_usage();
                 let mem_kib = (child.memory() as f64 / 1_024.0) as u64;
 
-                // if mem_kib >= 16 * 1_024 * 1_024 {
-                //     log::error!("OOM KILLER!! Exceeded 16GB of memory");
-                //     std::process::exit(666);
-                // }
-
                 let disk_space_kib = fs_extra::dir::get_size(&data_dir).unwrap_or_default() / 1_024;
-
-                // 500 GiB limit
-                if disk_space_kib >= 500 * 1_024 * 1_024 {
-                    log::error!("DRIVE LIMITER!! Exceeded 500 GiB of data, good job");
-                    std::process::exit(0);
-                }
 
                 let workload_real_bytes = db.workload_real_bytes.load(Ordering::Relaxed);
                 let disk = child.disk_usage();
@@ -185,16 +174,22 @@ pub fn start_monitor(
                     db.blob_file_count(),
                     db.journal_count(),
                     db.journal_size(),
-                    db.bloom_filter_size(),
+                    db.filter_size(),
                     db.block_index_size(),
-                    0, // TODO:
+                    db.cache_size(),
                     db.write_buffer_size(),
                     db.tree_height(),
                     db.fragmented_bytes(),
                     db.active_compactions(),
                     db.time_compacting_us(),
+                    db.tombstone_count(),
                     db.l0_runs(),
                     l0_avg_segment_lifetime_ms,
+                    //
+                    db.filter_true_negative_ratio(),
+                    db.block_cache_hit_rate(),
+                    db.index_block_cache_hit_rate(),
+                    db.filter_block_cache_hit_rate(),
                     //
                     write_ops,
                     point_read_ops,
@@ -233,7 +228,12 @@ pub fn start_monitor(
                     break;
                 }
 
-                if (disk_space_kib * 1_024) >= args.max_data_bytes {
+                if mem_kib >= 10 * 1_024 * 1_024 {
+                    log::error!("OOM KILLER!! Exceeded 10GB of memory");
+                    break;
+                }
+
+                if args.max_data_bytes > 0 && (disk_space_kib * 1_024) >= args.max_data_bytes {
                     let disk_space_bytes = disk_space_kib * 1_024;
                     let disk_space = pretty_bytes::converter::convert(disk_space_bytes as f64);
                     log::warn!("Stopping because database size reached {disk_space}");
