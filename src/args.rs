@@ -131,8 +131,8 @@ pub struct CommonRunOptions {
 
     /// How much max data to store (to avoid out-of-space)
     ///
-    /// Default: 1 TB
-    #[arg(long, default_value_t = 1_000_000_000_000)]
+    /// Default: 500 GB
+    #[arg(long, default_value_t = 500_000_000_000)]
     pub max_data_bytes: u64,
 
     /// Use immediately durable writes (synchronous writes)
@@ -158,15 +158,15 @@ pub struct CommonRunOptions {
     pub lsm_fifo_limit_bytes: u64,
 
     /// Block size for LSM-trees
-    #[arg(long, default_value_t = 4_096)]
-    pub lsm_block_size: u32,
+    #[arg(long)]
+    pub lsm_block_size: Option<u32>,
 
     /// Bloom filter BPK
-    #[arg(long, default_value_t = 10)]
-    pub lsm_bloom_bpk: u8,
+    #[arg(long)]
+    pub lsm_bloom_bpk: Option<u8>,
 
-    #[arg(long, default_value_t = 0.0)]
-    pub lsm_data_block_hash_ratio: f32,
+    #[arg(long)]
+    pub lsm_data_block_hash_ratio: Option<f32>,
     /*
     /// Number of threads to use. Not applicable to all workloads
     #[arg(long, default_value_t = 1)]
