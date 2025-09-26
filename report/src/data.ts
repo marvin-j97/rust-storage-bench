@@ -45,8 +45,13 @@ type ColumnKey =
 	| "fragmented_bytes"
 	| "running_compactions"
 	| "time_compacting_us"
+	| "tombstone_count"
 	| "l0_runs"
 	| "l0_segment_avg_lifetime_ms"
+	| "filter_true_negative_ratio"
+	| "block_cache_hit_rate"
+	| "index_block_cache_hit_rate"
+	| "filter_block_cache_hit_rate"
 	| "write_ops"
 	| "point_read_ops"
 	| "range_ops"
@@ -158,7 +163,7 @@ export function useMetricsData() {
 			const _system = JSON.parse(lines[0]);
 			const args = JSON.parse(lines[1]);
 
-			const color = chooseColor(args.backend);
+			const color = args.color || chooseColor(args.backend);
 
 			setups.push({
 				displayName: args.display_name,

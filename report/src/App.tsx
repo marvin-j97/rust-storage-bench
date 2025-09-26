@@ -25,7 +25,7 @@ function App() {
 			<div class="px-2">
 				<h2 class="text-lg mb-3">Results</h2>
 				{/* graphs */}
-				<div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
+				<div class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(480px, 1fr))">
 					{/* LINE CHARTS */}
 					<LineChart
 						title="CPU usage"
@@ -67,6 +67,16 @@ function App() {
 					<LineChart
 						title="Write amplification"
 						timeseries={reactiveTimeseries.get("write_amp")}
+						formatter={(pct) => `${pct}x`}
+					/>
+					<LineChart
+						title="Disk read I/O"
+						timeseries={reactiveTimeseries.get("disk_reads_kib")}
+						formatter={kib => prettyBytes(kib * 1_024)}
+					/>
+					<LineChart
+						title="Read amplification"
+						timeseries={reactiveTimeseries.get("read_amp")}
 						formatter={(pct) => `${pct}x`}
 					/>
 					<LineChart
@@ -126,7 +136,7 @@ function App() {
 					<div class="ml-2 cursor-pointer">
 						Percentiles
 					</div>
-					<div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
+					<div class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(480px, 1fr))">
 						<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
 							{(() => {
 								return (
@@ -259,7 +269,7 @@ function App() {
 						LSM-specific metrics
 					</div>
 					<Show when={showLsmStats()}>
-						<div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
+						<div class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(480px, 1fr))">
 							<LineChart
 								title="Write buffer size"
 								timeseries={reactiveTimeseries.get("write_buffer_size")}
@@ -273,11 +283,32 @@ function App() {
 								title="# active compactions"
 								timeseries={reactiveTimeseries.get("running_compactions")}
 							/>
+							{/* TODO: move somewhere else if redb gets cache size stats */}
+							<LineChart
+								title="Block cache size"
+								timeseries={reactiveTimeseries.get("cache_size")}
+								formatter={prettyBytes}
+							/>
+							<LineChart
+								title="Block cache hit rate"
+								timeseries={reactiveTimeseries.get("block_cache_hit_rate")}
+								formatter={x => `${(x * 100.0).toFixed(1)}%`}
+							/>
+							<LineChart
+								title="Index block cache hit rate"
+								timeseries={reactiveTimeseries.get("index_block_cache_hit_rate")}
+								formatter={x => `${(x * 100.0).toFixed(1)}%`}
+							/>
+							<LineChart
+								title="Filter block cache hit rate"
+								timeseries={reactiveTimeseries.get("filter_block_cache_hit_rate")}
+								formatter={x => `${(x * 100.0).toFixed(1)}%`}
+							/>
 						</div>
 						<div class="rounded-lg p-3 mx-3 dark:text-yellow-100 dark:bg-yellow-950">
 							Only work for Fjall currently
 						</div>
-						<div class="grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
+						<div class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(480px, 1fr))">
 							<LineChart
 								title="(Pinned) bloom filter size"
 								timeseries={reactiveTimeseries.get("bloom_filter_size")}
@@ -309,6 +340,16 @@ function App() {
 								title="Journal size"
 								timeseries={reactiveTimeseries.get("journal_size")}
 								formatter={prettyBytes}
+							/>
+							<LineChart
+								title="# tombstones"
+								timeseries={reactiveTimeseries.get("tombstone_count")}
+								formatter={millify}
+							/>
+							<LineChart
+								title="Filter true negative rate"
+								timeseries={reactiveTimeseries.get("filter_true_negative_ratio")}
+								formatter={x => `${(x * 100.0).toFixed(1)}%`}
 							/>
 						</div>
 					</Show>
