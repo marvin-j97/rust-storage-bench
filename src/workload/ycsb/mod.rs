@@ -44,6 +44,10 @@ pub struct Options {
     #[arg(long, default_value_t = 200)]
     pub value_size: u32,
 
+    /// Whether to use random or Zipfian write distribution.
+    #[arg(long, default_value_t = false)]
+    pub write_random: bool,
+
     /// Whether to use random or Zipfian read distribution.
     #[arg(long, default_value_t = false)]
     pub read_random: bool,

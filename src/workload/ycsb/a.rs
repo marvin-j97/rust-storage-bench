@@ -42,7 +42,8 @@ pub fn run(
             let stop_signal = finish_signal.clone();
             let db = db.clone();
 
-            let random = ycsb_opts.read_random;
+            let write_random = ycsb_opts.write_random;
+            let read_random = ycsb_opts.read_random;
             let exponent = ycsb_opts.zipf_exponent;
             let corpus = ycsb_opts.corpus;
             let fsync = common_args.fsync;
@@ -55,7 +56,7 @@ pub fn run(
                 loop {
                     match rng.gen_range(0.0..1.0) {
                         x if x <= POINT_READ_CHANCE => {
-                            let x: u128 = if random {
+                            let x: u128 = if read_random {
                                 rng.gen_range(0..item_count as u128)
                             } else {
                                 choose_zipf(&mut rng, exponent, item_count) as u128
@@ -64,7 +65,7 @@ pub fn run(
                             db.get(&x.to_be_bytes()).unwrap();
                         }
                         _ => {
-                            let x: u128 = if random {
+                            let x: u128 = if write_random {
                                 rng.gen_range(0..item_count as u128)
                             } else {
                                 choose_zipf(&mut rng, exponent, item_count) as u128
