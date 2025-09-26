@@ -4,13 +4,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Copy, Eq, PartialEq, Debug, Clone, ValueEnum, Serialize, Deserialize)]
 #[clap(rename_all = "kebab_case")]
 pub enum Backend {
-    #[serde(rename = "fjall")]
-    Fjall,
+    #[serde(rename = "fjall_2")]
+    Fjall2,
 
-    #[cfg(feature = "fjall_nightly")]
-    #[serde(rename = "fjall_nightly")]
-    #[serde(alias = "fjall_nightly")]
-    FjallNightly,
+    #[cfg(feature = "fjall_3")]
+    #[serde(rename = "fjall_3")]
+    #[serde(alias = "fjall_3")]
+    Fjall3,
 
     #[serde(rename = "sled")]
     Sled,
@@ -29,6 +29,7 @@ pub enum Backend {
     RocksDb,
 
     #[cfg(feature = "sqlite")]
+    #[serde(rename = "sqlite")]
     Sqlite,
 
     #[serde(rename = "canopydb")]
@@ -52,12 +53,12 @@ impl std::fmt::Display for Backend {
 
                 Self::Sled => "sled 0.34.7",
 
-                Self::Fjall => "fjall 2.10.0",
+                Self::Fjall2 => "fjall 2.11.2",
 
-                #[cfg(feature = "fjall_nightly")]
-                Self::FjallNightly => "fjall nightly",
+                #[cfg(feature = "fjall_3")]
+                Self::Fjall3 => "fjall 3.0.0-pre.0",
 
-                Self::Redb => "redb 3.0.1",
+                Self::Redb => "redb 3.1.0",
 
                 #[cfg(feature = "heed")]
                 Self::Heed => "heed 0.20.5",
