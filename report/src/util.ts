@@ -27,17 +27,19 @@ const fallbackColors = [
 ];
 
 export function chooseColor(backendName: string): string {
+	backendName = backendName.toLowerCase();
+
 	if (backendName.includes("redb")) {
 		return "#ffffff";
 	}
 	if (backendName.includes("sled")) {
 		return "#ee5555";
 	}
-	if (backendName.includes("nightly")) {
-		return "#8888FF";
+	if (backendName.includes("fjall_3")) {
+		return "#40c4e6";
 	}
-	if (backendName.includes("fjall")) {
-		return "#38bde0";
+	if (backendName === "fjall" || backendName === "fjall_2") {
+		return "#4499ff";
 	}
 	if (backendName.includes("rocksdb")) {
 		return "#fbbf24";
@@ -50,9 +52,6 @@ export function chooseColor(backendName: string): string {
 	}
 	if (backendName.includes("canopy")) {
 		return "#f472b6";
-	}
-	if (backendName.includes("leveldb")) {
-		return "#4499ff";
 	}
 
 	const code = [...backendName]
