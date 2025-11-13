@@ -46,21 +46,19 @@ systemd-run --scope -p MemoryLimit=2G nu scripts/ycsb.nu
 Other non-Rust storage engines can be compiled in using:
 
 ```bash
+# Beware, RocksDB compile times!!!
 cargo build -r --features rocksdb,heed,sqlite
 ```
 
 ## Choosing memory allocator
 
-By default `jemalloc` is used.
-You can choose to compile another memory allocator:
+By default, the system allocator is used.
+You can choose to compile another memory allocator using:
 
 ```bash
-cargo build -r --no-default-features --features mimalloc
-cargo build -r --no-default-features --features tcmalloc
+cargo build -r --features jemalloc
+cargo build -r --features mimalloc
+cargo build -r --features tcmalloc
+# TODO: add snmalloc
 ```
 
-or use the system allocator instead:
-
-```bash
-cargo build -r --no-default-features
-```

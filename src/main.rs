@@ -264,13 +264,14 @@ pub fn main() -> std::io::Result<()> {
                 };
 
                 let json = serde_json::json!({
+                    "version": env!("CARGO_PKG_VERSION"),
+                    "allocator": allocator,
+                    "time_ms": start_time.as_millis(),
                     "os": sysinfo::System::long_os_version(),
                     "kernel": sysinfo::System::kernel_version(),
                     "cpu": sys.global_cpu_info().brand(),
                     "mem": sys.total_memory(),
                     "datetime": datetime,
-                    "ts": start_time.as_millis(),
-                    "allocator": allocator,
                 });
 
                 log::debug!("System: {}", serde_json::to_string_pretty(&json).unwrap());

@@ -43,6 +43,7 @@ type ColumnKey =
 	| "write_buffer_size"
 	| "tree_height"
 	| "fragmented_bytes"
+	| "stale_blob_bytes"
 	| "running_compactions"
 	| "time_compacting_us"
 	| "tombstone_count"

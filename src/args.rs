@@ -167,6 +167,16 @@ pub struct CommonRunOptions {
 
     #[arg(long)]
     pub lsm_data_block_hash_ratio: Option<f32>,
+
+    /// Forces KV-separation
+    #[arg(long, default_value_t = false)]
+    pub lsm_kv_separation: bool,
+
+    #[arg(long, default_value_t = false)]
+    pub lsm_use_partitioned_meta: bool,
+
+    #[arg(long, value_enum, default_value_t = Compression::None)]
+    pub journal_compression: Compression,
     /*
     /// Number of threads to use. Not applicable to all workloads
     #[arg(long, default_value_t = 1)]

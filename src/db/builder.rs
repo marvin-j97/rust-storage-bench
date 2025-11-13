@@ -63,9 +63,10 @@ impl DatabaseBuilder {
                 });
                 opts.set_min_level_to_compress(1);
                 opts.set_manual_wal_flush(true);
-                opts.set_max_background_jobs(3);
+                opts.set_max_background_jobs(4);
                 opts.set_level_zero_file_num_compaction_trigger(4);
                 opts.set_write_buffer_size(args.lsm_write_buffer_bytes as usize);
+                opts.set_db_write_buffer_size(256 * 1_024 * 1_024);
                 opts.set_advise_random_on_open(false);
 
                 opts.set_max_open_files(match args.lsm_compaction {
@@ -92,6 +93,11 @@ impl DatabaseBuilder {
                 bopts.set_cache_index_and_filter_blocks(true);
                 // bopts.set_index_compression(false); // TODO: cannot set index compression=false
                 bopts.set_checksum_type(rocksdb::ChecksumType::XXH3);
+
+                if args.lsm_use_partitioned_meta {
+                    bopts.set_index_type(rocksdb::BlockBasedIndexType::TwoLevelIndexSearch);
+                    bopts.set_partition_filters(true);
+                }
 
                 if let Some(hash_ratio) = args.lsm_data_block_hash_ratio {
                     if hash_ratio > 0.0 {
@@ -131,11 +137,15 @@ impl DatabaseBuilder {
                     );
                 }
 
-                // TODO: hmmm
-                // opts.set_enable_blob_files(args.value_size >= 1_024);
-                // opts.set_blob_compression_type(rocksdb::DBCompressionType::Lz4);
-                // opts.set_blob_cache(&my_cache);
-                // opts.set_min_blob_size(1_024);
+                if args.lsm_kv_separation {
+                    opts.set_enable_blob_files(true);
+                    opts.set_enable_blob_gc(true);
+                    opts.set_blob_compression_type(match args.compression {
+                        crate::args::Compression::None => rocksdb::DBCompressionType::None,
+                        crate::args::Compression::Lz4 => rocksdb::DBCompressionType::Lz4,
+                    });
+                    opts.set_min_blob_size(1_024);
+                }
 
                 let db = rocksdb::OptimisticTransactionDB::open(&opts, &path).unwrap();
 
@@ -216,6 +226,7 @@ impl DatabaseBuilder {
 
             Backend::Fjall2 => {
                 let config = fjall_2::Config::new(path)
+                    .max_open_files(512)
                     .cache_size(args.cache_size)
                     .compaction_workers(2)
                     .max_write_buffer_size(256 * 1_024 * 1_024)
@@ -253,10 +264,9 @@ impl DatabaseBuilder {
                     create_opts = create_opts.block_size(block_size);
                 }
 
-                // TODO: hmmm
-                /* if args.value_size >= fjall_2::KvSeparationOptions::default().separation_threshold {
+                if args.lsm_kv_separation {
                     create_opts = create_opts.with_kv_separation(Default::default());
-                } */
+                }
 
                 let db = keyspace.open_partition("data", create_opts).unwrap();
 
@@ -266,8 +276,8 @@ impl DatabaseBuilder {
 
                     std::thread::spawn(move || loop {
                         blobs.gc_scan().unwrap();
-                        blobs.gc_with_space_amp_target(3.0).unwrap();
-                        blobs.gc_with_staleness_threshold(0.9).unwrap();
+                        blobs.gc_with_space_amp_target(2.0).unwrap();
+                        blobs.gc_with_staleness_threshold(0.5).unwrap();
                         std::thread::sleep(Duration::from_secs(60));
                     });
                 }
@@ -278,10 +288,15 @@ impl DatabaseBuilder {
             #[cfg(feature = "fjall_3")]
             Backend::Fjall3 => {
                 let builder = fjall_3::TxDatabase::builder(path)
+                    .max_cached_files(Some(512))
                     .cache_size(args.cache_size)
-                    .compaction_workers(2)
-                    .max_write_buffer_size(4 * 1_024 * 1_024 * 1_024)
-                    .manual_journal_persist(true);
+                    .worker_count(4)
+                    .max_write_buffer_size(256 * 1_024 * 1_024)
+                    .manual_journal_persist(true)
+                    .journal_compression(match args.journal_compression {
+                        crate::args::Compression::None => fjall_3::CompressionType::None,
+                        crate::args::Compression::Lz4 => fjall_3::CompressionType::Lz4,
+                    });
 
                 let db = builder.open().unwrap();
 
@@ -289,20 +304,18 @@ impl DatabaseBuilder {
                     .max_memtable_size(args.lsm_write_buffer_bytes)
                     .compaction_strategy(match args.lsm_compaction {
                         crate::args::LsmCompaction::Leveled => {
-                            fjall_3::compaction::Strategy::Leveled(
-                                fjall_3::compaction::Leveled::default(),
-                            )
+                            Arc::new(fjall_3::compaction::Leveled::default())
                         }
                         crate::args::LsmCompaction::Tiered => {
-                            fjall_3::compaction::Strategy::SizeTiered(
-                                fjall_3::compaction::SizeTiered::default(),
-                            )
+                            log::warn!("Size-tiered not supported in Fjall v3 yet, falling back to Leveled...");
+                            Arc::new(fjall_3::compaction::Leveled::default())
+                            // Arc::new(fjall_3::compaction::SizeTiered::default())
                         }
-                        crate::args::LsmCompaction::Fifo => fjall_3::compaction::Strategy::Fifo(
+                        crate::args::LsmCompaction::Fifo => Arc::new(
                             fjall_3::compaction::Fifo::new(args.lsm_fifo_limit_bytes, None),
                         ),
                     })
-                    .data_block_compression_policy(fjall_3::config::CompressionPolicy::new(&[
+                    .data_block_compression_policy(fjall_3::config::CompressionPolicy::new([
                         fjall_3::CompressionType::None,
                         match args.compression {
                             crate::args::Compression::None => fjall_3::CompressionType::None,
@@ -329,11 +342,40 @@ impl DatabaseBuilder {
                         .data_block_size_policy(fjall_3::config::BlockSizePolicy::all(block_size));
                 }
 
-                // if args.value_size >= fjall_3::KV_SEPARATION_DEFAULT_THRESHOLD {
-                //     create_opts = create_opts.with_kv_separation(Default::default());
-                // }
+                if args.lsm_kv_separation {
+                    use fjall_3::KvSeparationOptions;
+
+                    create_opts = create_opts.with_kv_separation(
+                        KvSeparationOptions::default()
+                            .compression(match args.compression {
+                                crate::args::Compression::None => fjall_3::CompressionType::None,
+                                crate::args::Compression::Lz4 => fjall_3::CompressionType::Lz4,
+                            })
+                            .separation_threshold(1_024),
+                    );
+                }
+
+                if args.lsm_use_partitioned_meta {
+                    create_opts = create_opts.index_block_partitioning_policy(
+                        fjall_3::config::PartioningPolicy::new([false, true]),
+                    );
+                    create_opts = create_opts.filter_block_partitioning_policy(
+                        fjall_3::config::PartioningPolicy::new([false, true]),
+                    );
+                } else {
+                    create_opts = create_opts.index_block_partitioning_policy(
+                        fjall_3::config::PartioningPolicy::all(false),
+                    );
+                    create_opts = create_opts.filter_block_partitioning_policy(
+                        fjall_3::config::PartioningPolicy::all(false),
+                    );
+                }
 
                 let tree = db.keyspace("data", create_opts).unwrap();
+
+                if args.lsm_kv_separation {
+                    assert!(tree.inner().is_kv_separated());
+                }
 
                 GenericDatabase::Fjall3 { db, tree }
             }

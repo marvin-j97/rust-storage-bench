@@ -144,8 +144,6 @@ impl DatabaseWrapper {
 
             #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { db, tree } => {
-                use fjall_3::Guard;
-
                 let read_tx = db.read_tx();
                 let mut iter = read_tx.range::<&[u8], _>(tree, range);
 
@@ -766,6 +764,25 @@ impl DatabaseWrapper {
         }
     }
 
+    pub fn stale_blob_bytes(&self) -> u64 {
+        match &self.inner {
+            #[cfg(feature = "fjall_3")]
+            GenericDatabase::Fjall3 { tree, .. } => {
+                use fjall_3::AbstractTree;
+
+                tree.inner().tree.stale_blob_bytes()
+            }
+
+            #[cfg(feature = "rocksdb")]
+            GenericDatabase::RocksDb { db, .. } => db
+                .property_int_value("rocksdb.live-blob-file-garbage-size")
+                .unwrap_or_default()
+                .unwrap_or_default(),
+
+            _ => 0,
+        }
+    }
+
     pub fn cache_size(&self) -> u64 {
         match &self.inner {
             #[cfg(feature = "fjall_3")]
@@ -1041,7 +1058,7 @@ impl DatabaseWrapper {
             GenericDatabase::Fjall3 { tree, .. } => {
                 use fjall_3::AbstractTree;
 
-                tree.inner().tree.segment_count()
+                tree.inner().tree.table_count()
             }
 
             #[cfg(feature = "rocksdb")]
@@ -1502,7 +1519,7 @@ impl DatabaseWrapper {
             GenericDatabase::Sqlite(db) => {
                 db.get()
                     .unwrap()
-                    .prepare_cached("INSERT INTO data (key, value) VALUES (?, ?)")
+                    .prepare_cached("INSERT OR REPLACE INTO data (key, value) VALUES (?, ?)")
                     .unwrap()
                     .execute((key, value))
                     .unwrap();

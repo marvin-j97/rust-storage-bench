@@ -180,6 +180,7 @@ pub fn start_monitor(
                     db.write_buffer_size(),
                     db.tree_height(),
                     db.fragmented_bytes(),
+                    db.stale_blob_bytes(),
                     db.active_compactions(),
                     db.time_compacting_us(),
                     db.tombstone_count(),
@@ -228,8 +229,10 @@ pub fn start_monitor(
                     break;
                 }
 
-                if mem_kib >= 10 * 1_024 * 1_024 {
-                    log::error!("OOM KILLER!! Exceeded 10GB of memory");
+                // TODO: make this an arg
+                if mem_kib >= 8 * 1_024 * 1_024 * 1_024 {
+                    log::error!("OOM KILLER!! Exceeded 8G of memory");
+                    finish_signal.store(0, Ordering::Release);
                     break;
                 }
 
@@ -237,6 +240,7 @@ pub fn start_monitor(
                     let disk_space_bytes = disk_space_kib * 1_024;
                     let disk_space = pretty_bytes::converter::convert(disk_space_bytes as f64);
                     log::warn!("Stopping because database size reached {disk_space}");
+                    finish_signal.store(0, Ordering::Release);
                     break;
                 }
 

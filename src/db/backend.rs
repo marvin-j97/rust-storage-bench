@@ -56,7 +56,7 @@ impl std::fmt::Display for Backend {
                 Self::Fjall2 => "fjall 2.11.2",
 
                 #[cfg(feature = "fjall_3")]
-                Self::Fjall3 => "fjall 3.0.0-pre.0",
+                Self::Fjall3 => "fjall 3.0.0-pre.4",
 
                 Self::Redb => "redb 3.1.0",
 

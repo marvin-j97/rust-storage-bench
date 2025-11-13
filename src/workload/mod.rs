@@ -25,7 +25,7 @@ use std::{
 use zipf::ZipfDistribution;
 
 fn start_killer(sec: u32, signal: Arc<AtomicIsize>) {
-    log::debug!("Started killer");
+    log::debug!("Started killer ({sec}s)");
     std::thread::sleep(Duration::from_secs(sec as u64));
     signal.store(0, Ordering::Relaxed);
 }

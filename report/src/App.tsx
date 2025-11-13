@@ -276,12 +276,21 @@ function App() {
 								formatter={prettyBytes}
 							/>
 							<LineChart
-								title="# disk segments"
+								title="# disk tables"
 								timeseries={reactiveTimeseries.get("disk_segment_count")}
+							/>
+							<LineChart
+								title="# blob files"
+								timeseries={reactiveTimeseries.get("blob_file_count")}
 							/>
 							<LineChart
 								title="# active compactions"
 								timeseries={reactiveTimeseries.get("running_compactions")}
+							/>
+							<LineChart
+								title="Fragmented blob bytes"
+								timeseries={reactiveTimeseries.get("stale_blob_bytes")}
+								formatter={prettyBytes}
 							/>
 							{/* TODO: move somewhere else if redb gets cache size stats */}
 							<LineChart
@@ -299,11 +308,6 @@ function App() {
 								timeseries={reactiveTimeseries.get("index_block_cache_hit_rate")}
 								formatter={x => `${(x * 100.0).toFixed(1)}%`}
 							/>
-							<LineChart
-								title="Filter block cache hit rate"
-								timeseries={reactiveTimeseries.get("filter_block_cache_hit_rate")}
-								formatter={x => `${(x * 100.0).toFixed(1)}%`}
-							/>
 						</div>
 						<div class="rounded-lg p-3 mx-3 dark:text-yellow-100 dark:bg-yellow-950">
 							Only work for Fjall currently
@@ -318,10 +322,6 @@ function App() {
 								title="(Pinned) block index size"
 								timeseries={reactiveTimeseries.get("block_index_size")}
 								formatter={prettyBytes}
-							/>
-							<LineChart
-								title="# blob files"
-								timeseries={reactiveTimeseries.get("blob_file_count")}
 							/>
 							<LineChart
 								title="L0 runs"
@@ -345,6 +345,12 @@ function App() {
 								title="# tombstones"
 								timeseries={reactiveTimeseries.get("tombstone_count")}
 								formatter={millify}
+							/>
+							{/* TODO: seems to be buggy in RocksDB */}
+							<LineChart
+								title="Filter block cache hit rate"
+								timeseries={reactiveTimeseries.get("filter_block_cache_hit_rate")}
+								formatter={x => `${(x * 100.0).toFixed(1)}%`}
 							/>
 							<LineChart
 								title="Filter true negative rate"
