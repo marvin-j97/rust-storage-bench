@@ -59,6 +59,5 @@ You can choose to compile another memory allocator using:
 cargo build -r --features jemalloc
 cargo build -r --features mimalloc
 cargo build -r --features tcmalloc
-# TODO: add snmalloc
+cargo build -r --features snmalloc
 ```
-
