@@ -30,6 +30,10 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 #[global_allocator]
 static GLOBAL: tcmalloc::TCMalloc = tcmalloc::TCMalloc;
 
+#[cfg(feature = "snmalloc")]
+#[global_allocator]
+static ALLOC: snmalloc::SnMalloc = snmalloc::SnMalloc;
+
 /// Gets the unix timestamp as a duration
 pub fn unix_timestamp() -> std::time::Duration {
     let now = std::time::SystemTime::now();

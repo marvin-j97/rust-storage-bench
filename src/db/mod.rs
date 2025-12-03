@@ -910,6 +910,7 @@ impl DatabaseWrapper {
             #[cfg(feature = "metrics")]
             GenericDatabase::Fjall3 { tree, .. } => tree.inner().metrics().block_cache_hit_rate(),
 
+            #[cfg(feature = "rocksdb")]
             #[cfg(feature = "metrics")]
             GenericDatabase::RocksDb { tickers, opts, .. } => {
                 let cache_hits = opts.get_ticker_count(tickers.block_cached) as f64;
@@ -925,6 +926,7 @@ impl DatabaseWrapper {
     /// % of filter queries that successfully filtered out superfluous I/O.
     pub fn filter_true_negative_ratio(&self) -> f64 {
         match &self.inner {
+            #[cfg(feature = "metrics")]
             GenericDatabase::Fjall3 { tree, .. } => tree.inner().metrics().filter_efficiency(),
 
             _ => 0.0,
