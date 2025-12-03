@@ -3,6 +3,7 @@ use crate::args::CommonRunOptions;
 use crate::db::DatabaseWrapper;
 use crate::workload::ycsb::Options;
 use crate::workload::{choose_zipf, hash_key, PanicGuard};
+use base64::Engine;
 use rand::{Rng, RngCore};
 use std::sync::atomic::AtomicIsize;
 use std::sync::Arc;
@@ -22,7 +23,12 @@ pub fn run(
         let mut buf = vec![0; ycsb_opts.value_size as usize];
 
         let iter = (0..(item_count as u128)).map(|x| {
-            let k = hash_key(x).to_be_bytes().to_vec();
+            let k = {
+                let key = x.to_be_bytes();
+                base64::engine::general_purpose::URL_SAFE
+                    .encode(key)
+                    .into_bytes()
+            };
             let v = {
                 rng.fill_bytes(&mut buf);
                 ycsb_opts.corpus.fetch(&mut rng, &mut buf);
@@ -43,7 +49,7 @@ pub fn run(
                 let stop_signal = finish_signal.clone();
                 let db = db.clone();
 
-                let random = ycsb_opts.read_random;
+                let read_random = ycsb_opts.read_random;
                 let exponent = ycsb_opts.zipf_exponent;
 
                 move || {
@@ -52,13 +58,16 @@ pub fn run(
                     let mut rng = crate::random::thread_rng();
 
                     loop {
-                        let x: u128 = if random {
+                        let x: u128 = if read_random {
                             rng.gen_range(0..item_count as u128)
                         } else {
                             choose_zipf(&mut rng, exponent, item_count) as u128
                         };
 
-                        db.get(&hash_key(x).to_be_bytes()).unwrap();
+                        let key = x.to_be_bytes();
+                        let encoded_string = base64::engine::general_purpose::URL_SAFE.encode(key);
+
+                        db.get(encoded_string.as_bytes()).unwrap();
                     }
                 }
             })

@@ -1,10 +1,7 @@
-// mod monotonic;
-// mod monotonic_fixed;
-// mod read_write;
-// pub(crate) mod tpc_c;
 pub(crate) mod event_log;
 pub(crate) mod feed;
 pub(crate) mod queue;
+pub(crate) mod read_write;
 pub(crate) mod timeseries;
 pub(crate) mod webtable;
 pub(crate) mod ycsb;
@@ -17,7 +14,7 @@ use rand::{prelude::Distribution, Rng};
 use std::{
     hash::Hasher,
     sync::{
-        atomic::{AtomicIsize, AtomicU64, Ordering},
+        atomic::{AtomicIsize, Ordering},
         Arc,
     },
     time::Duration,
@@ -41,82 +38,17 @@ impl Drop for PanicGuard {
     }
 }
 
-/* // TODO: add more workloads
-#[derive(Copy, Debug, Clone, ValueEnum, Serialize, PartialEq, Eq)]
-#[clap(rename_all = "kebab_case")]
-pub enum Workload {
-    /// YCSB A: 50% reads and 50% updates
-    YcsbA,
-
-    /// YCSB B: 95% reads and 5% updates
-    YcsbB,
-
-    /// YCSB C: 100% reads
-    YcsbC,
-
-    /// Writes monotonic items and point reads them (in parallel)
-    Monotonic,
-
-    /// Writes monotonic items, then point reads them
-    MonotonicFixed,
-
-    /// Time series (increasing integer key, small value); write-only
-    MonotonicWrite,
-
-    /// (The company formerly known as Twitter)-style feed
-    ///
-    /// 1000 virtual users that post data to their feed
-    /// - each user's profile is stored as userID#p
-    /// - each post's key is: userID#f#cuid
-    ///
-    /// 90% a random virtual user's feed is queried by the last 10 items
-    ///
-    /// 10% a random virtual user will create a new post
-    Feed,
-
-    /// Writes data and then reads and update it for a fixed amount of time
-    /// The write and read distribution can be configured.
-    FixedUpdate,
-
-    // /// Writes time series data, then point reads it zipfian-ly
-    // FixedZipfian,
-
-    // /// Writes time series data, then point reads it randomly
-    // FixedRandom,
-    /// Time series (increasing integer key, small value), read first data point
-    ///
-    /// Useful for testing a perfectly cached point read
-    TimeseriesFirst,
-
-    /// Time series (increasing integer key, small value), read latest 1'000 data points
-    TimeseriesLatest,
-
-    /// Random writes; write-only
-    RandomWrite,
-
-    /// Read Write workload with 2 independent read and writer threads running in parallel.
-    /// The write and read distribution can be configured.
-    ReadWriteIndependent,
-
-    /// Read Write workload with multiple actor threads.
-    /// The configured number of threads are spawned and enter a loop with equal chances of performing a read or write.
-    /// The write and read distribution can be configured.
-    ReadWrite,
-
-    /// Queue workload with 2 independent producer and consumer threads running in parallel.
-    /// The producer will throttle if the consumer is not consuming fast enough.
-    Queue,
-
-    /// Queue workload with 2 independent producer and consumer threads running in parallel.
-    QueueIndependent,
-} */
-
 pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<AtomicIsize>) {
     let args = &cmd.args;
 
     log::info!("Starting workload {:#?}", cmd.workload);
 
     match &cmd.workload {
+        &Workload::Idle => {
+            start_killer(args.seconds, finish_signal);
+            std::thread::sleep(std::time::Duration::from_hours(24));
+        }
+
         Workload::Feed(opts) => {
             feed::run(args, opts, &db, finish_signal);
         }
@@ -139,11 +71,6 @@ pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<Atomi
             run(args, opts, &db, finish_signal);
         }
 
-        // Workload::TpcC => {
-        //     use crate::workload::tpc_c;
-
-        //     tpc_c::run(args, &db, finish_signal);
-        // }
         Workload::Ycsb(ycsb_opts) => {
             use crate::workload::ycsb::YcsbType::{A, B, C};
 
@@ -163,312 +90,9 @@ pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<Atomi
         Workload::Queue(opts) => queue::run(args, opts, &db, finish_signal),
 
         Workload::ReadWrite(opts) => {
-            let random_key_distribution = opts.write_random;
-
-            let key_mapper = move |k: u64| -> u64 {
-                if random_key_distribution {
-                    hash_key(k)
-                } else {
-                    k
-                }
-            };
-
-            let item_count = opts.item_count as u64;
-            assert!(item_count > 0);
-
-            let value_size = opts.value_size as usize;
-
-            {
-                log::debug!("Writing initial data ({item_count} items)");
-
-                let mut rng = crate::random::thread_rng();
-                let mut buf = vec![0; value_size];
-
-                db.ingest_unordered((0..item_count).map(|x| {
-                    let k = &key_mapper(x).to_be_bytes();
-                    opts.corpus.fetch(&mut rng, &mut buf);
-                    (k.to_vec(), buf.to_vec())
-                }));
-            }
-
-            let written_count = Arc::new(AtomicU64::new(item_count));
-
-            let writer = std::thread::Builder::new()
-                .name("writer".into())
-                .spawn({
-                    log::debug!("Starting writer");
-
-                    let stop_signal = finish_signal.clone();
-                    let db = db.clone();
-                    let written_count = written_count.clone();
-                    let fsync = args.fsync;
-                    let corpus = opts.corpus;
-
-                    move || {
-                        let _guard = PanicGuard(stop_signal);
-
-                        let mut rng = crate::random::thread_rng();
-                        let mut buf = vec![0; value_size];
-
-                        for x in item_count.. {
-                            let key = &key_mapper(x).to_be_bytes();
-                            corpus.fetch(&mut rng, &mut buf);
-                            db.insert(key, &buf, fsync, true);
-                            written_count.fetch_add(1, Ordering::Relaxed);
-                        }
-                    }
-                })
-                .unwrap();
-
-            if !opts.write_only {
-                std::thread::Builder::new()
-                    .name("reader".into())
-                    .spawn({
-                        log::debug!("Starting reader");
-
-                        let stop_signal = finish_signal.clone();
-                        let db = db.clone();
-                        let read_random = opts.read_random;
-                        let exponent = opts.zipf_exponent;
-
-                        move || {
-                            let _guard = PanicGuard(stop_signal);
-
-                            let mut rng = crate::random::thread_rng();
-                            loop {
-                                let written_count = written_count.load(Ordering::Relaxed);
-                                let x = if read_random {
-                                    rng.gen_range(0..written_count)
-                                } else {
-                                    choose_zipf(&mut rng, exponent, written_count)
-                                };
-                                let key = &key_mapper(x).to_be_bytes();
-                                db.get(key);
-                            }
-                        }
-                    })
-                    .unwrap();
-            }
-
-            start_killer(args.seconds, finish_signal);
-
-            writer.join().unwrap();
+            read_write::run(args, opts, &db, finish_signal);
         }
     }
-
-    /* match args.workload {
-        /* Workload::FullScan => {
-            println!("Ingesting data");
-
-            // TODO: use args.value_size
-            let mut buf = vec![0; 16];
-            let mut rng = rand::thread_rng();
-
-            for x in 0u128..5_000_000 {
-                let key = x.to_be_bytes();
-                rng.fill_bytes(&mut buf);
-
-                db.insert(&key, &buf, fsync);
-            }
-
-            std::thread::spawn({
-                println!("Starting scanner");
-
-                move || loop {
-                    db.scan_all();
-                }
-            });
-
-            start_killer(args.seconds, finish_signal);
-        } */
-        Workload::YcsbA => {
-            ycsb::a::run(args, &db, finish_signal);
-        }
-        Workload::YcsbB => {
-            ycsb::b::run(args, &db, finish_signal);
-        }
-        Workload::YcsbC => {
-            ycsb::c::run(args, &db, finish_signal);
-        }
-        Workload::MonotonicFixed => {
-            monotonic_fixed::run(args, &db, finish_signal);
-        }
-        Workload::Monotonic => {
-            monotonic::run(args, &db, finish_signal);
-        }
-        Workload::Feed => {
-            feed::run(args, &db, finish_signal);
-        }
-        Workload::FixedUpdate => {
-            let seconds = 30;
-            let iterations = 100_000_000 / args.item_count;
-            let exponent = args.zipf_exponent;
-
-            println!("Doing {iterations} iterations");
-
-            let mut written_count = 0;
-            let mut buf = vec![0; args.value_size as usize];
-            let random_key_distribution = args.write_random;
-            let key_mapper = move |k: u64| -> u64 {
-                if random_key_distribution {
-                    k
-                } else {
-                    hash_key(k)
-                }
-            };
-            let read_random = args.read_random;
-
-            for _ in 0..iterations {
-                println!("Ingesting {} items", args.item_count);
-                let item_count = args.item_count as u64;
-
-                let mut rng = crate::random::thread_rng();
-
-                let iter = (written_count..(written_count + item_count)).map(|x| {
-                    rng.fill_bytes(&mut buf);
-                    let x = key_mapper(x);
-                    ((x as u128).to_be_bytes().to_vec(), buf.to_vec())
-                });
-
-                db.ingest(iter);
-                written_count += item_count;
-
-                let stopped = Arc::new(AtomicBool::default());
-
-                let reader_handle = std::thread::spawn({
-                    println!("We are at {written_count} - starting reader for {seconds}s");
-                    let db = db.clone();
-                    let stopped = stopped.clone();
-
-                    move || {
-                        let mut rng = crate::random::thread_rng();
-
-                        while !stopped.load(Ordering::Relaxed) {
-                            let x = if read_random {
-                                rng.gen_range(0..written_count)
-                            } else {
-                                choose_zipf(&mut rng, exponent, written_count)
-                            };
-
-                            let key = (x as u128).to_be_bytes();
-                            let prev = db.get(&key).unwrap();
-                            let prev = prev.into_iter().map(|x| !x).collect::<Vec<_>>();
-                            db.insert(&key, &prev, fsync, false);
-                        }
-                    }
-                });
-
-                std::thread::sleep(Duration::from_secs(seconds));
-                stopped.store(true, Ordering::Relaxed);
-                reader_handle.join().unwrap();
-                println!("Killed reader");
-            }
-
-            finish_signal.store(true, Ordering::Relaxed);
-        }
-        Workload::TimeseriesFirst => {
-            std::thread::spawn({
-                log::debug!("Starting writer");
-                let db = db.clone();
-
-                move || {
-                    for x in 0u128.. {
-                        let key = x.to_be_bytes();
-                        db.insert(&key, &key, fsync, true);
-                    }
-                }
-            });
-
-            std::thread::spawn({
-                log::debug!("Starting reader");
-                let db = db.clone();
-
-                move || loop {
-                    db.get(&0_u128.to_be_bytes());
-                }
-            });
-
-            start_killer(args.seconds, finish_signal);
-        }
-        Workload::TimeseriesLatest => {
-            let written_count = Arc::new(AtomicU64::new(0));
-
-            std::thread::spawn({
-                log::debug!("Starting writer");
-                let db = db.clone();
-                let written_count = written_count.clone();
-
-                move || {
-                    for x in 0u128.. {
-                        let key = x.to_be_bytes();
-                        db.insert(&key, &key, fsync, true);
-                        written_count.fetch_add(1, Ordering::Relaxed);
-                    }
-                }
-            });
-
-            std::thread::spawn({
-                log::debug!("Starting reader");
-                let db = db.clone();
-
-                move || loop {
-                    let written_count = written_count.load(Ordering::Relaxed);
-                    let last_key_bytes = (written_count as u128).to_be_bytes();
-                    let end_exclusive = std::ops::Bound::Excluded(&last_key_bytes[..]);
-                    let len = db.range_len((std::ops::Bound::Unbounded, end_exclusive), true, 1000);
-                    assert_eq!(len, written_count.min(1000) as usize);
-                }
-            });
-
-            start_killer(args.seconds, finish_signal);
-        }
-        Workload::MonotonicWrite => {
-            let mut buf = vec![0; args.value_size as usize];
-
-            std::thread::spawn({
-                log::debug!("Starting writer");
-                let db = db.clone();
-
-                move || {
-                    let mut rng = crate::random::thread_rng();
-
-                    for x in 0u128.. {
-                        let key = x.to_be_bytes();
-                        rng.fill_bytes(&mut buf);
-                        db.insert(&key, &key, fsync, true);
-                    }
-                }
-            });
-
-            start_killer(args.seconds, finish_signal);
-        }
-        Workload::RandomWrite => {
-            std::thread::spawn({
-                log::debug!("Starting writer");
-                let db = db.clone();
-                let value_size = args.value_size as usize;
-
-                move || {
-                    let mut buf = vec![0; value_size];
-                    let mut rng = crate::random::thread_rng();
-
-                    for x in 0u64.. {
-                        let key = (hash_key(x) as u128).to_be_bytes();
-                        rng.fill_bytes(&mut buf);
-                        db.insert(&key, &buf, fsync, true);
-                    }
-                }
-            });
-
-            start_killer(args.seconds, finish_signal);
-        }
-        Workload::ReadWriteIndependent => {
-            read_write::run_independent(args, &db, finish_signal);
-        }
-        Workload::ReadWrite => {
-            read_write::run(args, &db, finish_signal);
-        }
-    }; */
 }
 
 /// Hash a key using the default hasher.

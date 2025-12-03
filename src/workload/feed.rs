@@ -5,10 +5,9 @@ use clap::Parser;
 use fake::faker::boolean::en::*;
 use fake::faker::lorem::en::*;
 use fake::faker::name::en::*;
-use fake::uuid::UUIDv4;
 use fake::{Dummy, Fake, Faker};
 use rand::prelude::Distribution;
-use rand::{Rng, RngCore};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::AtomicIsize;
 use std::sync::Arc;
@@ -32,24 +31,6 @@ pub struct UserProfile {
     follower_count: usize,
 }
 
-#[derive(Debug, Dummy, Deserialize, Serialize)]
-pub struct FeedPost {
-    #[dummy(faker = "Paragraph(1..10)")]
-    content: String,
-
-    #[dummy(faker = "UUIDv4")]
-    user_id: uuid::Uuid,
-
-    #[dummy(faker = "Boolean(50)")]
-    is_pinned: bool,
-
-    #[dummy(faker = "0..1_000_000")]
-    likes: usize,
-
-    #[dummy(faker = "0..1_000_000")]
-    shares: usize,
-}
-
 #[derive(Parser, Clone, Debug, Serialize)]
 pub struct Options {
     /// Value size in bytes
@@ -65,7 +46,7 @@ pub struct Options {
     #[arg(long, default_value_t = 1.0)]
     pub zipf_exponent: f64,
 
-    #[arg(long, default_value_t = 1_000_000)]
+    #[arg(long, default_value_t = 10_000_000)]
     pub users: usize,
 }
 
@@ -79,16 +60,18 @@ pub fn run(
 
     let mut rng = crate::random::thread_rng();
     let mut buf = vec![0; opts.tweet_size as usize];
+    let corpus = crate::corpus::Corpus::English;
 
-    let feed_limit = 10;
+    let feed_limit = 20;
+    let prewritten_post_count = 50;
 
     let iter = (0..opts.users)
-        .flat_map(|x| (0..=feed_limit).clone().map(move |y| (x, y)))
+        .flat_map(|x| (0..=prewritten_post_count).clone().map(move |y| (x, y)))
         .map(|(user_idx, post_idx)| {
             let user_id = format!("u{user_idx:0>7}");
 
             // Insert profile last to keep insertion order consistent
-            if post_idx == feed_limit {
+            if post_idx == prewritten_post_count {
                 let user_profile_key: String = format!("{user_id}#p");
 
                 let profile: UserProfile = Faker.fake();
@@ -100,7 +83,7 @@ pub fn run(
             let post_id = scru128::new_string();
             let post_key = format!("{user_id}#f#{post_id}");
 
-            rng.fill_bytes(&mut buf);
+            corpus.fetch(&mut rng, &mut buf);
 
             (post_key.as_bytes().to_vec(), buf.clone())
         });
@@ -133,13 +116,12 @@ pub fn run(
                     let idx = zipf.sample(&mut rng) - 1;
                     let user_id = format!("u{idx:0>7}");
 
-                    if choice > 0.5 {
+                    if choice > 0.8 {
                         // Insert post
                         let post_id = scru128::new_string();
                         let post_key = format!("{user_id}#f#{post_id}");
 
-                        rng.fill_bytes(&mut buf);
-
+                        corpus.fetch(&mut rng, &mut buf);
                         db.insert(post_key.as_bytes(), &buf, common_args.fsync, true);
                     } else {
                         // Get profile
