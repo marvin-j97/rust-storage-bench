@@ -288,7 +288,6 @@ impl DatabaseBuilder {
                 GenericDatabase::Fjall2 { keyspace, db }
             }
 
-            #[cfg(feature = "fjall_3")]
             Backend::Fjall3 => {
                 let builder = fjall_3::SingleWriterTxDatabase::builder(path)
                     .max_cached_files(Some(512))

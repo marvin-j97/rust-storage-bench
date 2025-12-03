@@ -40,7 +40,6 @@ pub enum GenericDatabase {
         db: fjall_2::TxPartition,
     },
 
-    #[cfg(feature = "fjall_3")]
     Fjall3 {
         db: fjall_3::SingleWriterTxDatabase,
         tree: fjall_3::SingleWriterTxKeyspace,
@@ -142,7 +141,6 @@ impl DatabaseWrapper {
                     .map(|(k, v)| (k.to_vec(), v.to_vec()))
             }
 
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { db, tree } => {
                 use fjall_3::Readable;
 
@@ -234,7 +232,6 @@ impl DatabaseWrapper {
         let mut sum_bytes = 0;
 
         let v = match &self.inner {
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { db, tree } => {
                 use fjall_3::Readable;
 
@@ -408,7 +405,6 @@ impl DatabaseWrapper {
                 return self.range_len((Bound::Included(prefix), upper_bound), rev, take);
             }
 
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { db, tree } => {
                 use fjall_3::Readable;
 
@@ -573,7 +569,6 @@ impl DatabaseWrapper {
                     .count()
             }
 
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { db, tree } => {
                 use fjall_3::Readable;
 
@@ -774,7 +769,6 @@ impl DatabaseWrapper {
 
     pub fn stale_blob_bytes(&self) -> u64 {
         match &self.inner {
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { tree, .. } => {
                 use fjall_3::AbstractTree;
 
@@ -793,7 +787,6 @@ impl DatabaseWrapper {
 
     pub fn cache_size(&self) -> u64 {
         match &self.inner {
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { db, .. } => db.inner().config.cache.size(),
 
             #[cfg(feature = "rocksdb")]
@@ -805,7 +798,6 @@ impl DatabaseWrapper {
 
     pub fn tombstone_count(&self) -> u64 {
         match &self.inner {
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { tree, .. } => {
                 use fjall_3::AbstractTree;
 
@@ -825,7 +817,6 @@ impl DatabaseWrapper {
         match &self.inner {
             GenericDatabase::Fjall2 { keyspace, .. } => keyspace.write_buffer_size(),
 
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { db, .. } => db.write_buffer_size(),
 
             #[cfg(feature = "rocksdb")]
@@ -840,7 +831,6 @@ impl DatabaseWrapper {
 
     pub fn table_file_cache_hit_rate(&self) -> f64 {
         match &self.inner {
-            #[cfg(feature = "fjall_3")]
             #[cfg(feature = "metrics")]
             GenericDatabase::Fjall3 { tree, .. } => {
                 tree.inner().metrics().table_file_cache_hit_rate()
@@ -852,7 +842,6 @@ impl DatabaseWrapper {
 
     pub fn data_block_io(&self) -> u64 {
         match &self.inner {
-            #[cfg(feature = "fjall_3")]
             #[cfg(feature = "metrics")]
             GenericDatabase::Fjall3 { tree, .. } => tree.inner().metrics().data_block_io(),
 
@@ -862,7 +851,6 @@ impl DatabaseWrapper {
 
     pub fn index_block_io(&self) -> u64 {
         match &self.inner {
-            #[cfg(feature = "fjall_3")]
             #[cfg(feature = "metrics")]
             GenericDatabase::Fjall3 { tree, .. } => tree.inner().metrics().index_block_io(),
 
@@ -872,7 +860,6 @@ impl DatabaseWrapper {
 
     pub fn filter_block_io(&self) -> u64 {
         match &self.inner {
-            #[cfg(feature = "fjall_3")]
             #[cfg(feature = "metrics")]
             GenericDatabase::Fjall3 { tree, .. } => tree.inner().metrics().filter_block_io(),
 
@@ -882,7 +869,6 @@ impl DatabaseWrapper {
 
     pub fn filter_block_cache_hit_rate(&self) -> f64 {
         match &self.inner {
-            #[cfg(feature = "fjall_3")]
             #[cfg(feature = "metrics")]
             GenericDatabase::Fjall3 { tree, .. } => {
                 tree.inner().metrics().filter_block_cache_hit_rate()
@@ -902,7 +888,6 @@ impl DatabaseWrapper {
 
     pub fn index_block_cache_hit_rate(&self) -> f64 {
         match &self.inner {
-            #[cfg(feature = "fjall_3")]
             #[cfg(feature = "metrics")]
             GenericDatabase::Fjall3 { tree, .. } => {
                 tree.inner().metrics().index_block_cache_hit_rate()
@@ -922,7 +907,6 @@ impl DatabaseWrapper {
 
     pub fn block_cache_hit_rate(&self) -> f64 {
         match &self.inner {
-            #[cfg(feature = "fjall_3")]
             #[cfg(feature = "metrics")]
             GenericDatabase::Fjall3 { tree, .. } => tree.inner().metrics().block_cache_hit_rate(),
 
@@ -941,7 +925,6 @@ impl DatabaseWrapper {
     /// % of filter queries that successfully filtered out superfluous I/O.
     pub fn filter_true_negative_ratio(&self) -> f64 {
         match &self.inner {
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { tree, .. } => tree.inner().metrics().filter_efficiency(),
 
             _ => 0.0,
@@ -956,7 +939,6 @@ impl DatabaseWrapper {
                 db.inner().tree.bloom_filter_size()
             }
 
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { tree, .. } => {
                 use fjall_3::AbstractTree;
 
@@ -969,7 +951,6 @@ impl DatabaseWrapper {
 
     pub fn block_index_size(&self) -> usize {
         match &self.inner {
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { tree, .. } => {
                 use fjall_3::AbstractTree;
 
@@ -988,7 +969,6 @@ impl DatabaseWrapper {
                 db.inner().tree.l0_run_count()
             }
 
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { tree, .. } => {
                 use fjall_3::AbstractTree;
 
@@ -1016,7 +996,7 @@ impl DatabaseWrapper {
                 sum.checked_div(count).unwrap_or_default()
             }
 
-            /*   #[cfg(feature = "fjall_3")]
+            /*
             GenericDatabase::Fjall3 { db, .. } => {
                 let tree = match &db.inner().tree {
                     fjall_3::AnyTree::Blob(tree) => &tree.index.0,
@@ -1049,7 +1029,7 @@ impl DatabaseWrapper {
             GenericDatabase::Fjall2 { keyspace, .. } => {
                 keyspace.inner().time_compacting().as_micros() as u64
             }
-            #[cfg(feature = "fjall_3")]
+
             GenericDatabase::Fjall3 { db, .. } => db.inner().time_compacting().as_micros() as u64,
             _ => 0,
         }
@@ -1059,7 +1039,6 @@ impl DatabaseWrapper {
         match &self.inner {
             GenericDatabase::Fjall2 { keyspace, .. } => keyspace.inner().compactions_completed(),
 
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { db, .. } => db.inner().compactions_completed(),
             _ => 0,
         }
@@ -1069,7 +1048,6 @@ impl DatabaseWrapper {
         match &self.inner {
             GenericDatabase::Fjall2 { keyspace, .. } => keyspace.inner().active_compactions(),
 
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { db, .. } => db.inner().active_compactions(),
 
             #[cfg(feature = "rocksdb")]
@@ -1089,7 +1067,7 @@ impl DatabaseWrapper {
 
                 db.inner().tree.blob_file_count()
             }
-            #[cfg(feature = "fjall_3")]
+
             GenericDatabase::Fjall3 { tree, .. } => {
                 use fjall_3::AbstractTree;
 
@@ -1114,7 +1092,6 @@ impl DatabaseWrapper {
                 db.inner().tree.segment_count()
             }
 
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { tree, .. } => {
                 use fjall_3::AbstractTree;
 
@@ -1143,7 +1120,6 @@ impl DatabaseWrapper {
         match &self.inner {
             GenericDatabase::Fjall2 { keyspace, .. } => keyspace.inner().journal_disk_space(),
 
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { db, .. } => db.inner().journal_disk_space().unwrap(),
 
             _ => 0,
@@ -1154,7 +1130,6 @@ impl DatabaseWrapper {
         match &self.inner {
             GenericDatabase::Fjall2 { keyspace, .. } => keyspace.journal_count(),
 
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { db, .. } => db.journal_count(),
 
             _ => 0,
@@ -1174,7 +1149,6 @@ impl DatabaseWrapper {
         match &self.inner {
             GenericDatabase::Fjall2 { db, .. } => db.inner().len().unwrap(),
 
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { tree, .. } => tree.inner().len().unwrap(),
 
             GenericDatabase::Canopydb(db) => {
@@ -1248,7 +1222,6 @@ impl DatabaseWrapper {
                 item.map(|x| x.to_vec())
             }
 
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { tree, .. } => {
                 let item = tree.get(key).unwrap();
                 report_latency();
@@ -1349,7 +1322,6 @@ impl DatabaseWrapper {
                 db.inner().rotate_memtable_and_wait().unwrap();
             }
 
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { db, tree } => {
                 for (key, value) in items {
                     tree.insert(&key, &*value).unwrap();
@@ -1503,7 +1475,7 @@ impl DatabaseWrapper {
                     }))
                     .unwrap();
             }
-            #[cfg(feature = "fjall_3")]
+
             GenericDatabase::Fjall3 { tree, .. } => {
                 let mut ingest = tree.inner().start_ingestion().unwrap();
                 for (k, v) in items {
@@ -1566,7 +1538,6 @@ impl DatabaseWrapper {
                 keyspace.persist(fjall_2::PersistMode::SyncAll).unwrap();
             }
 
-            #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { db, .. } => {
                 db.persist(fjall_3::PersistMode::SyncAll).unwrap();
             }
@@ -1621,7 +1592,7 @@ impl DatabaseWrapper {
                     })
                     .unwrap();
             }
-            #[cfg(feature = "fjall_3")]
+
             GenericDatabase::Fjall3 { db, tree } => {
                 tree.insert(key, value).unwrap();
 
@@ -1707,7 +1678,7 @@ impl DatabaseWrapper {
     // the plain remove function. This way workloads can test both kinds.
     pub fn remove_unique(&self, key: &[u8], durable: bool, decrement_workload_size: Option<u64>) {
         match &self.inner {
-            /* #[cfg(feature = "fjall_3")]
+            /*
             GenericDatabase::Fjall3 { keyspace, db } => {
                 // TODO: remove_weak
                 db.remove(key).unwrap();
@@ -1756,7 +1727,7 @@ impl DatabaseWrapper {
                     })
                     .unwrap();
             }
-            #[cfg(feature = "fjall_3")]
+
             GenericDatabase::Fjall3 { db, tree } => {
                 tree.remove(key).unwrap();
 

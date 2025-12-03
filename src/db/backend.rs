@@ -7,7 +7,6 @@ pub enum Backend {
     #[serde(rename = "fjall_2")]
     Fjall2,
 
-    #[cfg(feature = "fjall_3")]
     #[serde(rename = "fjall_3")]
     #[serde(alias = "fjall_3")]
     Fjall3,
@@ -49,7 +48,6 @@ impl std::fmt::Display for Backend {
 
                 Self::Fjall2 => "fjall 2.11.2",
 
-                #[cfg(feature = "fjall_3")]
                 Self::Fjall3 => "fjall 3.0.0-rc.5",
 
                 Self::Redb => "redb 3.1.0",
