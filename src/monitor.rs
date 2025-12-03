@@ -149,9 +149,9 @@ pub fn start_monitor(
                     (disk.total_read_bytes as f64) / (read_user_bytes as f64)
                 };
 
-                let l0_avg_segment_lifetime_ms = {
+                let l0_avg_table_lifetime_ms = {
                     let now = unix_timestamp().as_micros();
-                    let l0_avg_creation_date = db.avg_l0_segment_creation_date_us();
+                    let l0_avg_creation_date = db.avg_l0_table_creation_date_us();
 
                     if l0_avg_creation_date == 0 {
                         0
@@ -170,7 +170,11 @@ pub fn start_monitor(
                     disk_writes_kib,
                     disk_reads_kib,
                     //
-                    db.disk_segment_count(),
+                    db.data_block_io(),
+                    db.index_block_io(),
+                    db.filter_block_io(),
+                    //
+                    db.disk_table_count(),
                     db.blob_file_count(),
                     db.journal_count(),
                     db.journal_size(),
@@ -185,12 +189,13 @@ pub fn start_monitor(
                     db.time_compacting_us(),
                     db.tombstone_count(),
                     db.l0_runs(),
-                    l0_avg_segment_lifetime_ms,
+                    l0_avg_table_lifetime_ms,
                     //
                     db.filter_true_negative_ratio(),
                     db.block_cache_hit_rate(),
                     db.index_block_cache_hit_rate(),
                     db.filter_block_cache_hit_rate(),
+                    db.table_file_cache_hit_rate(),
                     //
                     write_ops,
                     point_read_ops,
@@ -230,8 +235,8 @@ pub fn start_monitor(
                 }
 
                 // TODO: make this an arg
-                if mem_kib >= 8 * 1_024 * 1_024 * 1_024 {
-                    log::error!("OOM KILLER!! Exceeded 8G of memory");
+                if mem_kib >= 16 * 1_024 * 1_024 {
+                    log::error!("OOM KILLER!! Exceeded 16G of memory");
                     finish_signal.store(0, Ordering::Release);
                     break;
                 }

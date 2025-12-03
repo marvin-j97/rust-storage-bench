@@ -48,7 +48,11 @@ const COLUMN_HEADERS: &[&str] = &[
     "disk_writes_kib",
     "disk_reads_kib",
     //
-    "disk_segment_count", // TODO: replace with level_sizes: [L0, L1, L2, L3, L4, L5, L6]
+    "data_block_io",
+    "index_block_io",
+    "filter_block_io",
+    //
+    "disk_table_count", // TODO: replace with level_sizes: [L0, L1, L2, L3, L4, L5, L6]
     "blob_file_count",
     "journal_count",
     "journal_size",
@@ -58,16 +62,18 @@ const COLUMN_HEADERS: &[&str] = &[
     "write_buffer_size",
     "tree_height",
     "fragmented_bytes",
+    "stale_blob_bytes",
     "running_compactions",
     "time_compacting_us",
     "tombstone_count",
     "l0_runs",
-    "l0_segment_avg_lifetime_ms",
+    "l0_table_avg_lifetime_ms",
     //
     "filter_true_negative_ratio",
     "block_cache_hit_rate",
     "index_block_cache_hit_rate",
     "filter_block_cache_hit_rate",
+    "table_file_cache_hit_rate",
     //
     "write_ops",
     "point_read_ops",

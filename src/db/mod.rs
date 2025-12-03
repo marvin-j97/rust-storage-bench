@@ -42,8 +42,8 @@ pub enum GenericDatabase {
 
     #[cfg(feature = "fjall_3")]
     Fjall3 {
-        db: fjall_3::TxDatabase,
-        tree: fjall_3::TxKeyspace,
+        db: fjall_3::SingleWriterTxDatabase,
+        tree: fjall_3::SingleWriterTxKeyspace,
     },
 
     Sled(sled::Db),
@@ -144,6 +144,8 @@ impl DatabaseWrapper {
 
             #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { db, tree } => {
+                use fjall_3::Readable;
+
                 let read_tx = db.read_tx();
                 let mut iter = read_tx.range::<&[u8], _>(tree, range);
 
@@ -234,6 +236,8 @@ impl DatabaseWrapper {
         let v = match &self.inner {
             #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { db, tree } => {
+                use fjall_3::Readable;
+
                 let read_tx = db.read_tx();
                 let iter = read_tx.prefix(tree, prefix);
 
@@ -406,6 +410,8 @@ impl DatabaseWrapper {
 
             #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { db, tree } => {
+                use fjall_3::Readable;
+
                 let read_tx = db.read_tx();
                 let iter = read_tx.prefix(tree, prefix);
 
@@ -569,6 +575,8 @@ impl DatabaseWrapper {
 
             #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { db, tree } => {
+                use fjall_3::Readable;
+
                 let read_tx = db.read_tx();
                 let iter = read_tx.range::<&[u8], _>(tree, range);
 
@@ -830,6 +838,48 @@ impl DatabaseWrapper {
         }
     }
 
+    pub fn table_file_cache_hit_rate(&self) -> f64 {
+        match &self.inner {
+            #[cfg(feature = "fjall_3")]
+            #[cfg(feature = "metrics")]
+            GenericDatabase::Fjall3 { tree, .. } => {
+                tree.inner().metrics().table_file_cache_hit_rate()
+            }
+
+            _ => 0.0,
+        }
+    }
+
+    pub fn data_block_io(&self) -> u64 {
+        match &self.inner {
+            #[cfg(feature = "fjall_3")]
+            #[cfg(feature = "metrics")]
+            GenericDatabase::Fjall3 { tree, .. } => tree.inner().metrics().data_block_io(),
+
+            _ => 0,
+        }
+    }
+
+    pub fn index_block_io(&self) -> u64 {
+        match &self.inner {
+            #[cfg(feature = "fjall_3")]
+            #[cfg(feature = "metrics")]
+            GenericDatabase::Fjall3 { tree, .. } => tree.inner().metrics().index_block_io(),
+
+            _ => 0,
+        }
+    }
+
+    pub fn filter_block_io(&self) -> u64 {
+        match &self.inner {
+            #[cfg(feature = "fjall_3")]
+            #[cfg(feature = "metrics")]
+            GenericDatabase::Fjall3 { tree, .. } => tree.inner().metrics().filter_block_io(),
+
+            _ => 0,
+        }
+    }
+
     pub fn filter_block_cache_hit_rate(&self) -> f64 {
         match &self.inner {
             #[cfg(feature = "fjall_3")]
@@ -949,7 +999,7 @@ impl DatabaseWrapper {
         }
     }
 
-    pub fn avg_l0_segment_creation_date_us(&self) -> u128 {
+    pub fn avg_l0_table_creation_date_us(&self) -> u128 {
         match &self.inner {
             GenericDatabase::Fjall2 { db, .. } => {
                 let tree = match &db.inner().tree {
@@ -1005,6 +1055,16 @@ impl DatabaseWrapper {
         }
     }
 
+    pub fn completed_compactions(&self) -> usize {
+        match &self.inner {
+            GenericDatabase::Fjall2 { keyspace, .. } => keyspace.inner().compactions_completed(),
+
+            #[cfg(feature = "fjall_3")]
+            GenericDatabase::Fjall3 { db, .. } => db.inner().compactions_completed(),
+            _ => 0,
+        }
+    }
+
     pub fn active_compactions(&self) -> usize {
         match &self.inner {
             GenericDatabase::Fjall2 { keyspace, .. } => keyspace.inner().active_compactions(),
@@ -1046,7 +1106,7 @@ impl DatabaseWrapper {
         }
     }
 
-    pub fn disk_segment_count(&self) -> usize {
+    pub fn disk_table_count(&self) -> usize {
         match &self.inner {
             GenericDatabase::Fjall2 { db, .. } => {
                 use fjall_2::AbstractTree;
@@ -1247,8 +1307,19 @@ impl DatabaseWrapper {
 
         match &self.inner {
             #[cfg(feature = "sqlite")]
-            GenericDatabase::Sqlite(_db) => {
-                unimplemented!();
+            GenericDatabase::Sqlite(db) => {
+                let db = db.get().unwrap();
+                db.execute("BEGIN IMMEDIATE", []).unwrap();
+                let mut stmt = db
+                    .prepare_cached("INSERT INTO data (key, value) VALUES (?, ?)")
+                    .unwrap();
+
+                for (key, value) in items {
+                    stmt.execute(rusqlite::params![key, value]).unwrap();
+                }
+                db.execute("COMMIT", []).unwrap();
+
+                // NOTE: Durability is controlled by pragma in load()
             }
 
             #[cfg(feature = "rocksdb")]
@@ -1387,6 +1458,17 @@ impl DatabaseWrapper {
                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         };
 
+        let items = items.enumerate().map(|(i, kv)| {
+            if i < 10_000_000 {
+                if i % 1_000_000 == 0 {
+                    log::info!("Ingested {}/...? ", i);
+                }
+            } else if i % 10_000_000 == 0 {
+                log::info!("Ingested {}/...? ", i);
+            }
+            kv
+        });
+
         match &self.inner {
             #[cfg(feature = "sqlite")]
             GenericDatabase::Sqlite(db) => {
@@ -1423,12 +1505,12 @@ impl DatabaseWrapper {
             }
             #[cfg(feature = "fjall_3")]
             GenericDatabase::Fjall3 { tree, .. } => {
-                tree.inner()
-                    .ingest(items.map(|(k, v)| {
-                        on_bytes_written(&k, &v);
-                        (k, v)
-                    }))
-                    .unwrap();
+                let mut ingest = tree.inner().start_ingestion().unwrap();
+                for (k, v) in items {
+                    ingest.write(&k, &v).unwrap();
+                    on_bytes_written(&k, &v);
+                }
+                ingest.finish().unwrap();
             }
             GenericDatabase::Sled(db) => {
                 for (key, value) in items {

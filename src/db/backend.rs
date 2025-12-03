@@ -34,12 +34,6 @@ pub enum Backend {
 
     #[serde(rename = "canopydb")]
     Canopydb,
-    //
-    /*     #[serde(rename = "bloodstone")]
-    Bloodstone, */
-    // Persy,
-    // JammDb,
-    // Nebari,
 }
 
 impl std::fmt::Display for Backend {
@@ -56,7 +50,7 @@ impl std::fmt::Display for Backend {
                 Self::Fjall2 => "fjall 2.11.2",
 
                 #[cfg(feature = "fjall_3")]
-                Self::Fjall3 => "fjall 3.0.0-pre.4",
+                Self::Fjall3 => "fjall 3.0.0-rc.5",
 
                 Self::Redb => "redb 3.1.0",
 
@@ -64,11 +58,9 @@ impl std::fmt::Display for Backend {
                 Self::Heed => "heed 0.20.5",
 
                 #[cfg(feature = "rocksdb")]
-                Self::RocksDb => "rust_rocksdb 0.42.1",
+                Self::RocksDb => "rust_rocksdb 0.44.2",
 
                 Self::Canopydb => "canopydb 0.2.4",
-                // Self::Bloodstone => "sled 1.0.0-alpha.122",
-                // Self::Persy => "persy 1.5.0",
             }
         )
     }

@@ -63,11 +63,13 @@ impl DatabaseBuilder {
                 });
                 opts.set_min_level_to_compress(1);
                 opts.set_manual_wal_flush(true);
-                opts.set_max_background_jobs(4);
-                opts.set_level_zero_file_num_compaction_trigger(4);
+                opts.set_max_background_jobs(args.lsm_workers.try_into().unwrap());
                 opts.set_write_buffer_size(args.lsm_write_buffer_bytes as usize);
                 opts.set_db_write_buffer_size(256 * 1_024 * 1_024);
                 opts.set_advise_random_on_open(false);
+                opts.set_level_zero_file_num_compaction_trigger(
+                    args.lsm_l0_threshold.try_into().unwrap(),
+                );
 
                 opts.set_max_open_files(match args.lsm_compaction {
                     // Whyyyy RocksDB
@@ -238,9 +240,10 @@ impl DatabaseBuilder {
                     .max_memtable_size(64 * 1_024 * 1_024)
                     .compaction_strategy(match args.lsm_compaction {
                         crate::args::LsmCompaction::Leveled => {
-                            fjall_2::compaction::Strategy::Leveled(
-                                fjall_2::compaction::Leveled::default(),
-                            )
+                            fjall_2::compaction::Strategy::Leveled(fjall_2::compaction::Leveled {
+                                l0_threshold: args.lsm_l0_threshold.try_into().unwrap(),
+                                ..Default::default()
+                            })
                         }
                         crate::args::LsmCompaction::Tiered => {
                             fjall_2::compaction::Strategy::SizeTiered(
@@ -287,10 +290,10 @@ impl DatabaseBuilder {
 
             #[cfg(feature = "fjall_3")]
             Backend::Fjall3 => {
-                let builder = fjall_3::TxDatabase::builder(path)
+                let builder = fjall_3::SingleWriterTxDatabase::builder(path)
                     .max_cached_files(Some(512))
                     .cache_size(args.cache_size)
-                    .worker_count(4)
+                    .worker_threads(args.lsm_workers)
                     .max_write_buffer_size(256 * 1_024 * 1_024)
                     .manual_journal_persist(true)
                     .journal_compression(match args.journal_compression {
@@ -304,7 +307,9 @@ impl DatabaseBuilder {
                     .max_memtable_size(args.lsm_write_buffer_bytes)
                     .compaction_strategy(match args.lsm_compaction {
                         crate::args::LsmCompaction::Leveled => {
-                            Arc::new(fjall_3::compaction::Leveled::default())
+                            Arc::new(fjall_3::compaction::Leveled::default().with_l0_threshold(
+                                args.lsm_l0_threshold.try_into().unwrap(),
+                            ))
                         }
                         crate::args::LsmCompaction::Tiered => {
                             log::warn!("Size-tiered not supported in Fjall v3 yet, falling back to Leveled...");
@@ -345,33 +350,35 @@ impl DatabaseBuilder {
                 if args.lsm_kv_separation {
                     use fjall_3::KvSeparationOptions;
 
-                    create_opts = create_opts.with_kv_separation(
+                    create_opts = create_opts.with_kv_separation(Some(
                         KvSeparationOptions::default()
                             .compression(match args.compression {
                                 crate::args::Compression::None => fjall_3::CompressionType::None,
                                 crate::args::Compression::Lz4 => fjall_3::CompressionType::Lz4,
                             })
                             .separation_threshold(1_024),
-                    );
+                    ));
                 }
 
                 if args.lsm_use_partitioned_meta {
-                    create_opts = create_opts.index_block_partitioning_policy(
-                        fjall_3::config::PartioningPolicy::new([false, true]),
-                    );
-                    create_opts = create_opts.filter_block_partitioning_policy(
-                        fjall_3::config::PartioningPolicy::new([false, true]),
-                    );
+                    create_opts = create_opts
+                        .index_block_partitioning_policy(fjall_3::config::PartioningPolicy::new([
+                            false, true,
+                        ]))
+                        .filter_block_partitioning_policy(fjall_3::config::PartioningPolicy::new(
+                            [false, true],
+                        ));
                 } else {
-                    create_opts = create_opts.index_block_partitioning_policy(
-                        fjall_3::config::PartioningPolicy::all(false),
-                    );
-                    create_opts = create_opts.filter_block_partitioning_policy(
-                        fjall_3::config::PartioningPolicy::all(false),
-                    );
+                    create_opts = create_opts
+                        .index_block_partitioning_policy(fjall_3::config::PartioningPolicy::all(
+                            false,
+                        ))
+                        .filter_block_partitioning_policy(fjall_3::config::PartioningPolicy::all(
+                            false,
+                        ));
                 }
 
-                let tree = db.keyspace("data", create_opts).unwrap();
+                let tree = db.keyspace("data", || create_opts).unwrap();
 
                 if args.lsm_kv_separation {
                     assert!(tree.inner().is_kv_separated());

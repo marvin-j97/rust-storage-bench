@@ -1,9 +1,10 @@
+use crate::db::Backend;
 use crate::workload::{
     event_log::Options as EventLogOptions, feed::Options as FeedOptions,
-    timeseries::Options as TimeSeriesOptions, webtable::Options as WebtableOptions,
+    read_write::Options as ReadWriteOptions, timeseries::Options as TimeSeriesOptions,
+    webtable::Options as WebtableOptions,
 };
 use crate::workload::{queue::Options as QueueOptions, ycsb::Options as YcsbOptions};
-use crate::{corpus::Corpus, db::Backend};
 use clap::{Args as ClapArgs, Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -87,6 +88,12 @@ pub struct CommonRunOptions {
     #[arg(long, default_value_t = scru128::new_string())]
     pub id: String,
 
+    #[arg(long, default_value_t = String::from("Untitled workload"))]
+    pub title: String,
+
+    #[arg(long, default_value_t = String::from(""))]
+    pub description: String,
+
     /// Granularity in milliseconds with which to poll metrics
     #[arg(long, alias = "granularity", default_value_t = 1_000)]
     pub granularity_ms: u32,
@@ -103,6 +110,7 @@ pub struct CommonRunOptions {
     pub data_dir: PathBuf,
 
     #[arg(long, default_value_t = true)]
+    #[arg(long = "no-clean-data-dir", action = clap::ArgAction::SetFalse)]
     pub clean_data_dir: bool,
 
     /// Where to store result jsonl file
@@ -157,6 +165,9 @@ pub struct CommonRunOptions {
     #[arg(long, default_value_t = 512_000_000)]
     pub lsm_fifo_limit_bytes: u64,
 
+    #[arg(long, default_value_t = 4)]
+    pub lsm_workers: usize,
+
     /// Block size for LSM-trees
     #[arg(long)]
     pub lsm_block_size: Option<u32>,
@@ -177,36 +188,9 @@ pub struct CommonRunOptions {
 
     #[arg(long, value_enum, default_value_t = Compression::None)]
     pub journal_compression: Compression,
-    /*
-    /// Number of threads to use. Not applicable to all workloads
-    #[arg(long, default_value_t = 1)]
-    pub threads: usize,
 
-    /// Whether to use random or monotonic keys. Not applicable to all workloads
-    #[arg(long, default_value_t = false)]
-    pub write_random: bool,
-
-    #[arg(long, default_value_t = false)]
-    pub warmup_cache: bool,
-
-    /// Compaction for LSM-trees
-    #[arg(long, value_enum, default_value_t = LsmCompaction::Leveled)]
-    pub lsm_compaction: LsmCompaction, */
-    // #[arg(long)]
-    // pub key_size: u8,
-
-    // /// Use KV-separation
-    // #[arg(long, alias = "lsm_kv_sep", default_value_t = false)]
-    // pub lsm_kv_separation: bool,
-
-    // /// Block size for LSM-trees
-    // #[arg(long, default_value_t = 4_096)]
-    // pub lsm_block_size: u16,
-
-    // /// Intermittenly flush sled to keep memory usage sane
-    // /// This is hopefully a temporary workaround
-    // #[arg(long, default_value_t = false)]
-    // pub sled_flush: bool,
+    #[arg(long, default_value_t = 4)]
+    pub lsm_l0_threshold: usize,
 }
 
 #[derive(Parser, Clone, Debug, Serialize)]
@@ -229,32 +213,10 @@ pub struct RunArgs {
     pub workload: Workload,
 }
 
-#[derive(Parser, Clone, Debug, Serialize)]
-pub struct ReadWriteOptions {
-    #[arg(long, default_value_t = 1_000_000)]
-    pub item_count: usize,
-
-    #[arg(long, default_value_t = false)]
-    pub write_only: bool,
-
-    #[arg(long, default_value_t = true)]
-    pub write_random: bool,
-
-    #[arg(long, default_value_t = false)]
-    pub read_random: bool,
-
-    #[arg(long, value_enum, default_value_t = Corpus::Random)]
-    pub corpus: Corpus,
-
-    #[arg(long, default_value_t = 200)]
-    pub value_size: u32,
-
-    #[arg(long, default_value_t = 1.0)]
-    pub zipf_exponent: f64,
-}
-
 #[derive(Clone, Debug, Subcommand, Serialize)]
 pub enum Workload {
+    Idle,
+
     Feed(FeedOptions),
 
     EventLog(EventLogOptions),
