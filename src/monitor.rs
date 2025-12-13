@@ -193,6 +193,7 @@ pub fn start_monitor(
                     //
                     db.filter_true_negative_ratio(),
                     db.block_cache_hit_rate(),
+                    db.data_block_cache_hit_rate(),
                     db.index_block_cache_hit_rate(),
                     db.filter_block_cache_hit_rate(),
                     db.table_file_cache_hit_rate(),
@@ -235,8 +236,18 @@ pub fn start_monitor(
                 }
 
                 // TODO: make this an arg
-                if mem_kib >= 16 * 1_024 * 1_024 {
-                    log::error!("OOM KILLER!! Exceeded 16G of memory");
+                #[cfg(feature = "heed")]
+                if args.backend != crate::Backend::Heed {
+                    if mem_kib >= 7 * 1_024 * 1_024 {
+                        log::error!("OOM KILLER!! Exceeded 7G of memory");
+                        finish_signal.store(0, Ordering::Release);
+                        break;
+                    }
+                }
+
+                #[cfg(not(feature = "heed"))]
+                if mem_kib >= 7 * 1_024 * 1_024 {
+                    log::error!("OOM KILLER!! Exceeded 7G of memory");
                     finish_signal.store(0, Ordering::Release);
                     break;
                 }

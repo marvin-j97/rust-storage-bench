@@ -2,7 +2,7 @@ use super::super::start_killer;
 use crate::args::CommonRunOptions;
 use crate::db::DatabaseWrapper;
 use crate::workload::ycsb::Options;
-use crate::workload::{choose_zipf, hash_key, PanicGuard};
+use crate::workload::{choose_zipf, PanicGuard};
 use base64::Engine;
 use rand::{Rng, RngCore};
 use std::sync::atomic::AtomicIsize;

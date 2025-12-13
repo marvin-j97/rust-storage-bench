@@ -277,7 +277,7 @@ function App() {
 							/>
 							<LineChart
 								title="# disk tables"
-								timeseries={reactiveTimeseries.get("disk_segment_count")}
+								timeseries={reactiveTimeseries.get("disk_table_count")}
 							/>
 							<LineChart
 								title="# blob files"
@@ -301,6 +301,11 @@ function App() {
 							<LineChart
 								title="Block cache hit rate"
 								timeseries={reactiveTimeseries.get("block_cache_hit_rate")}
+								formatter={x => `${(x * 100.0).toFixed(1)}%`}
+							/>
+							<LineChart
+								title="Data block cache hit rate"
+								timeseries={reactiveTimeseries.get("data_block_cache_hit_rate")}
 								formatter={x => `${(x * 100.0).toFixed(1)}%`}
 							/>
 							<LineChart
@@ -328,8 +333,8 @@ function App() {
 								timeseries={reactiveTimeseries.get("l0_runs")}
 							/>
 							<LineChart
-								title="Average L0 segment lifetime"
-								timeseries={reactiveTimeseries.get("l0_segment_avg_lifetime_ms")}
+								title="Average L0 table lifetime"
+								timeseries={reactiveTimeseries.get("l0_table_avg_lifetime_ms")}
 								formatter={(x) => `${x} ms`}
 							/>
 							<LineChart
@@ -356,6 +361,27 @@ function App() {
 								title="Filter true negative rate"
 								timeseries={reactiveTimeseries.get("filter_true_negative_ratio")}
 								formatter={x => `${(x * 100.0).toFixed(1)}%`}
+							/>
+							<LineChart
+								title="Table file cache hit rate"
+								timeseries={reactiveTimeseries.get("table_file_cache_hit_rate")}
+								formatter={x => `${(x * 100.0).toFixed(1)}%`}
+							/>
+
+							<LineChart
+								title="Data block I/O"
+								timeseries={reactiveTimeseries.get("data_block_io")}
+								formatter={prettyBytes}
+							/>
+							<LineChart
+								title="Index block I/O"
+								timeseries={reactiveTimeseries.get("index_block_io")}
+								formatter={prettyBytes}
+							/>
+							<LineChart
+								title="Filter block I/O"
+								timeseries={reactiveTimeseries.get("filter_block_io")}
+								formatter={prettyBytes}
 							/>
 						</div>
 					</Show>

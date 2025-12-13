@@ -4,6 +4,8 @@ use std::{path::Path, sync::Arc, time::Duration};
 
 pub const TABLE: redb::TableDefinition<&[u8], &[u8]> = redb::TableDefinition::new("data");
 
+const BLOB_FILE_SIZE: u64 = 128_000_000;
+
 pub struct DatabaseBuilder;
 
 impl DatabaseBuilder {
@@ -147,6 +149,8 @@ impl DatabaseBuilder {
                         crate::args::Compression::Lz4 => rocksdb::DBCompressionType::Lz4,
                     });
                     opts.set_min_blob_size(1_024);
+                    opts.set_blob_cache(&cache);
+                    opts.set_blob_file_size(BLOB_FILE_SIZE);
                 }
 
                 let db = rocksdb::OptimisticTransactionDB::open(&opts, &path).unwrap();
@@ -295,10 +299,10 @@ impl DatabaseBuilder {
                     .worker_threads(args.lsm_workers)
                     .max_write_buffer_size(256 * 1_024 * 1_024)
                     .manual_journal_persist(true)
-                    .journal_compression(match args.journal_compression {
+                    /* .journal_compression(match args.journal_compression {
                         crate::args::Compression::None => fjall_3::CompressionType::None,
                         crate::args::Compression::Lz4 => fjall_3::CompressionType::Lz4,
-                    });
+                    }) */;
 
                 let db = builder.open().unwrap();
 
@@ -355,26 +359,27 @@ impl DatabaseBuilder {
                                 crate::args::Compression::None => fjall_3::CompressionType::None,
                                 crate::args::Compression::Lz4 => fjall_3::CompressionType::Lz4,
                             })
-                            .separation_threshold(1_024),
+                            .separation_threshold(1_024)
+                            .file_target_size(BLOB_FILE_SIZE),
                     ));
                 }
 
                 if args.lsm_use_partitioned_meta {
                     create_opts = create_opts
-                        .index_block_partitioning_policy(fjall_3::config::PartioningPolicy::new([
-                            false, true,
-                        ]))
-                        .filter_block_partitioning_policy(fjall_3::config::PartioningPolicy::new(
+                        .index_block_partitioning_policy(fjall_3::config::PartitioningPolicy::new(
                             [false, true],
-                        ));
+                        ))
+                        .filter_block_partitioning_policy(
+                            fjall_3::config::PartitioningPolicy::new([false, true]),
+                        );
                 } else {
                     create_opts = create_opts
-                        .index_block_partitioning_policy(fjall_3::config::PartioningPolicy::all(
-                            false,
-                        ))
-                        .filter_block_partitioning_policy(fjall_3::config::PartioningPolicy::all(
-                            false,
-                        ));
+                        .index_block_partitioning_policy(
+                            fjall_3::config::PartitioningPolicy::disabled(),
+                        )
+                        .filter_block_partitioning_policy(
+                            fjall_3::config::PartitioningPolicy::disabled(),
+                        );
                 }
 
                 let tree = db.keyspace("data", || create_opts).unwrap();

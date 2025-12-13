@@ -905,6 +905,25 @@ impl DatabaseWrapper {
         }
     }
 
+    pub fn data_block_cache_hit_rate(&self) -> f64 {
+        match &self.inner {
+            #[cfg(feature = "metrics")]
+            GenericDatabase::Fjall3 { tree, .. } => {
+                tree.inner().metrics().data_block_cache_hit_rate()
+            }
+
+            #[cfg(feature = "metrics")]
+            GenericDatabase::RocksDb { tickers, opts, .. } => {
+                let cache_hits = opts.get_ticker_count(tickers.data_block_cached) as f64;
+                let cache_misses = opts.get_ticker_count(tickers.data_block_io) as f64;
+
+                cache_hits / (cache_hits + cache_misses)
+            }
+
+            _ => 0.0,
+        }
+    }
+
     pub fn block_cache_hit_rate(&self) -> f64 {
         match &self.inner {
             #[cfg(feature = "metrics")]

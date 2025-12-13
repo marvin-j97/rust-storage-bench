@@ -68,11 +68,11 @@ pub fn run(
     let iter = (0..opts.users)
         .flat_map(|x| (0..=prewritten_post_count).clone().map(move |y| (x, y)))
         .map(|(user_idx, post_idx)| {
-            let user_id = format!("u{user_idx:0>7}");
+            let user_id = format!("u{user_idx:0>10}");
 
             // Insert profile last to keep insertion order consistent
             if post_idx == prewritten_post_count {
-                let user_profile_key: String = format!("{user_id}#p");
+                let user_profile_key: String = format!("{user_id}\0p");
 
                 let profile: UserProfile = Faker.fake();
                 let profile = rmp_serde::to_vec(&profile).unwrap();
@@ -81,12 +81,14 @@ pub fn run(
 
             // Insert post
             let post_id = scru128::new_string();
-            let post_key = format!("{user_id}#f#{post_id}");
+            let post_key = format!("{user_id}\0f\0{post_id}");
 
             corpus.fetch(&mut rng, &mut buf);
 
             (post_key.as_bytes().to_vec(), buf.clone())
         });
+
+    // assert!(iter.is_sorted_by_key(|(k, _)| k));
 
     db.ingest(iter);
 
@@ -114,22 +116,25 @@ pub fn run(
 
                     // Which user?
                     let idx = zipf.sample(&mut rng) - 1;
-                    let user_id = format!("u{idx:0>7}");
+                    let user_id = format!("u{idx:0>10}");
 
                     if choice > 0.8 {
                         // Insert post
                         let post_id = scru128::new_string();
-                        let post_key = format!("{user_id}#f#{post_id}");
+                        let post_key = format!("{user_id}\0f\0{post_id}");
 
                         corpus.fetch(&mut rng, &mut buf);
                         db.insert(post_key.as_bytes(), &buf, common_args.fsync, true);
                     } else {
                         // Get profile
-                        let user_profile_key = format!("{user_id}#p");
-                        db.get(user_profile_key.as_bytes()).unwrap();
+                        let user_profile_key = format!("{user_id}\0p");
+                        db.get(user_profile_key.as_bytes()).unwrap_or_else(|| {
+                            log::error!("Key not found: {user_profile_key:?}");
+                            panic!("Key not found");
+                        });
 
                         // + latest initial_posts_per_user posts
-                        let feed_prefix = format!("{user_id}#f#");
+                        let feed_prefix = format!("{user_id}\0f\0");
 
                         assert_eq!(
                             feed_limit,

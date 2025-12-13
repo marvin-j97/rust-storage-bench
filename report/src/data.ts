@@ -33,7 +33,10 @@ type ColumnKey =
 	| "disk_space_kib"
 	| "disk_writes_kib"
 	| "disk_reads_kib"
-	| "disk_segment_count"
+	| "disk_table_count"
+	| "data_block_io"
+	| "index_block_io"
+	| "filter_block_io"
 	| "blob_file_count"
 	| "journal_count"
 	| "journal_size"
@@ -48,11 +51,13 @@ type ColumnKey =
 	| "time_compacting_us"
 	| "tombstone_count"
 	| "l0_runs"
-	| "l0_segment_avg_lifetime_ms"
+	| "l0_table_avg_lifetime_ms"
 	| "filter_true_negative_ratio"
 	| "block_cache_hit_rate"
+	| "data_block_cache_hit_rate"
 	| "index_block_cache_hit_rate"
 	| "filter_block_cache_hit_rate"
+	| "table_file_cache_hit_rate"
 	| "write_ops"
 	| "point_read_ops"
 	| "range_ops"
@@ -74,12 +79,12 @@ type ColumnKey =
 	| "read_amp";
 
 const LSM_ONLY_PARAMETERS = new Set([
-	"l0_segment_avg_lifetime_ms",
+	"l0_table_avg_lifetime_ms",
 	"bloom_filter_size",
 	"block_index_size",
 	"running_compactions",
 	"time_compacting_us",
-	"disk_segment_count",
+	"disk_table_count",
 ]);
 
 const BTREE_ONLY_PARAMETERS = new Set([

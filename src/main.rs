@@ -6,6 +6,7 @@ mod random;
 mod report;
 mod workload;
 
+use crate::report::generate_report;
 use args::Args;
 use clap::Parser;
 use db::{Backend, DatabaseBuilder};
@@ -14,8 +15,6 @@ use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::sync::atomic::AtomicIsize;
 use std::sync::Arc;
 use workload::run_workload;
-
-use crate::report::generate_report;
 
 #[cfg(feature = "jemalloc")]
 #[cfg(not(target_env = "msvc"))]
@@ -75,6 +74,7 @@ const COLUMN_HEADERS: &[&str] = &[
     //
     "filter_true_negative_ratio",
     "block_cache_hit_rate",
+    "data_block_cache_hit_rate",
     "index_block_cache_hit_rate",
     "filter_block_cache_hit_rate",
     "table_file_cache_hit_rate",
@@ -108,6 +108,7 @@ const COLUMN_HEADERS: &[&str] = &[
 pub fn main() -> std::io::Result<()> {
     env_logger::Builder::from_default_env()
         .filter_module("rust_storage_bench", log::LevelFilter::Debug)
+        // .filter_module("lsm_tree", log::LevelFilter::Debug)
         .init();
 
     #[cfg(feature = "antithesis")]
