@@ -39,16 +39,19 @@ const TOP_LEVEL_DOMAINS: &[&str] =& [
 ];
 
 #[derive(Parser, Clone, Debug, Serialize)]
-pub struct Options {}
+pub struct Options {
+    #[arg(long, default_value_t = 100_000)]
+    html_size: usize,
+}
 
 pub fn run(
     args: &CommonRunOptions,
-    _opts: &Options,
+    opts: &Options,
     db: &DatabaseWrapper,
     finish_signal: Arc<AtomicIsize>,
 ) {
     let html_corpus = Corpus::Html;
-    let mut html_buf = vec![0u8; 100_000];
+    let mut html_buf = vec![0u8; opts.html_size];
 
     std::thread::spawn({
         log::debug!("Starting writer");

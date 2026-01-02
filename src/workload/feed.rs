@@ -115,8 +115,8 @@ pub fn run(
                     let choice: f32 = rng.gen_range(0.0..1.0);
 
                     // Which user?
-                    let idx = zipf.sample(&mut rng) - 1;
-                    let user_id = format!("u{idx:0>10}");
+                    let user_idx = zipf.sample(&mut rng) - 1;
+                    let user_id = format!("u{user_idx:0>10}");
 
                     if choice > 0.8 {
                         // Insert post
@@ -136,11 +136,13 @@ pub fn run(
                         // + latest initial_posts_per_user posts
                         let feed_prefix = format!("{user_id}\0f\0");
 
-                        assert_eq!(
-                            feed_limit,
-                            db.prefix_len(feed_prefix.as_bytes(), true, feed_limit),
-                            "{feed_prefix} failed",
-                        );
+                        if feed_limit != db.prefix_len(feed_prefix.as_bytes(), true, feed_limit) {
+                            for item in db.prefix(b"", false, 1_000_000_000) {
+                                eprintln!("{item:?}")
+                            }
+
+                            panic!("{feed_prefix} failed");
+                        }
                     }
                 }
             })

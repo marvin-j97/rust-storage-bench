@@ -22,6 +22,7 @@ pub struct Options {
     pub write_only: bool,
 
     #[arg(long, default_value_t = true)]
+    #[arg(long = "no-write-random", action = clap::ArgAction::SetFalse)]
     pub write_random: bool,
 
     #[arg(long, default_value_t = false)]
