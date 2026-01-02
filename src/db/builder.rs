@@ -261,14 +261,11 @@ impl DatabaseBuilder {
                     .compression(match args.compression {
                         crate::args::Compression::None => fjall_2::CompressionType::None,
                         crate::args::Compression::Lz4 => fjall_2::CompressionType::Lz4,
-                    });
+                    })
+                    .block_size(args.lsm_block_size);
 
                 if let Some(bpk) = args.lsm_bloom_bpk {
                     create_opts = create_opts.bloom_filter_bits(Some(bpk));
-                }
-
-                if let Some(block_size) = args.lsm_block_size {
-                    create_opts = create_opts.block_size(block_size);
                 }
 
                 if args.lsm_kv_separation {
@@ -297,7 +294,7 @@ impl DatabaseBuilder {
                     .max_cached_files(Some(512))
                     .cache_size(args.cache_size)
                     .worker_threads(args.lsm_workers)
-                    .max_write_buffer_size(256 * 1_024 * 1_024)
+                    // .max_write_buffer_size(256 * 1_024 * 1_024)
                     .manual_journal_persist(true)
                     /* .journal_compression(match args.journal_compression {
                         crate::args::Compression::None => fjall_3::CompressionType::None,
@@ -329,7 +326,8 @@ impl DatabaseBuilder {
                             crate::args::Compression::None => fjall_3::CompressionType::None,
                             crate::args::Compression::Lz4 => fjall_3::CompressionType::Lz4,
                         },
-                    ]));
+                    ]))
+                     .data_block_size_policy(fjall_3::config::BlockSizePolicy::all(args.lsm_block_size));
 
                 if let Some(hash_ratio) = args.lsm_data_block_hash_ratio {
                     create_opts = create_opts.data_block_hash_ratio_policy(
@@ -343,11 +341,6 @@ impl DatabaseBuilder {
                             fjall_3::config::BloomConstructionPolicy::BitsPerKey(bpk.into()),
                         ),
                     ));
-                }
-
-                if let Some(block_size) = args.lsm_block_size {
-                    create_opts = create_opts
-                        .data_block_size_policy(fjall_3::config::BlockSizePolicy::all(block_size));
                 }
 
                 if args.lsm_kv_separation {

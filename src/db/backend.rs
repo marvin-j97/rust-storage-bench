@@ -48,7 +48,7 @@ impl std::fmt::Display for Backend {
 
                 Self::Fjall2 => "fjall 2.11.2",
 
-                Self::Fjall3 => "fjall 3.0.0-rc.5",
+                Self::Fjall3 => "fjall 3.0.0",
 
                 Self::Redb => "redb 3.1.0",
 

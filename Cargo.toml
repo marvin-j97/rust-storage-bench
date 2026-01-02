@@ -23,7 +23,7 @@ jemallocator = { version = "0.5.4", optional = true }
 
 [dependencies]
 base64 = "0.22"
-canopydb = { version = "0.2.4" }
+canopydb = { version = "0.2.5" }
 chrono = "0.4.38"
 clap = { version = "4.4.10", features = ["derive"] }
 env_logger = "0.10.1"
@@ -33,7 +33,7 @@ flate2 = "1.0"
 fs_extra = "1.3.0"
 sketches-ddsketch = "0.3.0"
 heed = { version = "0.20.5", optional = true }
-fjall_3 = { package = "fjall", version = "3.0.0-rc.5" }
+fjall_3 = { package = "fjall", version = "3.0.0" }
 log = { version = "0.4.20", features = ["release_max_level_trace"] }
 mimalloc = { version = "0.1.43", default-features = false, features = [
 ], optional = true }
