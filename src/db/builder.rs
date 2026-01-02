@@ -85,9 +85,7 @@ impl DatabaseBuilder {
                     bopts.set_bloom_filter(f64::from(bpk), false);
                 }
 
-                if let Some(block_size) = args.lsm_block_size {
-                    bopts.set_block_size(block_size as usize);
-                }
+                bopts.set_block_size(args.lsm_block_size as usize);
 
                 bopts.set_index_type(rocksdb::BlockBasedIndexType::BinarySearch);
                 bopts.set_pin_l0_filter_and_index_blocks_in_cache(true);
