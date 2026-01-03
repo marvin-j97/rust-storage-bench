@@ -169,8 +169,8 @@ pub struct CommonRunOptions {
     pub lsm_workers: usize,
 
     /// Block size for LSM-trees
-    #[arg(long)]
-    pub lsm_block_size: Option<u32>,
+    #[arg(long, default_value_t = 4_096)]
+    pub lsm_block_size: u32,
 
     /// Bloom filter BPK
     #[arg(long)]
