@@ -15,15 +15,12 @@ export function formatNano(nanos: number): string {
 }
 
 const fallbackColors = [
-	"#ffffff",
-	"#ee5555",
-	"#4455FF",
-	"#38bdf8",
-	"#fbbf24",
-	"#ff7700",
-	"#00ffdd",
-	"#f472b6",
-	"#99aabb",
+	"#800000",
+	"#9A6324",
+	"#dcbeff",
+	"#fabed4",
+	"#ffd8b1",
+	"#fffac8",
 ];
 
 export function chooseColor(backendName: string): string {
@@ -33,25 +30,25 @@ export function chooseColor(backendName: string): string {
 		return "#ffffff";
 	}
 	if (backendName.includes("sled")) {
-		return "#ee5555";
+		return "#e6194B";
 	}
 	if (backendName.includes("fjall_3")) {
-		return "#40c4e6";
+		return "#42d4f4";
 	}
 	if (backendName === "fjall" || backendName === "fjall_2") {
-		return "#4499ff";
+		return "#4132ea";
 	}
 	if (backendName.includes("rocksdb")) {
-		return "#fbbf24";
+		return "#ffe119";
 	}
 	if (backendName.includes("heed")) {
-		return "#ff7700";
+		return "#f58231";
 	}
 	if (backendName.includes("sqlite")) {
-		return "#00ffdd";
+		return "#aaffc3";
 	}
 	if (backendName.includes("canopy")) {
-		return "#f472b6";
+		return "#a9a9a9";
 	}
 
 	const code = [...backendName]
