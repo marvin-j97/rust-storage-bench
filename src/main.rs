@@ -16,6 +16,9 @@ use std::sync::atomic::AtomicIsize;
 use std::sync::Arc;
 use workload::run_workload;
 
+#[cfg(not(target_pointer_width = "64"))]
+compile_error!("This crate can only be used on 64-bit systems.");
+
 #[cfg(feature = "jemalloc")]
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]

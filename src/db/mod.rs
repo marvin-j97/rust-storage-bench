@@ -952,18 +952,19 @@ impl DatabaseWrapper {
         }
     }
 
-    pub fn filter_size(&self) -> usize {
+    /// Returns the on-disk size of all filters.
+    pub fn filter_size(&self) -> u64 {
         match &self.inner {
             GenericDatabase::Fjall2 { db, .. } => {
                 use fjall_2::AbstractTree;
 
-                db.inner().tree.bloom_filter_size()
+                db.inner().tree.bloom_filter_size() as u64
             }
 
             GenericDatabase::Fjall3 { tree, .. } => {
                 use fjall_3::AbstractTree;
 
-                tree.inner().tree.pinned_filter_size()
+                tree.inner().tree.filter_size()
             }
 
             _ => 0,
