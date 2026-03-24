@@ -15,7 +15,7 @@ let cache = $cache_mib * 1_024 * 1_024;
 
 for db in ["fjall3"] {
     let out = $"($prefix)_($db).jsonl";
-    RUST_LOG=info bench run --auto-granularity 10000 --backend $db --data-dir $data_dir --cache-size $cache --lsm-block-size 16000 --seconds $seconds --out $out feed --tweet-size $tweet_size_bytes --threads $threads
+    RUST_LOG=info bench run --granularity 10000 --backend $db --data-dir $data_dir --cache-size $cache --lsm-block-size 16000 --seconds $seconds --out $out feed --tweet-size $tweet_size_bytes --threads $threads
     sleep 100ms
 }
 
