@@ -3,7 +3,7 @@
 let prefix = "feed";
 let data_dir = ".data";
 let seconds = 15 * 60;
-let cache_mib = 4000;
+let cache_mib = 4_000;
 let tweet_size_bytes = 100;
 let threads = 1;
 
