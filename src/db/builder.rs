@@ -299,6 +299,8 @@ impl DatabaseBuilder {
                         crate::args::Compression::Lz4 => fjall_3::CompressionType::Lz4,
                     }) */;
 
+                log::info!("Using {}B for block cache", args.cache_size);
+
                 let db = builder.open().unwrap();
 
                 let mut create_opts = fjall_3::KeyspaceCreateOptions::default()

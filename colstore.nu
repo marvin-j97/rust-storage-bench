@@ -6,7 +6,7 @@ let seconds = 60 * 60;
 let cache_mib = 16_000;
 let value_size = 100;
 let threads = 8;
-let db_count = 500;
+let db_count = 10_000;
 
 ###
 

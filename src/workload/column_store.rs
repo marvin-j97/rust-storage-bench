@@ -12,13 +12,13 @@ use uuid::Uuid;
 
 #[derive(Parser, Clone, Debug, Serialize)]
 pub struct Options {
-    #[arg(long, default_value_t = 100)]
+    #[arg(long, default_value_t = 10_000)]
     pub database_count: usize,
 
-    #[arg(long, default_value_t = 5)]
+    #[arg(long, default_value_t = 10)]
     pub column_count: usize,
 
-    #[arg(long, default_value_t = 1_000_000)]
+    #[arg(long, default_value_t = 25_000)]
     pub initial_rows: usize,
 
     /// Corpus type
@@ -136,6 +136,8 @@ pub fn run(
                 let stop_signal = finish_signal.clone();
                 let db = db.clone();
                 let db_ids = db_ids.clone();
+                let col_ids = col_ids.clone();
+                let item_count = opts.initial_rows;
 
                 move || {
                     let _guard = PanicGuard(stop_signal);
@@ -145,7 +147,23 @@ pub fn run(
                     loop {
                         let db_idx = choose_zipf(&mut rng, 1.0, db_ids.len() as u64);
                         let db_id = db_ids[db_idx as usize];
-                        assert!(db.prefix_len(&db_id.into_bytes(), false, 100) <= 100);
+
+                        let col_idx = choose_zipf(&mut rng, 1.0, col_ids.len() as u64);
+                        let col_id = col_ids[col_idx as usize];
+
+                        let row_id = zipf::ZipfDistribution::new(item_count, 1.0)
+                            .unwrap()
+                            .sample(&mut rng) as u128;
+
+                        let key = {
+                            let mut builder = vec![];
+                            builder.extend(db_id.into_bytes());
+                            builder.extend(col_id.into_bytes());
+                            builder.extend(Uuid::from_u128(row_id).into_bytes());
+                            builder
+                        };
+
+                        assert!(db.prefix_len(&key, false, 100) <= 100);
                     }
                 }
             })
