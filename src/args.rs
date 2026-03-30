@@ -1,8 +1,8 @@
 use crate::db::Backend;
 use crate::workload::{
-    event_log::Options as EventLogOptions, feed::Options as FeedOptions,
-    read_write::Options as ReadWriteOptions, timeseries::Options as TimeSeriesOptions,
-    webtable::Options as WebtableOptions,
+    column_store::Options as ColumnStoreOptions, event_log::Options as EventLogOptions,
+    feed::Options as FeedOptions, read_write::Options as ReadWriteOptions,
+    timeseries::Options as TimeSeriesOptions, webtable::Options as WebtableOptions,
 };
 use crate::workload::{queue::Options as QueueOptions, ycsb::Options as YcsbOptions};
 use clap::{Args as ClapArgs, Parser, Subcommand, ValueEnum};
@@ -216,6 +216,8 @@ pub struct RunArgs {
 #[derive(Clone, Debug, Subcommand, Serialize)]
 pub enum Workload {
     Idle,
+
+    ColumnStore(ColumnStoreOptions),
 
     Feed(FeedOptions),
 

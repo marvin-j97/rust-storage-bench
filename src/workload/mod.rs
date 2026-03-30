@@ -1,3 +1,4 @@
+pub(crate) mod column_store;
 pub(crate) mod event_log;
 pub(crate) mod feed;
 pub(crate) mod queue;
@@ -44,6 +45,12 @@ pub fn run_workload(db: DatabaseWrapper, cmd: &RunArgs, finish_signal: Arc<Atomi
     log::info!("Starting workload {:#?}", cmd.workload);
 
     match &cmd.workload {
+        Workload::ColumnStore(opts) => {
+            use crate::workload::column_store::run;
+
+            run(args, opts, &db, finish_signal);
+        }
+
         &Workload::Idle => {
             start_killer(args.seconds, finish_signal);
             std::thread::sleep(std::time::Duration::from_hours(24));
