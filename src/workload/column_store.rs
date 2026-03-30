@@ -44,7 +44,7 @@ fn format_key(
 ) -> fjall_3::UserKey {
     use std::io::Write;
 
-    let mut builder = unsafe { fjall_3::UserKey::builder_unzeroed(48) };
+    let mut builder = unsafe { fjall_3::UserKey::builder_unzeroed(64) };
     let mut writer = std::io::Cursor::new(&mut builder[..]);
     writer.write_all(&database_id.into_bytes()).unwrap();
     writer.write_all(&col_id.into_bytes()).unwrap();
