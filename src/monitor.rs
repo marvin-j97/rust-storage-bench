@@ -236,7 +236,7 @@ pub fn start_monitor(
                 }
 
                 // TODO: make this an arg
-                #[cfg(feature = "heed")]
+                /* #[cfg(feature = "heed")]
                 if args.backend != crate::Backend::Heed {
                     if mem_kib >= 7 * 1_024 * 1_024 {
                         log::error!("OOM KILLER!! Exceeded 7G of memory");
@@ -250,7 +250,7 @@ pub fn start_monitor(
                     log::error!("OOM KILLER!! Exceeded 7G of memory");
                     finish_signal.store(0, Ordering::Release);
                     break;
-                }
+                } */
 
                 if args.max_data_bytes > 0 && (disk_space_kib * 1_024) >= args.max_data_bytes {
                     let disk_space_bytes = disk_space_kib * 1_024;
