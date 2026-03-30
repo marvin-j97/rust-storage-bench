@@ -5,6 +5,7 @@ const JSON_CORPUS: &[u8] = include_str!("../corpus/asteroids.json").as_bytes();
 const CODE_CORPUS: &[u8] = include_str!("../corpus/rust.rs").as_bytes();
 const ENGLISH_CORPUS: &[u8] = include_str!("../corpus/english.txt").as_bytes();
 const HTML_CORPUS: &[u8] = include_str!("../corpus/webpage.html").as_bytes();
+const PROTOBUF_CORPUS: &[u8] = include_bytes!("../corpus/protobuf.pb");
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, clap::ValueEnum, Serialize, Deserialize)]
 pub enum Corpus {
@@ -22,6 +23,9 @@ pub enum Corpus {
 
     /// Web page
     Html,
+
+    /// ProtoBuf
+    ProtoBuf,
 }
 
 impl Corpus {
@@ -35,6 +39,7 @@ impl Corpus {
             Self::Code => CODE_CORPUS,
             Self::English => ENGLISH_CORPUS,
             Self::Html => HTML_CORPUS,
+            Self::ProtoBuf => PROTOBUF_CORPUS,
         };
 
         while !v.is_empty() {
