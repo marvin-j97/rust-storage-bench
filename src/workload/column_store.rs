@@ -18,8 +18,11 @@ pub struct Options {
     #[arg(long, default_value_t = 10)]
     pub column_count: usize,
 
-    #[arg(long, default_value_t = 25_000)]
+    #[arg(long, default_value_t = 2_500)]
     pub initial_rows: usize,
+
+    #[arg(long, default_value_t = 10)]
+    pub versions_per_row: usize,
 
     /// Corpus type
     #[arg(long, value_enum, default_value_t = Corpus::ProtoBuf)]
@@ -33,7 +36,12 @@ pub struct Options {
     pub readers: usize,
 }
 
-fn format_key(database_id: uuid::Uuid, col_id: uuid::Uuid, row_id: uuid::Uuid) -> fjall_3::UserKey {
+fn format_key(
+    database_id: uuid::Uuid,
+    col_id: uuid::Uuid,
+    row_id: uuid::Uuid,
+    seqno: u128,
+) -> fjall_3::UserKey {
     use std::io::Write;
 
     let mut builder = unsafe { fjall_3::UserKey::builder_unzeroed(48) };
@@ -41,6 +49,7 @@ fn format_key(database_id: uuid::Uuid, col_id: uuid::Uuid, row_id: uuid::Uuid) -
     writer.write_all(&database_id.into_bytes()).unwrap();
     writer.write_all(&col_id.into_bytes()).unwrap();
     writer.write_all(&row_id.into_bytes()).unwrap();
+    writer.write_all(&seqno.to_be_bytes()).unwrap();
     builder.freeze().into()
 }
 
@@ -79,8 +88,12 @@ pub fn run(
                 (0..opts.initial_rows)
                     .map(move |row_id| (db_id, col_id, Uuid::from_u128(row_id as u128)))
             })
-            .map(|(db_id, col_id, row_id)| {
-                let key = format_key(*db_id, *col_id, row_id);
+            .flat_map(|(db_id, col_id, row_id)| {
+                (0..(opts.versions_per_row as u128))
+                    .map(move |seqno| (db_id, col_id, row_id, seqno))
+            })
+            .map(|(db_id, col_id, row_id, seqno)| {
+                let key = format_key(*db_id, *col_id, row_id, seqno);
                 opts.corpus.fetch(&mut rng, &mut buf);
                 (key.to_vec(), buf.to_vec())
             }),
@@ -102,6 +115,7 @@ pub fn run(
                 let _guard = PanicGuard(stop_signal);
 
                 let mut rng = rand::thread_rng();
+                let mut seqno = 10u128;
 
                 loop {
                     for _ in 0..8_000 {
@@ -115,7 +129,8 @@ pub fn run(
                             .unwrap()
                             .sample(&mut rng) as u128;
 
-                        let key = format_key(db_id, col_id, Uuid::from_u128(row_id));
+                        let key = format_key(db_id, col_id, Uuid::from_u128(row_id), seqno);
+                        seqno += 1;
 
                         corpus.fetch(&mut rng, &mut buf);
                         db.insert(&key, &buf, false, false);
