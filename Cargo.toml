@@ -9,14 +9,14 @@ debug = false
 [features]
 default = []
 heed = ["dep:heed"]
-jemalloc = ["dep:jemallocator"]
-mimalloc = ["dep:mimalloc"]
 rocksdb = ["dep:rocksdb"]
 sqlite = ["dep:rusqlite"]
-tcmalloc = ["dep:tcmalloc"]
 antithesis = ["dep:precept"]
 metrics = ["fjall_3/metrics"]
+jemalloc = ["dep:jemallocator"]
+mimalloc = ["dep:mimalloc"]
 snmalloc = ["dep:snmalloc"]
+tcmalloc = ["dep:tcmalloc"]
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 jemallocator = { version = "0.5.4", optional = true }
@@ -55,4 +55,5 @@ r2d2 = "0.8.10"
 r2d2_sqlite = "0.31.0"
 format-bytes = "0.3.0"
 pretty-bytes = "0.2.2"
-snmalloc = { package = "snmalloc-rs", version = "0.1.0", optional = true }
+snmalloc = { package = "snmalloc-rs", version = "0.7.4", optional = true }
+
