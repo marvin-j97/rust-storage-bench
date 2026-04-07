@@ -15,9 +15,11 @@ use std::{
     time::Instant,
 };
 
+#[cfg(feature = "rocksdb")]
 #[cfg(feature = "metrics")]
 use rocksdb::statistics::Ticker;
 
+#[cfg(feature = "rocksdb")]
 #[cfg(feature = "metrics")]
 pub struct RocksTickers {
     block_io: Ticker,     // BlockCacheMiss
@@ -874,6 +876,7 @@ impl DatabaseWrapper {
                 tree.inner().metrics().filter_block_cache_hit_rate()
             }
 
+            #[cfg(feature = "rocksdb")]
             #[cfg(feature = "metrics")]
             GenericDatabase::RocksDb { tickers, opts, .. } => {
                 let cache_hits = opts.get_ticker_count(tickers.filter_block_cached) as f64;
@@ -893,6 +896,7 @@ impl DatabaseWrapper {
                 tree.inner().metrics().index_block_cache_hit_rate()
             }
 
+            #[cfg(feature = "rocksdb")]
             #[cfg(feature = "metrics")]
             GenericDatabase::RocksDb { tickers, opts, .. } => {
                 let cache_hits = opts.get_ticker_count(tickers.index_block_cached) as f64;
@@ -912,6 +916,7 @@ impl DatabaseWrapper {
                 tree.inner().metrics().data_block_cache_hit_rate()
             }
 
+            #[cfg(feature = "rocksdb")]
             #[cfg(feature = "metrics")]
             GenericDatabase::RocksDb { tickers, opts, .. } => {
                 let cache_hits = opts.get_ticker_count(tickers.data_block_cached) as f64;
@@ -964,14 +969,32 @@ impl DatabaseWrapper {
             GenericDatabase::Fjall3 { tree, .. } => {
                 use fjall_3::AbstractTree;
 
-                tree.inner().tree.filter_size()
+                tree.inner().tree.filter_size() as u64
             }
 
             _ => 0,
         }
     }
 
-    pub fn block_index_size(&self) -> usize {
+    pub fn pinned_filter_size(&self) -> u64 {
+        match &self.inner {
+            GenericDatabase::Fjall2 { db, .. } => {
+                use fjall_2::AbstractTree;
+
+                db.inner().tree.bloom_filter_size() as u64
+            }
+
+            GenericDatabase::Fjall3 { tree, .. } => {
+                use fjall_3::AbstractTree;
+
+                tree.inner().tree.pinned_filter_size() as u64
+            }
+
+            _ => 0,
+        }
+    }
+
+    pub fn pinned_block_index_size(&self) -> usize {
         match &self.inner {
             GenericDatabase::Fjall3 { tree, .. } => {
                 use fjall_3::AbstractTree;

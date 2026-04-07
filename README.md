@@ -38,7 +38,7 @@ open report.html
 Run YCSB-like benchmarks (look in the `scripts/ycsb.nu` file for some configuration):
 
 ```bash
-systemd-run --scope -p MemoryLimit=2G nu scripts/ycsb.nu
+systemd-run --scope -p MemoryMax=2G nu scripts/ycsb.nu
 ```
 
 ## Testing other storage engines

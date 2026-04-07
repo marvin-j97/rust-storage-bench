@@ -319,13 +319,18 @@ function App() {
 						</div>
 						<div class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(480px, 1fr))">
 							<LineChart
-								title="(Pinned) bloom filter size"
-								timeseries={reactiveTimeseries.get("bloom_filter_size")}
+								title="Filter size (on disk)"
+								timeseries={reactiveTimeseries.get("filter_size")}
+								formatter={prettyBytes}
+							/>
+							<LineChart
+								title="(Pinned) filter size"
+								timeseries={reactiveTimeseries.get("pinned_filter_size")}
 								formatter={prettyBytes}
 							/>
 							<LineChart
 								title="(Pinned) block index size"
-								timeseries={reactiveTimeseries.get("block_index_size")}
+								timeseries={reactiveTimeseries.get("pinned_block_index_size")}
 								formatter={prettyBytes}
 							/>
 							<LineChart
