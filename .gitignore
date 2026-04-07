@@ -33,3 +33,4 @@ profile.json
 plot.py
 
 .directory
+.DS_Store
