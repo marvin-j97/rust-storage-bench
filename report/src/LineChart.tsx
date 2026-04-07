@@ -12,44 +12,40 @@ type Props = {
 }
 
 export default function LineChart(props: Props): JSXElement {
+  const series = () =>
+    (props.timeseries ?? []).map((series) => {
+      let data = series.data;
+      if (props.filterZeroValues) {
+        data = data.filter(([_, value]) => value)
+      }
+
+      return {
+        name: series.displayName,
+        data: data.map(([ts_milli, value]) => ({
+          x: ts_milli / 1_000,
+          y: value,
+        })),
+        color: series.colour,
+      } satisfies ApexAxisChartSeries[0];
+    });
+
   return <div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-    {(() => {
-      const series = () =>
-        (props.timeseries ?? []).map((series) => {
-          let data = series.data;
-          if (props.filterZeroValues) {
-            data = data.filter(([_, value]) => value)
-          }
-
-          return {
-            name: series.displayName,
-            data: data.map(([ts_milli, value]) => ({
-              x: ts_milli / 1_000,
-              y: value,
-            })),
-            color: series.colour,
-          } satisfies ApexAxisChartSeries[0];
-        });
-
-      return (
-        <SolidApexCharts
-          type="line"
-          width="100%"
-          options={{
-            title: {
-              text: props.title,
-              style: {
-                color: "white",
-              },
-            },
-            ...COMMON_CHART_OPTS({
-              yFormatter: props.formatter,
-              dashed: 0,
-            }),
-          }}
-          series={series()}
-        />
-      );
-    })()}
+    <SolidApexCharts
+      type="line"
+      width="100%"
+      options={{
+        title: {
+          text: props.title,
+          style: {
+            color: "white",
+          },
+        },
+        ...COMMON_CHART_OPTS({
+          yFormatter: props.formatter,
+          dashed: 0,
+        }),
+      }}
+      series={series()}
+    />
   </div>;
 }
