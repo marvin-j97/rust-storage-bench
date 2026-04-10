@@ -28,6 +28,10 @@ static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
+#[cfg(feature = "mimalloc_v3")]
+#[global_allocator]
+static GLOBAL: mimalloc_v3::MiMalloc = mimalloc_v3::MiMalloc;
+
 #[cfg(feature = "tcmalloc")]
 #[global_allocator]
 static GLOBAL: tcmalloc::TCMalloc = tcmalloc::TCMalloc;
