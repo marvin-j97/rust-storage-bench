@@ -118,7 +118,9 @@ pub fn run(
                 let mut seqno = 10u128;
 
                 loop {
-                    for _ in 0..8_000 {
+                    const BATCH_SIZE: usize = 10_000;
+
+                    for i in 0..BATCH_SIZE {
                         let db_idx = choose_zipf(&mut rng, 1.0, db_ids.len() as u64);
                         let db_id = db_ids[db_idx as usize];
 
@@ -133,7 +135,7 @@ pub fn run(
                         seqno += 1;
 
                         corpus.fetch(&mut rng, &mut buf);
-                        db.insert(&key, &buf, false, false);
+                        db.insert(&key, &buf, i == (BATCH_SIZE - 1), true);
                     }
 
                     std::thread::sleep(Duration::from_secs(1));
