@@ -4,10 +4,28 @@ import { createStore, produce } from "solid-js/store";
 
 import { chooseColor, isLsm } from "./util";
 
-import devData from "../log.jsonl?raw";
-import devData2 from "../log2.jsonl.gzip?raw";
-import devData3 from "../log3.jsonl.gzip?raw";
-import devData4 from "../log4.jsonl.gzip?raw";
+import devData1 from "../log1.jsonl?raw";
+import devData2 from "../log2.jsonl?raw";
+import devData3 from "../log3.jsonl?raw";
+
+export type HistogramData = {
+	histogram: true;
+	min: number;
+	max: number;
+	mean: number;
+	p25: number;
+	p50: number;
+	p75: number;
+	p90: number;
+	p95: number;
+	p99: number;
+};
+
+export type GroupedHistograms = {
+	name: string;
+	color: string;
+	data: HistogramData;
+};
 
 export type Setup = {
 	displayName: string;
@@ -94,28 +112,39 @@ const BTREE_ONLY_PARAMETERS = new Set([
 ]);
 
 function smoothTimeseries(data: [number, number][], windowSize: number): [number, number][] {
-	if (windowSize === 0 || data.length <= windowSize) {
+	if (data.length <= 2 || windowSize <= 1) {
 		return data;
 	}
 
 	const smoothedData: [number, number][] = [];
 
-	for (let i = 0; i <= data.length - windowSize; i++) {
-		const currentWindow = data.slice(i, i + windowSize);
-		const sum = currentWindow.reduce((sum, [_, x]) => sum + x, 0);
-		const avg = sum / windowSize;
+	// Always add the first data point
+	smoothedData.push(data[0]);
 
-		// For the timestamp, we can use the timestamp of the middle element
-		// or the start of the window. Using the start of the window here.
-		const timestamp = data[i][0];
+	let window = [];
 
-		smoothedData.push([timestamp, avg]);
+	for (let i = 0; i < (data.length - 1); i++) {
+		window.push(data[i]);
+
+		if (window.length >= windowSize) {
+			const sum = window.reduce((acc, [_, x]) => acc + x, 0);
+			const avg = sum / windowSize;
+			const timestamp = window[0][0] /* (window[0][0] + window.at(-1)![0]) / 2 */;
+			smoothedData.push([timestamp, avg]);
+
+			window = [];
+		}
 	}
+
+	// Always add the last data point
+	smoothedData.push(data.at(-1)!);
 
 	return smoothedData;
 }
 
 function cleanupTimeseries(data: [number, number][]): [number, number][] {
+	// return data;
+
 	if (data.length <= 1) {
 		return data;
 	}
@@ -172,7 +201,6 @@ function cleanupTimeseries(data: [number, number][]): [number, number][] {
 		}
 	}
 
-
 	return cleanedData;
 }
 
@@ -200,10 +228,12 @@ export function useMetricsData(smoothing: Accessor<number>) {
 	const reactiveTimeseries = new ReactiveMap<ColumnKey, TimeSeries[]>();
 
 	const [percentiles, setPercentiles] = createStore({
-		writePercentiles: [] as GroupedSeries[],
-		pointReadPercentiles: [] as GroupedSeries[],
-		rangeReadPercentiles: [] as GroupedSeries[],
+		writePercentiles: [] as GroupedHistograms[],
+		pointReadPercentiles: [] as GroupedHistograms[],
+		rangeReadPercentiles: [] as GroupedHistograms[],
 	});
+
+	const [markers, setMarkers] = createSignal<(MarkerShapeOptions | null)[]>([]);
 
 	createEffect(async () => {
 		// NOTE: Patch HTML with dev data
@@ -217,20 +247,23 @@ export function useMetricsData(smoothing: Accessor<number>) {
 			) {
 				dataContainer.innerHTML += `
 				<script type="data" compressed="false">
-					${devData}
+					${devData1}
 				</script>
-        <script type="data" compressed="gzip">
+        <script type="data" compressed="false">
 					${devData2}
 				</script>
-        <script type="data" compressed="gzip">
+        <script type="data" compressed="false">
 					${devData3}
-				</script>
-        <script type="data" compressed="gzip">
-					${devData4}
 				</script>
         `;
 			}
 		}
+
+		setPercentiles({
+			pointReadPercentiles: [],
+			rangeReadPercentiles: [],
+			writePercentiles: [],
+		});
 
 		const setups: Setup[] = [];
 
@@ -260,24 +293,22 @@ export function useMetricsData(smoothing: Accessor<number>) {
 				args,
 			});
 
+			if (args.marker_shape) {
+				setMarkers(prev => [...prev, args.marker_shape]);
+			}
+			else {
+				setMarkers(prev => [...prev, null]);
+			}
+
 			{
 				const writeHistogram = lines.at(-3)!;
-				const parsed = JSON.parse(writeHistogram) as {
-					histogram: true;
-					mean: number;
-					p50: number;
-					p90: number;
-					p95: number;
-					p99: number;
-				};
+				const parsed = JSON.parse(writeHistogram) as HistogramData;
 
 				if (parsed.histogram) {
-					const { mean, p50, p90, p95, p99 } = parsed;
-
 					setPercentiles(
 						produce((x) => {
 							x.writePercentiles.push({
-								data: [mean, p50, p90, p95, p99],
+								data: parsed,
 								name: args.display_name,
 								color,
 							});
@@ -288,22 +319,13 @@ export function useMetricsData(smoothing: Accessor<number>) {
 
 			{
 				const pointReadHistogram = lines.at(-2)!;
-				const parsed = JSON.parse(pointReadHistogram) as {
-					histogram: true;
-					mean: number;
-					p50: number;
-					p90: number;
-					p95: number;
-					p99: number;
-				};
+				const parsed = JSON.parse(pointReadHistogram) as HistogramData;
 
 				if (parsed.histogram) {
-					const { mean, p50, p90, p95, p99 } = parsed;
-
 					setPercentiles(
 						produce((x) => {
 							x.pointReadPercentiles.push({
-								data: [mean, p50, p90, p95, p99],
+								data: parsed,
 								name: args.display_name,
 								color,
 							});
@@ -314,22 +336,13 @@ export function useMetricsData(smoothing: Accessor<number>) {
 
 			{
 				const rangeReadHistogram = lines.at(-1)!;
-				const parsed = JSON.parse(rangeReadHistogram) as {
-					histogram: true;
-					mean: number;
-					p50: number;
-					p90: number;
-					p95: number;
-					p99: number;
-				};
+				const parsed = JSON.parse(rangeReadHistogram) as HistogramData;
 
 				if (parsed.histogram) {
-					const { mean, p50, p90, p95, p99 } = parsed;
-
 					setPercentiles(
 						produce((x) => {
 							x.rangeReadPercentiles.push({
-								data: [mean, p50, p90, p95, p99],
+								data: parsed,
 								name: args.display_name,
 								color,
 							});
@@ -406,5 +419,6 @@ export function useMetricsData(smoothing: Accessor<number>) {
 		setups,
 		reactiveTimeseries,
 		percentiles,
+		markers,
 	};
 }

@@ -5,6 +5,7 @@ const DEFAULT_Y_FORMATTER = (x: number) => (~~x).toString();
 type Options = {
 	yFormatter?: typeof DEFAULT_Y_FORMATTER;
 	dashed?: number;
+	markers?: boolean;
 };
 
 export function COMMON_CHART_OPTS(opts: Options) {

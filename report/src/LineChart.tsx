@@ -9,6 +9,7 @@ type Props = {
   timeseries?: TimeSeries[];
   formatter?: (val: number, opts?: any) => string;
   filterZeroValues?: boolean;
+  markers?: (MarkerShapeOptions | null)[],
 }
 
 export default function LineChart(props: Props): JSXElement {
@@ -34,16 +35,21 @@ export default function LineChart(props: Props): JSXElement {
       type="line"
       width="100%"
       options={{
+        ...COMMON_CHART_OPTS({
+          yFormatter: props.formatter,
+          dashed: 0,
+        }),
         title: {
           text: props.title,
           style: {
             color: "white",
           },
         },
-        ...COMMON_CHART_OPTS({
-          yFormatter: props.formatter,
-          dashed: 0,
-        }),
+        markers: {
+          shape: (props.markers ?? []).map(m => m ?? "circle"),
+          size: (props.markers ?? []).map(m => m ? 4 : 0),
+          strokeWidth: 0,
+        },
       }}
       series={series()}
     />
