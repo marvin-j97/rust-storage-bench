@@ -130,7 +130,7 @@ pub struct CommonRunOptions {
     pub color: Option<String>,
 
     /// Custom line graph marker shape
-    #[arg(long, value_enum)]
+    #[arg(long, value_enum, alias = "marker", alias = "markers")]
     pub marker_shape: Option<MarkerShape>,
 
     /// How many seconds to run the workload for
