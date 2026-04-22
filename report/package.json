@@ -28,6 +28,6 @@
     "vite-plugin-solid": "2.10.2"
   },
   "engines": {
-    "node": "22"
+    "node": "22 || 24"
   }
 }

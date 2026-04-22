@@ -48,7 +48,7 @@ export function chooseColor(backendName: string): string {
 		return "#aaffc3";
 	}
 	if (backendName.includes("canopy")) {
-		return "#a9a9a9";
+		return "#d963df";
 	}
 
 	const code = [...backendName]
