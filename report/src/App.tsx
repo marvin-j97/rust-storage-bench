@@ -3,11 +3,13 @@ import millify from "millify";
 import prettyBytes from "pretty-bytes";
 import { createMemo, createSignal, For, Show } from "solid-js";
 
+import BoxPlotChart from './BoxPlotChart';
+import { COMMON_CHART_OPTS } from './chart';
 import { useMetricsData } from "./data";
 import LineChart from "./LineChart";
-import { formatNano } from "./util";
 import { SolidApexCharts } from './SolidApex';
-import { COMMON_CHART_OPTS } from './chart';
+import { formatNano } from "./util";
+import PercentileChart from './PercentileChart';
 
 function throttledSignal<T>(value: T, delay: number) {
 	const [signal, set] = createSignal(value);
@@ -367,144 +369,18 @@ function App() {
 					</div>
 
 					{/* TODO: apex charts does not allow disabling min/max... making box plots useless */}
-					{/* <div class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(480px, 1fr))">
-						<BoxPlotChart title="Write percentiles" percentiles={percentiles.writePercentiles} />
-						<BoxPlotChart title="Point read percentiles" percentiles={percentiles.pointReadPercentiles} />
-						<BoxPlotChart title="Range read percentiles" percentiles={percentiles.rangeReadPercentiles} />
-					</div> */}
-
 					<div class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(480px, 1fr))">
-						<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-							{(() => {
-								return (
-									<SolidApexCharts
-										type="bar"
-										width="100%"
-										options={{
-											title: {
-												text: "write percentiles",
-												style: {
-													color: "white",
-												},
-											},
-											...COMMON_CHART_OPTS({
-												yFormatter: formatNano,
-												dashed: 0,
-											}),
-											xaxis: {
-												categories: ["Mean", "P50", "P90", "P95", "P99"],
-												labels: {
-													style: {
-														colors: ["white", "white", "white", "white", "white"],
-													},
-												},
-											},
-											dataLabels: {
-												enabled: true,
-												formatter: formatNano,
-												dropShadow: {
-													enabled: true,
-												},
-											},
-											stroke: {
-												show: false,
-											},
-										}}
-										series={percentiles.writePercentiles.map(p => ({
-											...p,
-											data: [p.data.mean, p.data.p50, p.data.p90, p.data.p95, p.data.p99],
-										}))}
-									/>
-								);
-							})()}
+						<div class="flex flex-col gap-2">
+							<BoxPlotChart title="Write percentiles" percentiles={percentiles.writePercentiles} />
+							<PercentileChart title="Write percentiles" percentiles={percentiles.writePercentiles} />
 						</div>
-						<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-							{(() => {
-								return (
-									<SolidApexCharts
-										type="bar"
-										width="100%"
-										options={{
-											title: {
-												text: "point read percentiles",
-												style: {
-													color: "white",
-												},
-											},
-											...COMMON_CHART_OPTS({
-												yFormatter: formatNano,
-												dashed: 0,
-											}),
-											xaxis: {
-												categories: ["Mean", "P50", "P90", "P95", "P99"],
-												labels: {
-													style: {
-														colors: ["white", "white", "white", "white", "white"],
-													},
-												},
-											},
-											dataLabels: {
-												enabled: true,
-												formatter: formatNano,
-												dropShadow: {
-													enabled: true,
-												},
-											},
-											stroke: {
-												show: false,
-											},
-										}}
-										series={percentiles.pointReadPercentiles.map(p => ({
-											...p,
-											data: [p.data.mean, p.data.p50, p.data.p90, p.data.p95, p.data.p99],
-										}))}
-									/>
-								);
-							})()}
+						<div class="flex flex-col gap-2">
+							<BoxPlotChart title="Point read percentiles" percentiles={percentiles.pointReadPercentiles} />
+							<PercentileChart title="Point read percentiles" percentiles={percentiles.pointReadPercentiles} />
 						</div>
-						<div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
-							{(() => {
-								return (
-									<SolidApexCharts
-										type="bar"
-										width="100%"
-										options={{
-											title: {
-												text: "range read percentiles",
-												style: {
-													color: "white",
-												},
-											},
-											...COMMON_CHART_OPTS({
-												yFormatter: formatNano,
-												dashed: 0,
-											}),
-											xaxis: {
-												categories: ["Mean", "P50", "P90", "P95", "P99"],
-												labels: {
-													style: {
-														colors: ["white", "white", "white", "white", "white"],
-													},
-												},
-											},
-											dataLabels: {
-												enabled: true,
-												formatter: formatNano,
-												dropShadow: {
-													enabled: true,
-												},
-											},
-											stroke: {
-												show: false,
-											},
-										}}
-										series={percentiles.rangeReadPercentiles.map(p => ({
-											...p,
-											data: [p.data.mean, p.data.p50, p.data.p90, p.data.p95, p.data.p99],
-										}))}
-									/>
-								);
-							})()}
+						<div class="flex flex-col gap-2">
+							<BoxPlotChart title="Range read percentiles" percentiles={percentiles.rangeReadPercentiles} />
+							<PercentileChart title="Range read percentiles" percentiles={percentiles.rangeReadPercentiles} />
 						</div>
 					</div>
 				</div>

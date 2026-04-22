@@ -186,6 +186,9 @@ pub struct CommonRunOptions {
     #[arg(long, default_value_t = false)]
     pub lsm_use_partitioned_meta: bool,
 
+    #[arg(long, default_value_t = false)]
+    pub lsm_pin_all_meta: bool,
+
     #[arg(long, value_enum, default_value_t = Compression::None)]
     pub journal_compression: Compression,
 

@@ -43,5 +43,5 @@ for task in [
     print $report_file;
 
     bench report --out $report_file (($prefix + "_*.jsonl") | into glob)
-    google-chrome-stable $report_file
+    open $report_file
 }

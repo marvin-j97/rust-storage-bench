@@ -30,4 +30,4 @@ let report_file = $"report_($prefix)($value_size).html";
 print $report_file;
 
 bench report --out $report_file ($"($prefix)_*.jsonl" | into glob);
-google-chrome $report_file
+open $report_file

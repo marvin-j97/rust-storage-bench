@@ -11,11 +11,11 @@ function toApexBoxPlotSeries(input: GroupedHistograms[]): ApexAxisChartSeries {
       data: input.map(item => ({
         x: item.name,
         y: [
-          item.data.min,
+          item.data.p25, // apex charts does not allow disabling min/max, so we just duplicate p25/p75
           item.data.p25,
           item.data.p50,
           item.data.p75,
-          item.data.max,
+          item.data.p75, // see above
         ],
         fillColor: item.color,
       })),
@@ -24,7 +24,7 @@ function toApexBoxPlotSeries(input: GroupedHistograms[]): ApexAxisChartSeries {
   ];
 }
 
-function BoxPlotChart(props: { title: string; percentiles: GroupedHistograms[] }) {
+export default function BoxPlotChart(props: { title: string; percentiles: GroupedHistograms[] }) {
   return <div class="p-2 bg-neutral-100 dark:bg-neutral-900 rounded">
     <SolidApexCharts
       type="line"

@@ -288,6 +288,11 @@ impl DatabaseBuilder {
             }
 
             Backend::Fjall3 => {
+                use fjall_3::{
+                    config::{PartitioningPolicy, PinningPolicy},
+                    CompressionType, KvSeparationOptions,
+                };
+
                 let builder = fjall_3::SingleWriterTxDatabase::builder(path)
                     .max_cached_files(Some(512))
                     .cache_size(args.cache_size)
@@ -321,10 +326,10 @@ impl DatabaseBuilder {
                         ),
                     })
                     .data_block_compression_policy(fjall_3::config::CompressionPolicy::new([
-                        fjall_3::CompressionType::None,
+                        CompressionType::None,
                         match args.compression {
-                            crate::args::Compression::None => fjall_3::CompressionType::None,
-                            crate::args::Compression::Lz4 => fjall_3::CompressionType::Lz4,
+                            crate::args::Compression::None => CompressionType::None,
+                            crate::args::Compression::Lz4 => CompressionType::Lz4,
                         },
                     ]))
                      .data_block_size_policy(fjall_3::config::BlockSizePolicy::all(args.lsm_block_size));
@@ -344,13 +349,11 @@ impl DatabaseBuilder {
                 }
 
                 if args.lsm_kv_separation {
-                    use fjall_3::KvSeparationOptions;
-
                     create_opts = create_opts.with_kv_separation(Some(
                         KvSeparationOptions::default()
                             .compression(match args.compression {
-                                crate::args::Compression::None => fjall_3::CompressionType::None,
-                                crate::args::Compression::Lz4 => fjall_3::CompressionType::Lz4,
+                                crate::args::Compression::None => CompressionType::None,
+                                crate::args::Compression::Lz4 => CompressionType::Lz4,
                             })
                             .separation_threshold(1_024)
                             .file_target_size(BLOB_FILE_SIZE),
@@ -359,20 +362,22 @@ impl DatabaseBuilder {
 
                 if args.lsm_use_partitioned_meta {
                     create_opts = create_opts
-                        .index_block_partitioning_policy(fjall_3::config::PartitioningPolicy::new(
-                            [false, true],
-                        ))
-                        .filter_block_partitioning_policy(
-                            fjall_3::config::PartitioningPolicy::new([false, true]),
-                        );
+                        .index_block_partitioning_policy(PartitioningPolicy::new([false, true]))
+                        .filter_block_partitioning_policy(PartitioningPolicy::new([false, true]));
                 } else {
                     create_opts = create_opts
-                        .index_block_partitioning_policy(
-                            fjall_3::config::PartitioningPolicy::disabled(),
-                        )
-                        .filter_block_partitioning_policy(
-                            fjall_3::config::PartitioningPolicy::disabled(),
-                        );
+                        .index_block_partitioning_policy(PartitioningPolicy::disabled())
+                        .filter_block_partitioning_policy(PartitioningPolicy::disabled());
+                }
+
+                if args.lsm_pin_all_meta {
+                    // TODO: see https://github.com/fjall-rs/lsm-tree/issues/289
+                    //       why this is not working after bulk ingest currently
+                    create_opts = create_opts
+                        .index_block_partitioning_policy(PartitioningPolicy::disabled())
+                        .filter_block_partitioning_policy(PartitioningPolicy::disabled())
+                        .index_block_pinning_policy(PinningPolicy::all(true))
+                        .filter_block_pinning_policy(PinningPolicy::all(true))
                 }
 
                 let tree = db.keyspace("data", || create_opts).unwrap();
