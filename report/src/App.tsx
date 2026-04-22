@@ -1,17 +1,13 @@
-import {
-	createScheduled,
-	debounce,
-	throttle,
-} from '@solid-primitives/scheduled';
+import { createScheduled, debounce } from '@solid-primitives/scheduled';
 import millify from "millify";
 import prettyBytes from "pretty-bytes";
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 
 import { COMMON_CHART_OPTS } from "./chart";
 import { useMetricsData } from "./data";
+import LineChart from "./LineChart";
 import { SolidApexCharts } from "./SolidApex";
 import { formatNano } from "./util";
-import LineChart from "./LineChart";
 
 function throttledSignal<T>(value: T, delay: number) {
 	const [signal, set] = createSignal(value);
