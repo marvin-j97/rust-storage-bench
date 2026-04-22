@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@solid-primitives/map": "0.6.0",
+    "@solid-primitives/scheduled": "1.5.3",
     "@unocss/reset": "66.5.2",
     "defu": "6.1.4",
     "millify": "6.1.0",

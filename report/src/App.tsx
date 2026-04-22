@@ -1,6 +1,11 @@
+import {
+	createScheduled,
+	debounce,
+	throttle,
+} from '@solid-primitives/scheduled';
 import millify from "millify";
 import prettyBytes from "pretty-bytes";
-import { createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 
 import { COMMON_CHART_OPTS } from "./chart";
 import { useMetricsData } from "./data";
@@ -8,17 +13,42 @@ import { SolidApexCharts } from "./SolidApex";
 import { formatNano } from "./util";
 import LineChart from "./LineChart";
 
+function throttledSignal<T>(value: T, delay: number) {
+	const [signal, set] = createSignal(value);
+	const scheduled = createScheduled((fn) =>
+		debounce(fn, delay)
+	);
+	const throttled = createMemo<T>((prev) => {
+		const next = signal();
+		return scheduled() ? next : prev;
+	}, value);
+
+	return [signal, set, throttled] as const;
+}
+
 function App() {
 	const [showLsmStats, toggleLsmStats] = createSignal(true);
 	const [showBtreeStats, toggleBtreeStats] = createSignal(true);
+	const [smoothingLevel, setSmoothingLevel, debouncedSmoothingLevel] = throttledSignal(0, 250);
 
-	const { percentiles, reactiveTimeseries, setups } = useMetricsData();
+	const { percentiles, reactiveTimeseries, setups } = useMetricsData(debouncedSmoothingLevel);
 
 	return (
 		<div class="flex flex-col gap-5">
 			{/* topbar */}
 			<div class="p-2 border-b border-neutral-200 dark:border-neutral-800">
 				<h1 class="text-sm">rust-storage-bench 1.0.0</h1>
+			</div>
+
+			<div class="px-2">
+				<h2 class="text-sm">Time series smoothing: {smoothingLevel()}</h2>
+				<input
+					type="range"
+					min={0}
+					max={100}
+					value={smoothingLevel()}
+					onInput={ev => setSmoothingLevel(ev.currentTarget.valueAsNumber)}
+				/>
 			</div>
 
 			{/* content */}

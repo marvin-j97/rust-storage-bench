@@ -11,6 +11,9 @@ importers:
       '@solid-primitives/map':
         specifier: 0.6.0
         version: 0.6.0(solid-js@1.8.20)
+      '@solid-primitives/scheduled':
+        specifier: 1.5.3
+        version: 1.5.3(solid-js@1.8.20)
       '@unocss/reset':
         specifier: 66.5.2
         version: 66.5.2
@@ -554,6 +557,11 @@ packages:
 
   '@solid-primitives/map@0.6.0':
     resolution: {integrity: sha512-h8uCJNxUTvzNK/aTW9vJCd/PQeBkUL8i7AyLPvTFqMgcMnJ1I5GzAi5JODzxpxQwffxoqJyQtOE1vBqFzDv0Vw==}
+    peerDependencies:
+      solid-js: ^1.6.12
+
+  '@solid-primitives/scheduled@1.5.3':
+    resolution: {integrity: sha512-oNwLE6E6lxJAWrc8QXuwM0k2oU1BnANnkChwMw82aK1j3+mWGJkG1IFe5gCwbV+afYmjI76t9JJV3md/8tLw+g==}
     peerDependencies:
       solid-js: ^1.6.12
 
@@ -1863,6 +1871,10 @@ snapshots:
   '@solid-primitives/map@0.6.0(solid-js@1.8.20)':
     dependencies:
       '@solid-primitives/trigger': 1.2.0(solid-js@1.8.20)
+      solid-js: 1.8.20
+
+  '@solid-primitives/scheduled@1.5.3(solid-js@1.8.20)':
+    dependencies:
       solid-js: 1.8.20
 
   '@solid-primitives/trigger@1.2.0(solid-js@1.8.20)':

@@ -1,5 +1,5 @@
 import { ReactiveMap } from "@solid-primitives/map";
-import { createSignal, onMount } from "solid-js";
+import { Accessor, createEffect, createSignal } from "solid-js";
 import { createStore, produce } from "solid-js/store";
 
 import { chooseColor, isLsm } from "./util";
@@ -93,6 +93,89 @@ const BTREE_ONLY_PARAMETERS = new Set([
 	"fragmented_bytes",
 ]);
 
+function smoothTimeseries(data: [number, number][], windowSize: number): [number, number][] {
+	if (windowSize === 0 || data.length <= windowSize) {
+		return data;
+	}
+
+	const smoothedData: [number, number][] = [];
+
+	for (let i = 0; i <= data.length - windowSize; i++) {
+		const currentWindow = data.slice(i, i + windowSize);
+		const sum = currentWindow.reduce((sum, [_, x]) => sum + x, 0);
+		const avg = sum / windowSize;
+
+		// For the timestamp, we can use the timestamp of the middle element
+		// or the start of the window. Using the start of the window here.
+		const timestamp = data[i][0];
+
+		smoothedData.push([timestamp, avg]);
+	}
+
+	return smoothedData;
+}
+
+function cleanupTimeseries(data: [number, number][]): [number, number][] {
+	if (data.length <= 1) {
+		return data;
+	}
+
+	const cleanedData: [number, number][] = [data[0]];
+
+	for (let i = 1; i < data.length; i++) {
+		const currentValue = data[i][1];
+		const previousValue = data[i - 1][1];
+
+		// If the current value is different from the previous value,
+		// it signifies the end of a sequence of the previous value (or the start of a new one).
+		// We always want to keep the first point of a new value sequence.
+		if (currentValue !== previousValue) {
+			// Before adding the new point, if the previous point added to `cleanedData`
+			// has the same value as the point *before* the current one in the original data,
+			// it means we skipped some points in the original data. In this case, we need
+			// to add the *last* point of the previous sequence before adding the current one.
+			const lastCleanedValue = cleanedData[cleanedData.length - 1][1];
+			if (lastCleanedValue === previousValue && i > 1) {
+				// Check if the point before the current one in the original data
+				// was part of the previous sequence of identical values.
+				if (data[i - 2] && data[i - 2][1] === previousValue) {
+					cleanedData.push(data[i - 1]); // Add the last point of the previous sequence
+				}
+			}
+
+			cleanedData.push(data[i]); // Add the current point (the start of a new sequence)
+
+		} else {
+			// If the current value is the same as the previous, and it's the last element
+			// in the original data, we need to add it as it's the end of a sequence.
+			if (i === data.length - 1) {
+				cleanedData.push(data[i]);
+			}
+		}
+	}
+
+	// A final check to ensure the very last point of the original data is included
+	// if it wasn't already added as the start of a new sequence.
+	if (cleanedData[cleanedData.length - 1] !== data[data.length - 1] && data.length > 0) {
+		// Check if the last point is a duplicate of the second to last point in the cleaned data
+		if (cleanedData.length > 1 && cleanedData[cleanedData.length - 1][1] === data[data.length - 1][1]) {
+			// If it is, and the second to last point in the *original* data was the same value
+			// as the last point in the *cleaned* data, it means we need to add the true last point
+			// to ensure we have the end of the last sequence.
+			if (data[data.length - 2] && data[data.length - 2][1] === cleanedData[cleanedData.length - 1][1]) {
+				cleanedData.push(data[data.length - 1]);
+			}
+		} else {
+			// If the last point in original data is not a duplicate of the last point in cleaned data,
+			// or if cleanedData only has one point, always add the last original point.
+			cleanedData.push(data[data.length - 1]);
+		}
+	}
+
+
+	return cleanedData;
+}
+
 async function gunzip(text: string) {
 	const binaryString = atob(text);
 	const len = binaryString.length;
@@ -111,7 +194,7 @@ async function gunzip(text: string) {
 	return decompressedText;
 }
 
-export function useMetricsData() {
+export function useMetricsData(smoothing: Accessor<number>) {
 	const [setups, setSetups] = createSignal<Setup[]>([]);
 
 	const reactiveTimeseries = new ReactiveMap<ColumnKey, TimeSeries[]>();
@@ -122,7 +205,7 @@ export function useMetricsData() {
 		rangeReadPercentiles: [] as GroupedSeries[],
 	});
 
-	onMount(async () => {
+	createEffect(async () => {
 		// NOTE: Patch HTML with dev data
 		if (import.meta.env.DEV) {
 			console.log("hello dev");
@@ -293,6 +376,11 @@ export function useMetricsData() {
 			for (const columnKey in timeseries) {
 				const series = timeseries[columnKey as ColumnKey]!;
 				const prev = backendTimeseries[columnKey];
+
+				if (smoothing() > 1) {
+					series.data = smoothTimeseries(series.data, smoothing());
+				}
+				series.data = cleanupTimeseries(series.data);
 
 				if (prev) {
 					backendTimeseries[columnKey].push(series);
