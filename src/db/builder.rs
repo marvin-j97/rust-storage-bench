@@ -101,6 +101,10 @@ impl DatabaseBuilder {
                     bopts.set_partition_filters(true);
                 }
 
+                if args.lsm_pin_all_meta {
+                    bopts.set_cache_index_and_filter_blocks(false);
+                }
+
                 if let Some(hash_ratio) = args.lsm_data_block_hash_ratio {
                     if hash_ratio > 0.0 {
                         bopts.set_data_block_index_type(rocksdb::DataBlockIndexType::BinaryAndHash);
