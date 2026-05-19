@@ -58,6 +58,7 @@ You can choose to compile another memory allocator using:
 ```bash
 cargo build -r --features jemalloc
 cargo build -r --features mimalloc
+cargo build -r --features mimalloc_v3
 cargo build -r --features tcmalloc
 cargo build -r --features snmalloc
 ```
