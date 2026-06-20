@@ -34,7 +34,7 @@ heed = { version = "0.20.5", optional = true }
 fjall_3 = { version = "3.1.2", package = "fjall" }
 log = { version = "0.4.20", features = ["release_max_level_trace"] }
 rand = "0.8.5"
-redb = "3.1.0"
+redb = "4.1.0"
 rusqlite = { version = "0.37.0", features = ["bundled"], optional = true }
 scru128 = "3.0.2"
 serde = { version = "1.0.193", features = ["derive", "rc"] }
