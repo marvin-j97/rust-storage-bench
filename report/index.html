@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en" class="dark">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>report - rust-storage-bench 1.0.0</title>
+  <style>
+    :root {
+      font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+      line-height: 1.5;
+      font-weight: 400;
+
+      color-scheme: light dark;
+
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    html.dark .apexcharts-menu.apexcharts-menu-open {
+      background: #101010 !important;
+    }
+  </style>
+  <!--
+    NOTE: We use a CDN script instead to reduce HTML report size
+    the browser will cache the lib, so we don't have to distribute apexcharts with
+    every HTML report
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts@5"></script>
+</head>
+
+<body class="text-neutral-950 dark:text-neutral-50 bg-neutral-50 dark:bg-neutral-950">
+  <div id="root"></div>
+  <script type="module" src="/src/index.tsx"></script>
+  <div id="data-container" class="hidden">
+    <!-- __DATA__ -->
+  </div>
+</body>
+
+</html>

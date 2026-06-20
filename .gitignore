@@ -14,6 +14,23 @@ Cargo.lock
 *.pdb
 
 .data
-*.jsonl
 node_modules
-.results
+.results*
+
+old
+
+*.tsbuildinfo
+/*.jsonl
+/*.html
+
+/ycsb_old
+/ssd_compare_write
+/fj23
+/fj25
+/*M_random
+
+profile.json
+plot.py
+
+.directory
+.DS_Store

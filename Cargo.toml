@@ -1,41 +1,64 @@
 [package]
 name = "rust-storage-bench"
-version = "0.0.1"
+version = "1.0.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[[bin]]
-name = "worker"
-path = "src/worker/main.rs"
+[profile.release]
+debug = false
 
 [features]
-default = ["heed", "rocksdb"]
-rocksdb = ["dep:rocksdb"]
+default = []
 heed = ["dep:heed"]
-
-# [target.'cfg(not(target_env = "msvc"))'.dependencies]
-# jemallocator = "0.3.2"
+rocksdb = ["dep:rocksdb"]
+sqlite = ["dep:rusqlite"]
+antithesis = ["dep:precept"]
+metrics = ["fjall_3/metrics"]
+jemalloc = ["dep:jemallocator"]
+mimalloc = ["dep:mimalloc"]
+mimalloc_v3 = ["dep:mimalloc_v3"]
+snmalloc = ["dep:snmalloc"]
+tcmalloc = ["dep:tcmalloc"]
 
 [dependencies]
+base64 = "0.22"
+canopydb = { version = "0.2.5" }
+chrono = "0.4.38"
 clap = { version = "4.4.10", features = ["derive"] }
-# bloodstone = { package = "sled", version = "1.0.0-alpha.121" }
-sled = { version = "0.34.7", features = ["compression"] }
-fjall = { version = "1.4.0" }
-nanoid = "0.4.0"
+env_logger = "0.10.1"
+fake = { version = "2.9.2", features = ["derive", "uuid"] }
+fjall_2 = { package = "fjall", version = "2.11.2" }
+flate2 = "1.0"
+fs_extra = "1.3.0"
+sketches-ddsketch = "0.3.0"
+heed = { version = "0.20.5", optional = true }
+fjall_3 = { version = "3.1.2", package = "fjall" }
+log = { version = "0.4.20", features = ["release_max_level_trace"] }
 rand = "0.8.5"
-sysinfo = { version = "0.30.1", features = ["serde"] }
+redb = "4.1.0"
+rusqlite = { version = "0.37.0", features = ["bundled"], optional = true }
+scru128 = "3.0.2"
 serde = { version = "1.0.193", features = ["derive", "rc"] }
 serde_json = "1.0.108"
-fs_extra = "1.3.0"
-env_logger = "0.10.1"
-log = { version = "0.4.20", features = ["release_max_level_trace"] }
-persy = { version = "1.5.0", features = ["background_ops"] }
-jammdb = "0.11.0"
+sled = { version = "0.34.7", features = [] }
+sysinfo = { version = "0.30.1", features = ["serde"] }
+rmp-serde = "1.3.0"
+rocksdb = { package = "rust-rocksdb", version = "0.44.2", optional = true }
+uuid = { version = "1.8.0", features = ["serde", "v4", "v7"] }
 zipf = "7.0.1"
-redb = "2.1.1"
-nebari = "0.5.5"
-heed = { version = "0.20.0", optional = true }
-rocksdb = { version = "0.22.0", optional = true, default-features = false, features = [
-  "lz4",
-] }
+precept = { version = "0.1.0", optional = true, features = ["antithesis"] }
+r2d2 = "0.8.10"
+r2d2_sqlite = "0.31.0"
+format-bytes = "0.3.0"
+pretty-bytes = "0.2.2"
+
+# Memory allocators
+snmalloc = { package = "snmalloc-rs", version = "0.7.4", optional = true }
+tcmalloc = { version = "0.3.0", features = ["bundled"], optional = true }
+mimalloc = { version = "0.1.48", default-features = false, features = [
+], optional = true }
+mimalloc_v3 = { package = "mimalloc", version = "0.1.48", default-features = false, features = [
+  "v3",
+], optional = true }
+
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+jemallocator = { version = "0.5.4", optional = true }

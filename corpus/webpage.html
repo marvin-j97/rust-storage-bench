@@ -1,0 +1,923 @@
+<html>
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="color-scheme" content="light dark">
+</head>
+
+<body>
+  <div class="line-gutter-backdrop"></div>
+  <form autocomplete="off"><label class="line-wrap-control">Line wrap<input type="checkbox"
+        aria-label="Line wrap"></label></form>
+  <table class="line-wrap">
+    <tbody>
+      <tr>
+        <td class="line-number" value="1"></td>
+        <td class="line-content"><span class="html-doctype">&lt;!DOCTYPE html&gt;</span><span class="html-tag">&lt;html
+            <span class="html-attribute-name">lang</span>="<span class="html-attribute-value">en</span>"&gt;</span>
+          <span class="html-tag">&lt;head&gt;</span><span class="html-tag">&lt;meta <span
+              class="html-attribute-name">charset</span>="<span
+              class="html-attribute-value">utf-8</span>"&gt;</span><span class="html-tag">&lt;meta <span
+              class="html-attribute-name">name</span>="<span class="html-attribute-value">viewport</span>" <span
+              class="html-attribute-name">content</span>="<span
+              class="html-attribute-value">width=device-width</span>"&gt;</span><span class="html-tag">&lt;meta <span
+              class="html-attribute-name">name</span>="<span class="html-attribute-value">generator</span>" <span
+              class="html-attribute-name">content</span>="<span class="html-attribute-value">Astro
+              v5.3.1</span>"&gt;</span><span class="html-tag">&lt;link <span
+              class="html-attribute-name">rel</span>="<span class="html-attribute-value">icon</span>" <span
+              class="html-attribute-name">type</span>="<span class="html-attribute-value">image/svg+xml</span>" <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-resource-link"
+              target="_blank" href="https://fjall-rs.github.io/favicon.svg"
+              rel="noreferrer noopener">/favicon.svg</a>"&gt;</span><span class="html-tag">&lt;link <span
+              class="html-attribute-name">rel</span>="<span class="html-attribute-value">sitemap</span>" <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-resource-link"
+              target="_blank" href="https://fjall-rs.github.io/sitemap-index.xml"
+              rel="noreferrer noopener">/sitemap-index.xml</a>"&gt;</span><span class="html-comment">&lt;!-- SEO
+            --&gt;</span><span class="html-tag">&lt;title&gt;</span>fjall-rs<span
+            class="html-tag">&lt;/title&gt;</span><span class="html-tag">&lt;meta <span
+              class="html-attribute-name">name</span>="<span class="html-attribute-value">title</span>"&gt;</span><span
+            class="html-tag">&lt;meta <span class="html-attribute-name">name</span>="<span
+              class="html-attribute-value">description</span>" <span class="html-attribute-name">content</span>="<span
+              class="html-attribute-value">Organizing data in Rust</span>"&gt;</span><span class="html-comment">&lt;!--
+            OG --&gt;</span><span class="html-tag">&lt;meta <span class="html-attribute-name">property</span>="<span
+              class="html-attribute-value">og:title</span>"&gt;</span><span class="html-tag">&lt;meta <span
+              class="html-attribute-name">property</span>="<span
+              class="html-attribute-value">og:description</span>"&gt;</span><span class="html-tag">&lt;meta <span
+              class="html-attribute-name">property</span>="<span class="html-attribute-value">og:url</span>" <span
+              class="html-attribute-name">content</span>="<span
+              class="html-attribute-value">https://fjall-rs.github.io/posts/</span>"&gt;</span><span
+            class="html-comment">&lt;!-- Twitter --&gt;</span><span class="html-tag">&lt;meta <span
+              class="html-attribute-name">property</span>="<span class="html-attribute-value">twitter:card</span>" <span
+              class="html-attribute-name">content</span>="<span
+              class="html-attribute-value">summary_large_image</span>"&gt;</span><span class="html-tag">&lt;meta <span
+              class="html-attribute-name">property</span>="<span class="html-attribute-value">twitter:url</span>" <span
+              class="html-attribute-name">content</span>="<span
+              class="html-attribute-value">https://fjall-rs.github.io/posts/</span>"&gt;</span><span
+            class="html-tag">&lt;meta <span class="html-attribute-name">property</span>="<span
+              class="html-attribute-value">twitter:title</span>"&gt;</span><span class="html-tag">&lt;meta <span
+              class="html-attribute-name">property</span>="<span
+              class="html-attribute-value">twitter:description</span>"&gt;</span><span class="html-tag">&lt;meta <span
+              class="html-attribute-name">name</span>="<span
+              class="html-attribute-value">astro-view-transitions-enabled</span>" <span
+              class="html-attribute-name">content</span>="<span
+              class="html-attribute-value">true</span>"&gt;</span><span class="html-tag">&lt;meta <span
+              class="html-attribute-name">name</span>="<span
+              class="html-attribute-value">astro-view-transitions-fallback</span>" <span
+              class="html-attribute-name">content</span>="<span
+              class="html-attribute-value">animate</span>"&gt;</span><span class="html-tag">&lt;script <span
+              class="html-attribute-name">type</span>="<span class="html-attribute-value">module</span>" <span
+              class="html-attribute-name">src</span>="<a class="html-attribute-value html-resource-link" target="_blank"
+              href="https://fjall-rs.github.io/_astro/ClientRouter.astro_astro_type_script_index_0_lang.DIkHUG1B.js"
+              rel="noreferrer noopener">/_astro/ClientRouter.astro_astro_type_script_index_0_lang.DIkHUG1B.js</a>"&gt;</span><span
+            class="html-tag">&lt;/script&gt;</span><span class="html-tag">&lt;link <span
+              class="html-attribute-name">rel</span>="<span class="html-attribute-value">stylesheet</span>" <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-resource-link"
+              target="_blank" href="https://fjall-rs.github.io/_astro/index.BDY9t8rF.css"
+              rel="noreferrer noopener">/_astro/index.BDY9t8rF.css</a>"&gt;</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="line-number" value="2"></td>
+        <td class="line-content"><span
+            class="html-tag">&lt;style&gt;</span>@font-face{font-family:Inter;font-style:normal;font-display:swap;font-weight:400;src:url(/_astro/inter-cyrillic-ext-400-normal.tyfMZHQw.woff2)
+          format("woff2"),url(/_astro/inter-cyrillic-ext-400-normal.CzG7Kr3z.woff)
+          format("woff");unicode-range:U+0460-052F,U+1C80-1C88,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F}@font-face{font-family:Inter;font-style:normal;font-display:swap;font-weight:400;src:url(/_astro/inter-cyrillic-400-normal.Df6ckaLK.woff2)
+          format("woff2"),url(/_astro/inter-cyrillic-400-normal.JrS_4yms.woff)
+          format("woff");unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}@font-face{font-family:Inter;font-style:normal;font-display:swap;font-weight:400;src:url(/_astro/inter-greek-ext-400-normal.CIdlr5YK.woff2)
+          format("woff2"),url(/_astro/inter-greek-ext-400-normal._Rr29XE2.woff)
+          format("woff");unicode-range:U+1F00-1FFF}@font-face{font-family:Inter;font-style:normal;font-display:swap;font-weight:400;src:url(/_astro/inter-greek-400-normal.DQXyrmoy.woff2)
+          format("woff2"),url(/_astro/inter-greek-400-normal.DvIPHDQ7.woff)
+          format("woff");unicode-range:U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF}@font-face{font-family:Inter;font-style:normal;font-display:swap;font-weight:400;src:url(/_astro/inter-vietnamese-400-normal.Cnt0N5Vm.woff2)
+          format("woff2"),url(/_astro/inter-vietnamese-400-normal.DIOGfGLL.woff)
+          format("woff");unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB}@font-face{font-family:Inter;font-style:normal;font-display:swap;font-weight:400;src:url(/_astro/inter-latin-ext-400-normal.D3W-OpO-.woff2)
+          format("woff2"),url(/_astro/inter-latin-ext-400-normal.8tIzm-yw.woff)
+          format("woff");unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}@font-face{font-family:Inter;font-style:normal;font-display:swap;font-weight:400;src:url(/_astro/inter-latin-400-normal.BT1H-PT_.woff2)
+          format("woff2"),url(/_astro/inter-latin-400-normal.Cdi8t5Mu.woff)
+          format("woff");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}.astro-route-announcer{position:absolute;left:0;top:0;clip:rect(0
+          0 0 0);clip-path:inset(50%);overflow:hidden;white-space:nowrap;width:1px;height:1px}:not(.astro-code
+          *){font-family:Inter,sans-serif}</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="3"></td>
+        <td class="line-content"><span class="html-tag">&lt;/style&gt;</span><span class="html-tag">&lt;script <span
+              class="html-attribute-name">type</span>="<span class="html-attribute-value">module</span>" <span
+              class="html-attribute-name">src</span>="<a class="html-attribute-value html-resource-link" target="_blank"
+              href="https://fjall-rs.github.io/_astro/page.VIllvXJD.js"
+              rel="noreferrer noopener">/_astro/page.VIllvXJD.js</a>"&gt;</span><span
+            class="html-tag">&lt;/script&gt;</span><span class="html-tag">&lt;/head&gt;</span> <span
+            class="html-tag">&lt;body <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">text-gray-700 dark:text-gray-400 dark:bg-gray-950</span>"&gt;</span> <span
+            class="html-tag">&lt;header <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">backdrop-blur w-full px-3 md:px-7 py-5 fixed z-10 border-b
+              dark:border-gray-900 bg-white/80 dark:bg-gray-950/75</span>"&gt;</span> <span class="html-tag">&lt;div
+            <span class="html-attribute-name">class</span>="<span class="html-attribute-value">flex items-center gap-3
+              md:gap-5 mx-auto w-full max-w-3xl</span>"&gt;</span> <span class="html-tag">&lt;a <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">text-black dark:text-white
+              font-medium transition-colors hover:brightness-80</span>" <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/" rel="noreferrer noopener">/</a>" <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">md:text-lg</span>"&gt;</span>
+          <span class="html-comment">&lt;!-- SETUP: If you have a logo, replace this component with it
+            --&gt;</span><span class="html-tag">&lt;span <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">md:text-lg whitespace-pre</span>"&gt;</span> fjall-rs <span
+            class="html-tag">&lt;/span&gt;</span> <span class="html-tag">&lt;/a&gt;</span> <span
+            class="html-tag">&lt;div <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">flex-grow</span>"&gt;</span><span class="html-tag">&lt;/div&gt;</span> <span
+            class="html-tag">&lt;div <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">flex items-center gap-4</span>"&gt;</span> <span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/posts" rel="noreferrer noopener">/posts</a>" <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">text-gray-800
+              dark:text-gray-400 transition-colors hover:brightness-80</span>"&gt;</span> Posts <span
+            class="html-tag">&lt;/a&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/tags" rel="noreferrer noopener">/tags</a>" <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">text-gray-800
+              dark:text-gray-400 transition-colors hover:brightness-80</span>"&gt;</span> Tags <span
+            class="html-tag">&lt;/a&gt;</span> <span class="html-tag">&lt;/div&gt;</span> <span class="html-tag">&lt;div
+            <span class="html-attribute-name">class</span>="<span class="html-attribute-value">flex items-center
+              gap-3</span>"&gt;</span> <span class="html-tag">&lt;a <span class="html-attribute-name">href</span>="<a
+              class="html-attribute-value html-external-link" target="_blank" href="https://fjall-rs.github.io/search"
+              rel="noreferrer noopener">/search</a>" <span class="html-attribute-name">aria-label</span>="<span
+              class="html-attribute-value">Search content</span>" <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">transition-all hover:brightness-80 hover:scale-105</span>"&gt;</span> <span
+            class="html-tag">&lt;svg <span class="html-attribute-name">xmlns</span>="<span
+              class="html-attribute-value">http://www.w3.org/2000/svg</span>" <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">icon icon-tabler
+              icon-tabler-search</span>" <span class="html-attribute-name">width</span>="<span
+              class="html-attribute-value">24</span>" <span class="html-attribute-name">height</span>="<span
+              class="html-attribute-value">24</span>" <span class="html-attribute-name">viewBox</span>="<span
+              class="html-attribute-value">0 0 24 24</span>" <span
+              class="html-attribute-name">stroke-width</span>="<span class="html-attribute-value">1.5</span>" <span
+              class="html-attribute-name">stroke</span>="<span class="html-attribute-value">currentColor</span>" <span
+              class="html-attribute-name">fill</span>="<span class="html-attribute-value">none</span>" <span
+              class="html-attribute-name">stroke-linecap</span>="<span class="html-attribute-value">round</span>" <span
+              class="html-attribute-name">stroke-linejoin</span>="<span
+              class="html-attribute-value">round</span>"&gt;</span><span class="html-tag">&lt;path <span
+              class="html-attribute-name">stroke</span>="<span class="html-attribute-value">none</span>" <span
+              class="html-attribute-name">d</span>="<span class="html-attribute-value">M0 0h24v24H0z</span>" <span
+              class="html-attribute-name">fill</span>="<span class="html-attribute-value">none</span>"&gt;</span><span
+            class="html-tag">&lt;/path&gt;</span><span class="html-tag">&lt;path <span
+              class="html-attribute-name">d</span>="<span class="html-attribute-value">M10 10m-7 0a7 7 0 1 0 14 0a7 7 0
+              1 0 -14 0</span>"&gt;</span><span class="html-tag">&lt;/path&gt;</span><span class="html-tag">&lt;path
+            <span class="html-attribute-name">d</span>="<span class="html-attribute-value">M21 21l-6
+              -6</span>"&gt;</span><span class="html-tag">&lt;/path&gt;</span><span class="html-tag">&lt;/svg&gt;</span>
+          <span class="html-tag">&lt;/a&gt;</span> <span class="html-tag">&lt;button <span
+              class="html-attribute-name">aria-label</span>="<span class="html-attribute-value">Switch theme</span>"
+            <span class="html-attribute-name">class</span>="<span class="html-attribute-value">theme-switch
+              transition-all hover:brightness-80 hover:scale-105</span>"&gt;</span> <span class="html-tag">&lt;svg <span
+              class="html-attribute-name">xmlns</span>="<span
+              class="html-attribute-value">http://www.w3.org/2000/svg</span>" <span
+              class="html-attribute-name">width</span>="<span class="html-attribute-value">24</span>" <span
+              class="html-attribute-name">height</span>="<span class="html-attribute-value">24</span>" <span
+              class="html-attribute-name">viewBox</span>="<span class="html-attribute-value">0 0 24 24</span>" <span
+              class="html-attribute-name">stroke-width</span>="<span class="html-attribute-value">1.5</span>" <span
+              class="html-attribute-name">stroke</span>="<span class="html-attribute-value">currentColor</span>" <span
+              class="html-attribute-name">fill</span>="<span class="html-attribute-value">none</span>" <span
+              class="html-attribute-name">stroke-linecap</span>="<span class="html-attribute-value">round</span>" <span
+              class="html-attribute-name">stroke-linejoin</span>="<span
+              class="html-attribute-value">round</span>"&gt;</span><span class="html-tag">&lt;path <span
+              class="html-attribute-name">stroke</span>="<span class="html-attribute-value">none</span>" <span
+              class="html-attribute-name">d</span>="<span class="html-attribute-value">M0 0h24v24H0z</span>" <span
+              class="html-attribute-name">fill</span>="<span class="html-attribute-value">none</span>"&gt;</span><span
+            class="html-tag">&lt;/path&gt;</span><span class="html-tag">&lt;path <span
+              class="html-attribute-name">d</span>="<span class="html-attribute-value">M12 3c.132 0 .263 0 .393 0a7.5
+              7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z</span>"&gt;</span><span
+            class="html-tag">&lt;/path&gt;</span><span class="html-tag">&lt;/svg&gt;</span> <span
+            class="html-tag">&lt;/button&gt;</span> <span class="html-tag">&lt;script&gt;</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="line-number" value="4"></td>
+        <td class="line-content"> const iconMoon = `&lt;svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+          viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round"
+          stroke-linejoin="round"&gt;&lt;path stroke="none" d="M0 0h24v24H0z" fill="none"/&gt;&lt;path d="M12 3c.132 0
+          .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" /&gt;&lt;/svg&gt;`;</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="5"></td>
+        <td class="line-content"> const iconSun = `&lt;svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+          viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" fill="none" stroke-linecap="round"
+          stroke-linejoin="round"&gt;&lt;path stroke="none" d="M0 0h24v24H0z" fill="none"/&gt;&lt;path d="M12 12m-4 0a4
+          4 0 1 0 8 0a4 4 0 1 0 -8 0" /&gt;&lt;path d="M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0
+          11.4l.7 .7m-12.1 -.7l-.7 .7" /&gt;&lt;/svg&gt;`;</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="6"></td>
+        <td class="line-content"><br></td>
+      </tr>
+      <tr>
+        <td class="line-number" value="7"></td>
+        <td class="line-content"> function theme() {</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="8"></td>
+        <td class="line-content"> const local = localStorage.getItem("theme");</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="9"></td>
+        <td class="line-content"> if (local) {</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="10"></td>
+        <td class="line-content"> return local;</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="11"></td>
+        <td class="line-content"> }</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="12"></td>
+        <td class="line-content"> if (window.matchMedia("(prefers-color-scheme: dark)").matches) {</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="13"></td>
+        <td class="line-content"> return "dark";</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="14"></td>
+        <td class="line-content"> }</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="15"></td>
+        <td class="line-content"> return "light";</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="16"></td>
+        <td class="line-content"> }</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="17"></td>
+        <td class="line-content"><br></td>
+      </tr>
+      <tr>
+        <td class="line-number" value="18"></td>
+        <td class="line-content"> function registerStuff(document) {</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="19"></td>
+        <td class="line-content"> const root = document.documentElement;</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="20"></td>
+        <td class="line-content"> const themeSwitch = document.querySelector(".theme-switch");</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="21"></td>
+        <td class="line-content"><br></td>
+      </tr>
+      <tr>
+        <td class="line-number" value="22"></td>
+        <td class="line-content"> if (theme() === "light") {</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="23"></td>
+        <td class="line-content"> root.classList.remove("dark");</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="24"></td>
+        <td class="line-content"> themeSwitch.innerHTML = iconMoon;</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="25"></td>
+        <td class="line-content"> } else {</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="26"></td>
+        <td class="line-content"> root.classList.add("dark");</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="27"></td>
+        <td class="line-content"> themeSwitch.innerHTML = iconSun;</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="28"></td>
+        <td class="line-content"> }</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="29"></td>
+        <td class="line-content"><br></td>
+      </tr>
+      <tr>
+        <td class="line-number" value="30"></td>
+        <td class="line-content"> themeSwitch.addEventListener("click", () =&gt; {</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="31"></td>
+        <td class="line-content"> const isDark = root.classList.contains("dark");</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="32"></td>
+        <td class="line-content"> localStorage.setItem("theme", isDark ? "light" : "dark");</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="33"></td>
+        <td class="line-content"> console.log(isDark);</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="34"></td>
+        <td class="line-content"><br></td>
+      </tr>
+      <tr>
+        <td class="line-number" value="35"></td>
+        <td class="line-content"> if (isDark) {</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="36"></td>
+        <td class="line-content"> root.classList.remove("dark");</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="37"></td>
+        <td class="line-content"> themeSwitch.innerHTML = iconMoon;</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="38"></td>
+        <td class="line-content"> } else {</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="39"></td>
+        <td class="line-content"> root.classList.add("dark");</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="40"></td>
+        <td class="line-content"> themeSwitch.innerHTML = iconSun;</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="41"></td>
+        <td class="line-content"> }</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="42"></td>
+        <td class="line-content"> });</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="43"></td>
+        <td class="line-content"> }</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="44"></td>
+        <td class="line-content"><br></td>
+      </tr>
+      <tr>
+        <td class="line-number" value="45"></td>
+        <td class="line-content"> registerStuff(document);</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="46"></td>
+        <td class="line-content"><br></td>
+      </tr>
+      <tr>
+        <td class="line-number" value="47"></td>
+        <td class="line-content"> document.addEventListener("astro:after-swap", (ev) =&gt; {</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="48"></td>
+        <td class="line-content"> registerStuff(document);</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="49"></td>
+        <td class="line-content"> });</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="50"></td>
+        <td class="line-content"><span class="html-tag">&lt;/script&gt;</span> <span class="html-tag">&lt;a <span
+              class="html-attribute-name">target</span>="<span class="html-attribute-value">_blank</span>" <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://github.com/fjall-rs"
+              rel="noreferrer noopener">https://github.com/fjall-rs</a>" <span
+              class="html-attribute-name">aria-label</span>="<span class="html-attribute-value">Open GitHub page</span>"
+            <span class="html-attribute-name">class</span>="<span class="html-attribute-value">transition-all
+              hover:brightness-80 hover:scale-105</span>"&gt;</span> <span class="html-tag">&lt;svg <span
+              class="html-attribute-name">xmlns</span>="<span
+              class="html-attribute-value">http://www.w3.org/2000/svg</span>" <span
+              class="html-attribute-name">width</span>="<span class="html-attribute-value">24</span>" <span
+              class="html-attribute-name">height</span>="<span class="html-attribute-value">24</span>" <span
+              class="html-attribute-name">viewBox</span>="<span class="html-attribute-value">0 0 24 24</span>" <span
+              class="html-attribute-name">fill</span>="<span class="html-attribute-value">none</span>" <span
+              class="html-attribute-name">stroke</span>="<span class="html-attribute-value">currentColor</span>" <span
+              class="html-attribute-name">stroke-width</span>="<span class="html-attribute-value">2</span>" <span
+              class="html-attribute-name">stroke-linecap</span>="<span class="html-attribute-value">round</span>" <span
+              class="html-attribute-name">stroke-linejoin</span>="<span class="html-attribute-value">round</span>" <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">icon icon-tabler
+              icons-tabler-outline icon-tabler-brand-github</span>"&gt;</span><span class="html-tag">&lt;path <span
+              class="html-attribute-name">stroke</span>="<span class="html-attribute-value">none</span>" <span
+              class="html-attribute-name">d</span>="<span class="html-attribute-value">M0 0h24v24H0z</span>" <span
+              class="html-attribute-name">fill</span>="<span class="html-attribute-value">none</span>"&gt;</span><span
+            class="html-tag">&lt;/path&gt;</span><span class="html-tag">&lt;path <span
+              class="html-attribute-name">d</span>="<span class="html-attribute-value">M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12
+              5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3
+              -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3
+              3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5</span>"&gt;</span><span
+            class="html-tag">&lt;/path&gt;</span><span class="html-tag">&lt;/svg&gt;</span> <span
+            class="html-tag">&lt;/a&gt;</span> <span class="html-tag">&lt;a <span
+              class="html-attribute-name">target</span>="<span class="html-attribute-value">_blank</span>" <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://discord.gg/HvYGp4NFFk"
+              rel="noreferrer noopener">https://discord.gg/HvYGp4NFFk</a>" <span
+              class="html-attribute-name">aria-label</span>="<span class="html-attribute-value">Join Discord
+              server</span>" <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">transition-all hover:brightness-80 hover:scale-105</span>"&gt;</span> <span
+            class="html-tag">&lt;svg <span class="html-attribute-name">xmlns</span>="<span
+              class="html-attribute-value">http://www.w3.org/2000/svg</span>" <span
+              class="html-attribute-name">width</span>="<span class="html-attribute-value">24</span>" <span
+              class="html-attribute-name">height</span>="<span class="html-attribute-value">24</span>" <span
+              class="html-attribute-name">viewBox</span>="<span class="html-attribute-value">0 0 24 24</span>" <span
+              class="html-attribute-name">fill</span>="<span class="html-attribute-value">none</span>" <span
+              class="html-attribute-name">stroke</span>="<span class="html-attribute-value">currentColor</span>" <span
+              class="html-attribute-name">stroke-width</span>="<span class="html-attribute-value">2</span>" <span
+              class="html-attribute-name">stroke-linecap</span>="<span class="html-attribute-value">round</span>" <span
+              class="html-attribute-name">stroke-linejoin</span>="<span class="html-attribute-value">round</span>" <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">icon icon-tabler
+              icons-tabler-outline icon-tabler-brand-discord</span>"&gt;</span><span class="html-tag">&lt;path <span
+              class="html-attribute-name">stroke</span>="<span class="html-attribute-value">none</span>" <span
+              class="html-attribute-name">d</span>="<span class="html-attribute-value">M0 0h24v24H0z</span>" <span
+              class="html-attribute-name">fill</span>="<span class="html-attribute-value">none</span>"&gt;</span><span
+            class="html-tag">&lt;/path&gt;</span><span class="html-tag">&lt;path <span
+              class="html-attribute-name">d</span>="<span class="html-attribute-value">M8 12a1 1 0 1 0 2 0a1 1 0 0 0 -2
+              0</span>"&gt;</span><span class="html-tag">&lt;/path&gt;</span><span class="html-tag">&lt;path <span
+              class="html-attribute-name">d</span>="<span class="html-attribute-value">M14 12a1 1 0 1 0 2 0a1 1 0 0 0 -2
+              0</span>"&gt;</span><span class="html-tag">&lt;/path&gt;</span><span class="html-tag">&lt;path <span
+              class="html-attribute-name">d</span>="<span class="html-attribute-value">M15.5 17c0 1 1.5 3 2 3c1.5 0
+              2.833 -1.667 3.5 -3c.667 -1.667 .5 -5.833 -1.5 -11.5c-1.457 -1.015 -3 -1.34 -4.5 -1.5l-.972 1.923a11.913
+              11.913 0 0 0 -4.053 0l-.975 -1.923c-1.5 .16 -3.043 .485 -4.5 1.5c-2 5.667 -2.167 9.833 -1.5 11.5c.667
+              1.333 2 3 3.5 3c.5 0 2 -2 2 -3</span>"&gt;</span><span class="html-tag">&lt;/path&gt;</span><span
+            class="html-tag">&lt;path <span class="html-attribute-name">d</span>="<span class="html-attribute-value">M7
+              16.5c3.5 1 6.5 1 10 0</span>"&gt;</span><span class="html-tag">&lt;/path&gt;</span><span
+            class="html-tag">&lt;/svg&gt;</span> <span class="html-tag">&lt;/a&gt;</span> <span
+            class="html-tag">&lt;/div&gt;</span> <span class="html-tag">&lt;/div&gt;</span> <span
+            class="html-tag">&lt;/header&gt;</span> <span class="html-tag">&lt;main <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">px-4 pt-30 mx-auto
+              max-w-3xl</span>"&gt;</span> <span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">flex flex-col
+              gap-5</span>"&gt;</span> <span class="html-tag">&lt;h1 <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">text-2xl dark:text-gray-200
+              font-medium</span>"&gt;</span>All posts<span class="html-tag">&lt;/h1&gt;</span> <span
+            class="html-tag">&lt;div <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">flex flex-col gap-5</span>"&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">flex
+              gap-4</span>"&gt;</span><span class="html-comment">&lt;!--$--&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/fjall-2-8"
+              rel="noreferrer noopener">/post/fjall-2-8</a>" <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">shrink-0 hover:brightness-80 transition-all text-lg font-medium text-blue-700
+              dark:text-blue-300 truncate</span>" <span class="html-attribute-name">aria-label</span>="<span
+              class="html-attribute-value">Fjall 2.8</span>"&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">bg-blue-500/10 object-cover
+              bg-center w-[100px] h-full aspect-2 rounded-lg hover:brightness-80 transition-all bg-cover</span>" <span
+              class="html-attribute-name">style</span>="<span
+              class="html-attribute-value">background-image:url(/media/thumbs/kawaii.png)</span>"&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/a&gt;</span><span
+            class="html-comment">&lt;!--/--&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">truncate</span>"&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/fjall-2-8"
+              rel="noreferrer noopener">/post/fjall-2-8</a>" <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">hover:brightness-80 transition-all text-lg font-medium text-blue-700
+              dark:text-blue-300 truncate</span>" <span class="html-attribute-name">aria-label</span>="<span
+              class="html-attribute-value">Fjall 2.8</span>"&gt;</span>Fjall 2.8<span
+            class="html-tag">&lt;/a&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">text-sm
+              mb-1</span>"&gt;</span>Mar 30, 2025<span class="html-tag">&lt;/div&gt;</span><span
+            class="html-tag">&lt;div <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">dark:text-gray-300 text-sm truncate</span>"&gt;</span>Better cache API
+          &amp;amp; fast bulk loading<span class="html-tag">&lt;/div&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;div
+            <span class="html-attribute-name">class</span>="<span class="html-attribute-value">flex
+              gap-4</span>"&gt;</span><span class="html-comment">&lt;!--$--&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/recreating-webtable"
+              rel="noreferrer noopener">/post/recreating-webtable</a>" <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">shrink-0 hover:brightness-80
+              transition-all text-lg font-medium text-blue-700 dark:text-blue-300 truncate</span>" <span
+              class="html-attribute-name">aria-label</span>="<span class="html-attribute-value">Retracing Google’s
+              steps: recreating the Webtable in Rust</span>"&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">bg-blue-500/10 object-cover
+              bg-center w-[100px] h-full aspect-2 rounded-lg hover:brightness-80 transition-all bg-cover</span>" <span
+              class="html-attribute-name">style</span>="<span
+              class="html-attribute-value">background-image:url(/media/thumbs/google.jpg)</span>"&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/a&gt;</span><span
+            class="html-comment">&lt;!--/--&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">truncate</span>"&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/recreating-webtable"
+              rel="noreferrer noopener">/post/recreating-webtable</a>" <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">hover:brightness-80
+              transition-all text-lg font-medium text-blue-700 dark:text-blue-300 truncate</span>" <span
+              class="html-attribute-name">aria-label</span>="<span class="html-attribute-value">Retracing Google’s
+              steps: recreating the Webtable in Rust</span>"&gt;</span>Retracing Google’s steps: recreating the Webtable
+          in Rust<span class="html-tag">&lt;/a&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">text-sm
+              mb-1</span>"&gt;</span>Mar 21, 2025<span class="html-tag">&lt;/div&gt;</span><span
+            class="html-tag">&lt;div <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">dark:text-gray-300 text-sm truncate</span>"&gt;</span>The key-value design to
+          store the entire internet<span class="html-tag">&lt;/div&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;div
+            <span class="html-attribute-name">class</span>="<span class="html-attribute-value">flex
+              gap-4</span>"&gt;</span><span class="html-comment">&lt;!--$--&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/fjall-2-6-byteview"
+              rel="noreferrer noopener">/post/fjall-2-6-byteview</a>" <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">shrink-0 hover:brightness-80
+              transition-all text-lg font-medium text-blue-700 dark:text-blue-300 truncate</span>" <span
+              class="html-attribute-name">aria-label</span>="<span class="html-attribute-value">When Rust's Arc is not
+              enough: Announcing Fjall 2.6</span>"&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">bg-blue-500/10 object-cover
+              bg-center w-[100px] h-full aspect-2 rounded-lg hover:brightness-80 transition-all bg-cover</span>" <span
+              class="html-attribute-name">style</span>="<span
+              class="html-attribute-value">background-image:url(/media/thumbs/arch-bridge.jpg)</span>"&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/a&gt;</span><span
+            class="html-comment">&lt;!--/--&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">truncate</span>"&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/fjall-2-6-byteview"
+              rel="noreferrer noopener">/post/fjall-2-6-byteview</a>" <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">hover:brightness-80
+              transition-all text-lg font-medium text-blue-700 dark:text-blue-300 truncate</span>" <span
+              class="html-attribute-name">aria-label</span>="<span class="html-attribute-value">When Rust's Arc is not
+              enough: Announcing Fjall 2.6</span>"&gt;</span>When Rust's Arc is not enough: Announcing Fjall 2.6<span
+            class="html-tag">&lt;/a&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">text-sm
+              mb-1</span>"&gt;</span>Feb 8, 2025<span class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;div
+            <span class="html-attribute-name">class</span>="<span class="html-attribute-value">dark:text-gray-300
+              text-sm truncate</span>"&gt;</span>Introducing byteview for better performance in Fjall<span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/div&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">flex
+              gap-4</span>"&gt;</span><span class="html-comment">&lt;!--$--&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/fjall-2-5"
+              rel="noreferrer noopener">/post/fjall-2-5</a>" <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">shrink-0 hover:brightness-80 transition-all text-lg font-medium text-blue-700
+              dark:text-blue-300 truncate</span>" <span class="html-attribute-name">aria-label</span>="<span
+              class="html-attribute-value">Announcing Fjall 2.5</span>"&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">bg-blue-500/10 object-cover
+              bg-center w-[100px] h-full aspect-2 rounded-lg hover:brightness-80 transition-all bg-cover</span>" <span
+              class="html-attribute-name">style</span>="<span
+              class="html-attribute-value">background-image:url(/media/thumbs/wyoming.jpg)</span>"&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/a&gt;</span><span
+            class="html-comment">&lt;!--/--&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">truncate</span>"&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/fjall-2-5"
+              rel="noreferrer noopener">/post/fjall-2-5</a>" <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">hover:brightness-80 transition-all text-lg font-medium text-blue-700
+              dark:text-blue-300 truncate</span>" <span class="html-attribute-name">aria-label</span>="<span
+              class="html-attribute-value">Announcing Fjall 2.5</span>"&gt;</span>Announcing Fjall 2.5<span
+            class="html-tag">&lt;/a&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">text-sm
+              mb-1</span>"&gt;</span>Jan 8, 2025<span class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;div
+            <span class="html-attribute-name">class</span>="<span class="html-attribute-value">dark:text-gray-300
+              text-sm truncate</span>"&gt;</span>...further performance improvements<span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/div&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">flex
+              gap-4</span>"&gt;</span><span class="html-comment">&lt;!--$--&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/fjall-2-3"
+              rel="noreferrer noopener">/post/fjall-2-3</a>" <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">shrink-0 hover:brightness-80 transition-all text-lg font-medium text-blue-700
+              dark:text-blue-300 truncate</span>" <span class="html-attribute-name">aria-label</span>="<span
+              class="html-attribute-value">Announcing Fjall 2.3</span>"&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">bg-blue-500/10 object-cover
+              bg-center w-[100px] h-full aspect-2 rounded-lg hover:brightness-80 transition-all bg-cover</span>" <span
+              class="html-attribute-name">style</span>="<span
+              class="html-attribute-value">background-image:url(/media/thumbs/kawaii.png)</span>"&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/a&gt;</span><span
+            class="html-comment">&lt;!--/--&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">truncate</span>"&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/fjall-2-3"
+              rel="noreferrer noopener">/post/fjall-2-3</a>" <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">hover:brightness-80 transition-all text-lg font-medium text-blue-700
+              dark:text-blue-300 truncate</span>" <span class="html-attribute-name">aria-label</span>="<span
+              class="html-attribute-value">Announcing Fjall 2.3</span>"&gt;</span>Announcing Fjall 2.3<span
+            class="html-tag">&lt;/a&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">text-sm
+              mb-1</span>"&gt;</span>Nov 1, 2024<span class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;div
+            <span class="html-attribute-name">class</span>="<span class="html-attribute-value">dark:text-gray-300
+              text-sm truncate</span>"&gt;</span>Yet more performance improvements<span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/div&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">flex
+              gap-4</span>"&gt;</span><span class="html-comment">&lt;!--$--&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/fjall-2-2"
+              rel="noreferrer noopener">/post/fjall-2-2</a>" <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">shrink-0 hover:brightness-80 transition-all text-lg font-medium text-blue-700
+              dark:text-blue-300 truncate</span>" <span class="html-attribute-name">aria-label</span>="<span
+              class="html-attribute-value">Announcing Fjall 2.2</span>"&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">bg-blue-500/10 object-cover
+              bg-center w-[100px] h-full aspect-2 rounded-lg hover:brightness-80 transition-all bg-cover</span>" <span
+              class="html-attribute-name">style</span>="<span
+              class="html-attribute-value">background-image:url(/media/thumbs/oracle.jpg)</span>"&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/a&gt;</span><span
+            class="html-comment">&lt;!--/--&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">truncate</span>"&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/fjall-2-2"
+              rel="noreferrer noopener">/post/fjall-2-2</a>" <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">hover:brightness-80 transition-all text-lg font-medium text-blue-700
+              dark:text-blue-300 truncate</span>" <span class="html-attribute-name">aria-label</span>="<span
+              class="html-attribute-value">Announcing Fjall 2.2</span>"&gt;</span>Announcing Fjall 2.2<span
+            class="html-tag">&lt;/a&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">text-sm
+              mb-1</span>"&gt;</span>Oct 20, 2024<span class="html-tag">&lt;/div&gt;</span><span
+            class="html-tag">&lt;div <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">dark:text-gray-300 text-sm truncate</span>"&gt;</span>Now with concurrent
+          write transactions<span class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/div&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">flex
+              gap-4</span>"&gt;</span><span class="html-comment">&lt;!--$--&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/conditional-newtypes"
+              rel="noreferrer noopener">/post/conditional-newtypes</a>" <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">shrink-0 hover:brightness-80
+              transition-all text-lg font-medium text-blue-700 dark:text-blue-300 truncate</span>" <span
+              class="html-attribute-name">aria-label</span>="<span class="html-attribute-value">Conditional type
+              specialization using newtypes</span>"&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">bg-blue-500/10 object-cover
+              bg-center w-[100px] h-full aspect-2 rounded-lg hover:brightness-80 transition-all bg-cover</span>" <span
+              class="html-attribute-name">style</span>="<span
+              class="html-attribute-value">background-image:undefined</span>"&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/a&gt;</span><span
+            class="html-comment">&lt;!--/--&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">truncate</span>"&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/conditional-newtypes"
+              rel="noreferrer noopener">/post/conditional-newtypes</a>" <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">hover:brightness-80
+              transition-all text-lg font-medium text-blue-700 dark:text-blue-300 truncate</span>" <span
+              class="html-attribute-name">aria-label</span>="<span class="html-attribute-value">Conditional type
+              specialization using newtypes</span>"&gt;</span>Conditional type specialization using newtypes<span
+            class="html-tag">&lt;/a&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">text-sm
+              mb-1</span>"&gt;</span>Oct 7, 2024<span class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;div
+            <span class="html-attribute-name">class</span>="<span class="html-attribute-value">dark:text-gray-300
+              text-sm truncate</span>"&gt;</span>Using Rust newtypes to specialize conditional types<span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/div&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">flex
+              gap-4</span>"&gt;</span><span class="html-comment">&lt;!--$--&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/fjall-2-1"
+              rel="noreferrer noopener">/post/fjall-2-1</a>" <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">shrink-0 hover:brightness-80 transition-all text-lg font-medium text-blue-700
+              dark:text-blue-300 truncate</span>" <span class="html-attribute-name">aria-label</span>="<span
+              class="html-attribute-value">Announcing Fjall 2.1</span>"&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">bg-blue-500/10 object-cover
+              bg-center w-[100px] h-full aspect-2 rounded-lg hover:brightness-80 transition-all bg-cover</span>" <span
+              class="html-attribute-name">style</span>="<span
+              class="html-attribute-value">background-image:url(/media/thumbs/ridge.jpg)</span>"&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/a&gt;</span><span
+            class="html-comment">&lt;!--/--&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">truncate</span>"&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/fjall-2-1"
+              rel="noreferrer noopener">/post/fjall-2-1</a>" <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">hover:brightness-80 transition-all text-lg font-medium text-blue-700
+              dark:text-blue-300 truncate</span>" <span class="html-attribute-name">aria-label</span>="<span
+              class="html-attribute-value">Announcing Fjall 2.1</span>"&gt;</span>Announcing Fjall 2.1<span
+            class="html-tag">&lt;/a&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">text-sm
+              mb-1</span>"&gt;</span>Oct 6, 2024<span class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;div
+            <span class="html-attribute-name">class</span>="<span class="html-attribute-value">dark:text-gray-300
+              text-sm truncate</span>"&gt;</span>Further adventures in LSM-tree optimizations<span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/div&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">flex
+              gap-4</span>"&gt;</span><span class="html-comment">&lt;!--$--&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/fjall-2"
+              rel="noreferrer noopener">/post/fjall-2</a>" <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">shrink-0 hover:brightness-80 transition-all text-lg font-medium text-blue-700
+              dark:text-blue-300 truncate</span>" <span class="html-attribute-name">aria-label</span>="<span
+              class="html-attribute-value">Announcing Fjall 2.0</span>"&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">bg-blue-500/10 object-cover
+              bg-center w-[100px] h-full aspect-2 rounded-lg hover:brightness-80 transition-all bg-cover</span>" <span
+              class="html-attribute-name">style</span>="<span
+              class="html-attribute-value">background-image:url(/media/thumbs/denali.jpg)</span>"&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/a&gt;</span><span
+            class="html-comment">&lt;!--/--&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">truncate</span>"&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/fjall-2"
+              rel="noreferrer noopener">/post/fjall-2</a>" <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">hover:brightness-80 transition-all text-lg font-medium text-blue-700
+              dark:text-blue-300 truncate</span>" <span class="html-attribute-name">aria-label</span>="<span
+              class="html-attribute-value">Announcing Fjall 2.0</span>"&gt;</span>Announcing Fjall 2.0<span
+            class="html-tag">&lt;/a&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">text-sm
+              mb-1</span>"&gt;</span>Sep 20, 2024<span class="html-tag">&lt;/div&gt;</span><span
+            class="html-tag">&lt;div <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">dark:text-gray-300 text-sm truncate</span>"&gt;</span>Available in all Cargo
+          registries near you<span class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/div&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">flex
+              gap-4</span>"&gt;</span><span class="html-comment">&lt;!--$--&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/block-format"
+              rel="noreferrer noopener">/post/block-format</a>" <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">shrink-0 hover:brightness-80 transition-all text-lg font-medium text-blue-700
+              dark:text-blue-300 truncate</span>" <span class="html-attribute-name">aria-label</span>="<span
+              class="html-attribute-value">Fjall's block format from the ground up</span>"&gt;</span><span
+            class="html-tag">&lt;div <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">bg-blue-500/10 object-cover bg-center w-[100px] h-full aspect-2 rounded-lg
+              hover:brightness-80 transition-all bg-cover</span>" <span class="html-attribute-name">style</span>="<span
+              class="html-attribute-value">background-image:url(/media/thumbs/pantheon.jpg)</span>"&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/a&gt;</span><span
+            class="html-comment">&lt;!--/--&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">truncate</span>"&gt;</span><span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/post/block-format"
+              rel="noreferrer noopener">/post/block-format</a>" <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">hover:brightness-80 transition-all text-lg font-medium text-blue-700
+              dark:text-blue-300 truncate</span>" <span class="html-attribute-name">aria-label</span>="<span
+              class="html-attribute-value">Fjall's block format from the ground up</span>"&gt;</span>Fjall's block
+          format from the ground up<span class="html-tag">&lt;/a&gt;</span><span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">text-sm
+              mb-1</span>"&gt;</span>Aug 11, 2024<span class="html-tag">&lt;/div&gt;</span><span
+            class="html-tag">&lt;div <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">dark:text-gray-300 text-sm truncate</span>"&gt;</span>Understanding the block
+          format in an LSM-tree<span class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/div&gt;</span><span
+            class="html-tag">&lt;/div&gt;</span><span class="html-tag">&lt;/div&gt;</span> <span
+            class="html-tag">&lt;div <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">flex justify-center items-center gap-3</span>"&gt;</span> <span
+            class="html-tag">&lt;a&gt;</span> <span class="html-tag">&lt;button <span
+              class="html-attribute-name">disabled</span> <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">disabled:cursor-not-allowed disabled:text-gray-600 enabled:text-blue-800
+              enabled:hover:bg-blue-50 enabled:dark:text-blue-300 font-medium px-2 py-1
+              enabled:hover:dark:bg-blue-950/50 rounded-lg transition-all</span>"&gt;</span></td>
+      </tr>
+      <tr>
+        <td class="line-number" value="51"></td>
+        <td class="line-content">Back</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="52"></td>
+        <td class="line-content"><span class="html-tag">&lt;/button&gt;</span> <span class="html-tag">&lt;/a&gt;</span>
+          <span class="html-tag">&lt;div <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">text-lg font-medium text-center</span>"&gt;</span> 1 / 2 <span
+            class="html-tag">&lt;/div&gt;</span> <span class="html-tag">&lt;a <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/posts/2"
+              rel="noreferrer noopener">/posts/2</a>"&gt;</span> <span class="html-tag">&lt;button <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">disabled:cursor-not-allowed
+              disabled:text-gray-600 enabled:text-blue-800 enabled:hover:bg-blue-50 enabled:dark:text-blue-300
+              font-medium px-2 py-1 enabled:hover:dark:bg-blue-950/50 rounded-lg transition-all</span>"&gt;</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="line-number" value="53"></td>
+        <td class="line-content">Next</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="54"></td>
+        <td class="line-content"><span class="html-tag">&lt;/button&gt;</span> <span class="html-tag">&lt;/a&gt;</span>
+          <span class="html-tag">&lt;/div&gt;</span> <span class="html-tag">&lt;/div&gt;</span> <span
+            class="html-tag">&lt;/main&gt;</span> <span class="html-tag">&lt;footer <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">flex flex-col gap-5 py-10
+              mx-auto max-w-3xl w-full</span>"&gt;</span> <span class="html-comment">&lt;!-- TODO: move into a fixed FAB
+            button, outside of footer --&gt;</span> <span class="html-tag">&lt;div <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">text-right</span>"&gt;</span>
+          <span class="html-tag">&lt;button <span class="html-attribute-name">onclick</span>="<span
+              class="html-attribute-value">scrollToTop()</span>"&gt;</span>Back to top<span
+            class="html-tag">&lt;/button&gt;</span> <span class="html-tag">&lt;/div&gt;</span> <span
+            class="html-tag">&lt;div <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">text-center</span>"&gt;</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="line-number" value="55"></td>
+        <td class="line-content">&amp;copy; 2025 fjall-rs </td>
+      </tr>
+      <tr>
+        <td class="line-number" value="56"></td>
+        <td class="line-content">- powered by <span class="html-tag">&lt;a <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">text-blue-700
+              dark:text-blue-300 italic transition-all hover:brightness-80</span>" <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://github.com/marvin-j97/nanoblog"
+              rel="noreferrer noopener">https://github.com/marvin-j97/nanoblog</a>" <span
+              class="html-attribute-name">target</span>="<span class="html-attribute-value">_blank</span>"&gt;</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="line-number" value="57"></td>
+        <td class="line-content">nanoblog</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="58"></td>
+        <td class="line-content"><span class="html-tag">&lt;/a&gt;</span> <span class="html-tag">&lt;/div&gt;</span>
+          <span class="html-tag">&lt;div <span class="html-attribute-name">class</span>="<span
+              class="html-attribute-value">flex gap-3 justify-center</span>"&gt;</span> <span class="html-tag">&lt;a
+            <span class="html-attribute-name">target</span>="<span class="html-attribute-value">_blank</span>" <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://github.com/fjall-rs"
+              rel="noreferrer noopener">https://github.com/fjall-rs</a>" <span
+              class="html-attribute-name">aria-label</span>="<span class="html-attribute-value">Open GitHub page</span>"
+            <span class="html-attribute-name">class</span>="<span class="html-attribute-value">transition-all
+              hover:brightness-80 hover:scale-105</span>"&gt;</span> <span class="html-tag">&lt;svg <span
+              class="html-attribute-name">xmlns</span>="<span
+              class="html-attribute-value">http://www.w3.org/2000/svg</span>" <span
+              class="html-attribute-name">width</span>="<span class="html-attribute-value">24</span>" <span
+              class="html-attribute-name">height</span>="<span class="html-attribute-value">24</span>" <span
+              class="html-attribute-name">viewBox</span>="<span class="html-attribute-value">0 0 24 24</span>" <span
+              class="html-attribute-name">fill</span>="<span class="html-attribute-value">none</span>" <span
+              class="html-attribute-name">stroke</span>="<span class="html-attribute-value">currentColor</span>" <span
+              class="html-attribute-name">stroke-width</span>="<span class="html-attribute-value">2</span>" <span
+              class="html-attribute-name">stroke-linecap</span>="<span class="html-attribute-value">round</span>" <span
+              class="html-attribute-name">stroke-linejoin</span>="<span class="html-attribute-value">round</span>" <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">icon icon-tabler
+              icons-tabler-outline icon-tabler-brand-github</span>"&gt;</span><span class="html-tag">&lt;path <span
+              class="html-attribute-name">stroke</span>="<span class="html-attribute-value">none</span>" <span
+              class="html-attribute-name">d</span>="<span class="html-attribute-value">M0 0h24v24H0z</span>" <span
+              class="html-attribute-name">fill</span>="<span class="html-attribute-value">none</span>"&gt;</span><span
+            class="html-tag">&lt;/path&gt;</span><span class="html-tag">&lt;path <span
+              class="html-attribute-name">d</span>="<span class="html-attribute-value">M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12
+              5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3
+              -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3
+              3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5</span>"&gt;</span><span
+            class="html-tag">&lt;/path&gt;</span><span class="html-tag">&lt;/svg&gt;</span> <span
+            class="html-tag">&lt;/a&gt;</span> <span class="html-tag">&lt;a <span
+              class="html-attribute-name">target</span>="<span class="html-attribute-value">_blank</span>" <span
+              class="html-attribute-name">href</span>="<a class="html-attribute-value html-external-link"
+              target="_blank" href="https://fjall-rs.github.io/rss.xml" rel="noreferrer noopener">/rss.xml</a>" <span
+              class="html-attribute-name">aria-label</span>="<span class="html-attribute-value">Get RSS feed</span>"
+            <span class="html-attribute-name">class</span>="<span class="html-attribute-value">transition-all
+              hover:brightness-80 hover:scale-105</span>"&gt;</span> <span class="html-tag">&lt;svg <span
+              class="html-attribute-name">xmlns</span>="<span
+              class="html-attribute-value">http://www.w3.org/2000/svg</span>" <span
+              class="html-attribute-name">class</span>="<span class="html-attribute-value">icon icon-tabler
+              icon-tabler-rss</span>" <span class="html-attribute-name">width</span>="<span
+              class="html-attribute-value">24</span>" <span class="html-attribute-name">height</span>="<span
+              class="html-attribute-value">24</span>" <span class="html-attribute-name">viewBox</span>="<span
+              class="html-attribute-value">0 0 24 24</span>" <span
+              class="html-attribute-name">stroke-width</span>="<span class="html-attribute-value">1.5</span>" <span
+              class="html-attribute-name">stroke</span>="<span class="html-attribute-value">currentColor</span>" <span
+              class="html-attribute-name">fill</span>="<span class="html-attribute-value">none</span>" <span
+              class="html-attribute-name">stroke-linecap</span>="<span class="html-attribute-value">round</span>" <span
+              class="html-attribute-name">stroke-linejoin</span>="<span
+              class="html-attribute-value">round</span>"&gt;</span> <span class="html-tag">&lt;path <span
+              class="html-attribute-name">stroke</span>="<span class="html-attribute-value">none</span>" <span
+              class="html-attribute-name">d</span>="<span class="html-attribute-value">M0 0h24v24H0z</span>" <span
+              class="html-attribute-name">fill</span>="<span class="html-attribute-value">none</span>"&gt;</span><span
+            class="html-tag">&lt;/path&gt;</span> <span class="html-tag">&lt;path <span
+              class="html-attribute-name">d</span>="<span class="html-attribute-value">M5 19m-1 0a1 1 0 1 0 2 0a1 1 0 1
+              0 -2 0</span>"&gt;</span><span class="html-tag">&lt;/path&gt;</span> <span class="html-tag">&lt;path <span
+              class="html-attribute-name">d</span>="<span class="html-attribute-value">M4 4a16 16 0 0 1 16
+              16</span>"&gt;</span><span class="html-tag">&lt;/path&gt;</span> <span class="html-tag">&lt;path <span
+              class="html-attribute-name">d</span>="<span class="html-attribute-value">M4 11a9 9 0 0 1 9
+              9</span>"&gt;</span><span class="html-tag">&lt;/path&gt;</span> <span class="html-tag">&lt;/svg&gt;</span>
+          <span class="html-tag">&lt;/a&gt;</span> <span class="html-tag">&lt;/div&gt;</span> <span
+            class="html-tag">&lt;/footer&gt;</span> <span class="html-tag">&lt;script&gt;</span>
+        </td>
+      </tr>
+      <tr>
+        <td class="line-number" value="59"></td>
+        <td class="line-content"> function scrollToTop() {</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="60"></td>
+        <td class="line-content"> window.scrollTo({</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="61"></td>
+        <td class="line-content"> top: 0,</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="62"></td>
+        <td class="line-content"> left: 0,</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="63"></td>
+        <td class="line-content"> behavior: "smooth",</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="64"></td>
+        <td class="line-content"> });</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="65"></td>
+        <td class="line-content"> }</td>
+      </tr>
+      <tr>
+        <td class="line-number" value="66"></td>
+        <td class="line-content"><span class="html-tag">&lt;/script&gt;</span> <span
+            class="html-tag">&lt;/body&gt;</span> <span class="html-tag">&lt;/html&gt;</span><span
+            class="html-end-of-file"></span></td>
+      </tr>
+    </tbody>
+  </table>
+</body>
+
+</html>

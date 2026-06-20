@@ -1,0 +1,44 @@
+name: Rust build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - "**"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        rust_version:
+          - stable
+        os:
+          - ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust_version }}
+      - name: Add rustfmt
+        run: rustup component add rustfmt
+      - name: Add clippy
+        run: rustup component add clippy
+      - name: Set up cargo cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: ${{ runner.os }}-cargo
+      - uses: taiki-e/install-action@nextest
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --no-default-features
+      - name: Build permutations
+        run: cargo build --no-default-features
